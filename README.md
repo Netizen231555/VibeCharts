@@ -1,38 +1,50 @@
 # VibeCharts
 
-Библиотека графиков на Canvas 2D без зависимостей: свечи, OHLC-бары, линии, области, гистограммы, базовая линия, производные виды (Heikin Ashi, Renko, Kagi, Point & Figure), рисование, индикаторы, доступный интерфейс из настраиваемых частей.
+**English** | [Русский](README.ru.md)
 
-Ключевая особенность — **индексная шкала**: данные привязаны к непрозрачным идентификаторам слотов (`barId`), а не к меткам времени. Время необязательно; когда оно есть, ось умеет выравниваться по календарным границам. Порядок задаёт хост, библиотека ничего не сортирует и не выдумывает.
+Zero-dependency Canvas 2D charting library for market data: candlesticks, OHLC bars, lines, areas, histograms, baseline, derived views (Heikin Ashi, Renko, Kagi, Point & Figure), drawing tools, indicators, alerts and an accessible, composable UI.
 
-Локальная установка из каталога приложения, расположенного рядом с `VibeCharts`:
+![Full layout: candles, drawing rail, navigation, status line](.github/images/full-ui.webp)
+
+Candles, Renko and Kagi in one chart: every pane has its own X axis.
+
+![Three panes: candles on a time axis, Renko and Kagi on element-number axes](.github/images/mixed-panes.webp)
+
+The key idea is the **index axis**: data is attached to opaque slot identifiers (`barId`), not to timestamps. Time is optional; when present, the axis can align to calendar boundaries. The host owns the order; the library never sorts or invents anything.
+
+> The demo UI text is in Russian. All data in the examples is synthetic.
+
+## Install
+
+The package is not published to npm yet. Install it from GitHub:
 
 ```sh
-npm install ../VibeCharts
+npm install github:Netizen231555/VibeCharts
 ```
 
-В другом расположении укажите соответствующий путь к каталогу пакета. Публикация `vibecharts` в npm не подтверждена; установка по имени пакета не гарантируется.
+Or locally from the package directory: `npm install ../VibeCharts`.
 
-## Быстрый старт
+## Quick start
 
 ```js
 import { createChart, attachChartFeatures, createChartUI } from 'vibecharts';
-import 'vibecharts/styles.css';   // необязательно: стили DOM-элементов пакета
-import 'vibecharts/ui.css';       // необязательно: раскладка и токены интерфейса
+import 'vibecharts/styles.css';   // optional: styles for the package DOM
+import 'vibecharts/ui.css';       // optional: UI layout and tokens
 
-// host — элемент, внутри которого лежит контейнер графика (контейнер не переносится)
+// host is an element that contains the chart container (the container is not moved)
 const host = document.querySelector('#chart-host');
 host.style.height = '480px';
 const container = document.createElement('div');
 container.style.height = '100%';
 host.append(container);
 
-const chart = createChart(container, { theme: 'dark', locale: 'ru-RU' });
+const chart = createChart(container, { theme: 'dark', locale: 'en-US' });
 attachChartFeatures(chart, {
   context: { instrumentId: 'DEMO', interval: '1d', sourceId: 'synthetic' },
   interaction: {},
 });
 
-// шкала — упорядоченные слоты хоста; время необязательно
+// the timeline is an ordered list of host slots; time is optional
 chart.timeline.setTimeline([
   { barId: 'b1', time: Date.UTC(2026, 0, 5) },
   { barId: 'b2', time: Date.UTC(2026, 0, 6) },
@@ -44,67 +56,35 @@ candles.setData(
     { barId: 'b1', open: 10, high: 12, low: 9, close: 11 },
     { barId: 'b2', open: 11, high: 13, low: 10, close: 12 },
   ],
-  // метаданные делают значения осмысленными: инструмент, интервал, источник, шаг цены
+  // metadata makes values meaningful: instrument, interval, source, price step
   { instrumentId: 'DEMO', interval: '1d', sourceId: 'synthetic', priceStep: 0.01 },
 );
 
 const ui = createChartUI(chart, { host, interaction: chart.interaction, demo: true });
 ```
 
-## Интерфейс из частей
-
-Вместо вызова `createChartUI` из быстрого старта можно передать свою раскладку:
+## More API
 
 ```js
-const ui = createChartUI(chart, {
-  host,
-  interaction: chart.interaction,
-  layout: {
-    top: ['instrument'],
-    start: ['drawingRail'],
-    overlay: ['navCluster'],
-    menu: ['settingsMenu'],
-    bottom: ['statusLine'],
-    without: ['chartType:', 'indicator:', 'interval', 'undo', 'redo'],
-  },
-  parts: {                     // своя часть вместо встроенной
-    instrument: (controller, { document }) => {
-      const element = document.createElement('div');
-      element.textContent = 'DEMO · своя часть';
-      return { element };
-    },
-  },
-});
-```
-
-Области: `top`, `start`, `overlay`, `bottom`, `menu`. Встроенные части: `topBar` (тип графика, индикатор, отмена/повтор), `drawingRail` (инструменты рисования), `navCluster` (навигация в углу графика), `settingsMenu` (тёмная тема, следование последнему бару, таблица данных, логарифмическая шкала, привязка рисунков, «Панели…», «Настройки рисунков…»; с опцией `accessibleActions: true` также клавиатурное перекрестие, сдвиг, масштаб цены и переход к соседнему бару), `statusLine`, `dataTable`. Действие, оставшееся без способа вызова (контрол, клавиша или пункт контекстного меню), отклоняется при создании — снятие действия задают явно через `layout.without`.
-
-Оформление — токены CSS: `--chart-ui-accent`, `--chart-ui-bg`, `--chart-ui-focus` и другие на хосте.
-
-## Ещё немного API
-
-```js
-// продолжение быстрого старта; attachChartFeatures подключает индикаторы и рисунки
+// continues the quick start; attachChartFeatures adds indicators and drawings
 const heikin = chart.addDerivedView('heikinAshi', candles, { parameters: {} });
 
-// индикатор в отдельной панели
+// an indicator in its own pane
 const rsiPane = chart.addPane({ height: 0.3 });
 chart.addIndicator({ type: 'rsi', source: candles.id, pane: rsiPane, parameters: { period: 14, sourceField: 'close' } });
 
-// объём поверх основной панели без второй оси
+// volume over the main pane without a second axis
 const volume = chart.addSeries('histogram', { priceScaleId: 'volume' });
 chart.priceScale('main', 'volume').setOverlay(true);
 
-// дельта объёма (buyVolume - sellVolume; точки свечей несут buyVolume/sellVolume), цвета по знаку
+// volume delta (buyVolume - sellVolume; candle points carry buyVolume/sellVolume), coloured by sign
 chart.addIndicator({ type: 'delta', source: candles.id, pane: rsiPane, style: { upColor: '#2fa77a', downColor: '#e0615a' } });
 
-// подпись времени по календарным границам
+// calendar-aligned time ticks and a watermark
 chart.applyOptions({ timeScale: { tickMode: 'time' } });
-
-// водяной знак по центру основной панели
 chart.applyOptions({ watermark: { text: 'DEMO', fontSize: 64 } });
 
-// рисунки
+// a drawing
 chart.drawings.add({
   id: 'level',
   type: 'horizontalLevel',
@@ -114,46 +94,34 @@ chart.drawings.add({
 });
 ```
 
-Горячие клавиши графика (переопределяются через `bindings`): `Home` — автомасштаб цены, `F` — следование за реальным временем, `R` — показать все данные, `L` — линейная/логарифмическая шкала цены. Shift при построении или перетаскивании точки отрезка, луча, прямой, стрелки и линейки фиксирует цену второй точки по первой. Удержание Alt (настраивается `interaction.setDrawingSnap({ modifier })`: `alt` по умолчанию, `ctrl`, `meta` или `null`; Shift занят) при построении или перетаскивании точки включает сильную привязку к O/H/L/C первой видимой серии свечей/баров панели (или `sourceId`) и магнит к центру бара; на macOS Ctrl+клик — контекстное меню, поэтому по умолчанию Alt. Линию уровня алерта можно перетащить мышью: новая цена записывается через обновление алерта, а при отказе линия возвращается на прежнее место и ошибка попадает в событие `error`.
+Keyboard: `Home` auto-scales the price axis, `F` toggles following the latest bar, `R` fits all data, `L` switches the price scale between linear and logarithmic. Every binding can be changed through the `bindings` option. While drawing or dragging a point, `Shift` keeps the second point at the first point's price (segment, ray, line, arrow, measure), and holding `Alt` snaps to the open/high/low/close of the first visible candle series and to the bar centre (`interaction.setDrawingSnap({ modifier })`).
 
-Полный контракт — [docs/contract.md](docs/contract.md).
+The UI is built from parts (`topBar`, `drawingRail`, `navCluster`, `settingsMenu`, `statusLine`, `dataTable`) placed in regions (`top`, `start`, `overlay`, `bottom`, `menu`) through a validated `layout`; you can replace any part or remove actions with `layout.without`. See [examples/layouts/](examples/layouts/).
 
-## Принципы
+Full reference: [docs/contract.md](docs/contract.md) (in English). The Russian README has more detail on the UI parts and keys.
 
-- **Никаких выдуманных данных.** Отсутствующее значение показывается явно, ноль не подставляется; загрузка, пусто, доступно, ошибка — разные состояния.
-- **Порядок и идентичность принадлежат хосту.** `barId` непрозрачен и стабилен; время не определяет порядок.
-- **Доступность по умолчанию.** Семантический HTML, роли, работа с клавиатуры; интерфейс полезен и без стилей.
-- **Ноль зависимостей, ноль сети.** Только Canvas 2D и DOM.
+## Principles
 
-## Примеры
+- **No invented data.** A missing value is shown explicitly and never replaced by zero; loading, empty, available and error are different states.
+- **The host owns order and identity.** `barId` is opaque and stable; time never defines order.
+- **Accessible by default.** Semantic HTML, roles and keyboard operation; the interface is useful without styles.
+- **Zero dependencies, zero network.** Canvas 2D and the DOM only.
 
-Папка [examples/](examples/) содержит страницы:
+## Examples
 
-- [examples/terminal/](examples/terminal/) — терминал: инструменты, индикаторы, список инструментов, темы, PNG-экспорт.
-- [examples/showcase/](examples/showcase/) — витрина из десяти компоновок шкал и панелей.
-- [examples/layouts/](examples/layouts/) — раскладки интерфейса: по умолчанию, `compact`, своя часть и токены.
-- [examples/index.html](examples/index.html) — статичная история и версионированный поток; исходники на TypeScript требуют сервера разработки с поддержкой TypeScript и разрешения импортов пакета.
-
-Для первых трёх страниц отдайте корень пакета статическим сервером, например из каталога `VibeCharts`:
+The [examples/](examples/) folder has runnable pages (see [examples/README.md](examples/README.md)):
 
 ```sh
 node examples/terminal/serve.mjs 8340
 # http://127.0.0.1:8340/examples/terminal/
+# http://127.0.0.1:8340/examples/showcase/
+# http://127.0.0.1:8340/examples/layouts/
 ```
 
-Аналогично откройте `http://127.0.0.1:8340/examples/showcase/` или `http://127.0.0.1:8340/examples/layouts/`. Этот сервер не компилирует TypeScript, поэтому `examples/index.html` через него не запустится. Для этой страницы можно запустить из каталога `VibeCharts` Vite (Node.js 20 или новее):
+All example data is synthetic and marked as a demonstration.
 
-```sh
-npx --yes vite@6 --host 127.0.0.1
-# http://127.0.0.1:5173/examples/
-```
+## Status
 
-Vite не входит в зависимости пакета; `npx` при необходимости скачает его из npm. Если порт занят, используйте адрес, выведенный Vite.
+Version 0.1.0, before the first release: the API may change incompatibly in minor versions. Most of the code was written with AI assistance and checked by the author in a browser; there is no automated test suite yet. Do not use it for trading decisions without your own verification. Changes: [CHANGELOG.md](CHANGELOG.md).
 
-Все данные в примерах синтетические и помечены как демонстрационные.
-
-## Статус
-
-0.1.0, до первого релиза: API может меняться несовместимо в минорных версиях. Изменения — [CHANGELOG.md](CHANGELOG.md).
-
-Лицензия — Apache-2.0, см. [LICENSE](LICENSE). Библиотека поставляется «как есть», без гарантий; примеры используют синтетические данные и не являются инвестиционной рекомендацией.
+Licensed under Apache-2.0, see [LICENSE](LICENSE). The software is provided "as is", without warranty. The examples use synthetic data and are not investment advice.
