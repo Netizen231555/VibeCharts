@@ -1,5 +1,5 @@
-import type { Chart, ChartUIOptions, UIHandle, UiController, UiLayout, UiPresetName, UiRegion } from './index.js';
-export type { ChartUIOptions, UIHandle, UiController, UiLayout, UiPartContext, UiPartFactory, UiPartInstance, UiPartSpec, UiPresetName, UiRegion } from './index.js';
+import type { Chart, ChartUIOptions, UIHandle, UiController, UiLayout, UiPresetName, UiRegion, UiModel, UiControl, UiControlGroup, UiActionResult, UiActionAccess, UiStateKey, UiReadKey } from './index.js';
+export type { ChartUIOptions, UIHandle, UiController, UiLayout, UiPartContext, UiPartFactory, UiPartInstance, UiPartSpec, UiPresetName, UiRegion, UiModel, UiControl, UiControlGroup, UiActionResult, UiActionAccess, UiStateKey, UiReadKey } from './index.js';
 
 /** Group of a drawing-rail tool; the rail draws a thin separator where the group changes. */
 export type DrawingRailGroup = 'lines' | 'channels' | 'shapes' | 'annotations' | 'analysis';
@@ -24,9 +24,21 @@ export function validateLayout(
 ): { regions: Record<UiRegion, string[]>; parts: Map<string, unknown>; omitted: string[]; without: string[]; uncovered: string[] };
 export function createIcon(document: Document, name: string, options?: { size?: number }): SVGElement;
 export function hasIcon(name: string): boolean;
-export function createToolbarModel(input: Record<string, unknown>): Record<string, unknown>;
-export function activateControl(input: Record<string, unknown>): unknown;
-export function findControl(input: Record<string, unknown>): unknown;
+export interface UiToolbarCurrent {
+  chartType?: string | null; indicator?: string | null; tool?: string | null; interval?: string;
+  priceMode?: string | null; snapMode?: string | null; theme?: 'light' | 'dark'; follow?: boolean; crosshair?: boolean; tableVisible?: boolean;
+  /** Replace the built-in lists; a tool entry is `{ id, label, group? }`. */
+  chartTypes?: ReadonlyArray<{ id: string; label?: string; labelKey?: string }>;
+  indicators?: ReadonlyArray<{ id: string; label?: string; labelKey?: string }>;
+  tools?: ReadonlyArray<{ id: string; label?: string; labelKey?: string; group?: string }>;
+  intervals?: ReadonlyArray<{ id: string; label: string }>;
+}
+/** Pure: builds the control model from state and capabilities (`false` disables the matching controls with a reason). */
+export function createToolbarModel(input?: { current?: UiToolbarCurrent; capabilities?: Record<string, boolean>; locale?: string }): UiModel;
+export function activateControl(model: UiModel, id: string, options?: { disabled?: boolean | null; locale?: string }):
+  | { ok: true; id: string; action: string; value: string | undefined }
+  | { ok: false; code: 'CONTROL_DISABLED'; id: string; reason: string };
+export function findControl(model: UiModel, id: string): { control: UiControl; group: UiControlGroup } | null;
 export function computeResponsiveLayout(input: Record<string, unknown>): Record<string, unknown>;
 export function createTheme(name: 'light' | 'dark'): Record<string, string>;
 export function directionLabel(value: number | null): string;
@@ -36,11 +48,11 @@ export const DEFAULT_CHART_LAYOUT: Readonly<UiLayout>;
 export const PRESETS: Readonly<Record<UiPresetName, Readonly<UiLayout>>>;
 export const REGIONS: readonly UiRegion[];
 export const BUILTIN_PARTS: Readonly<Record<string, { regions: readonly UiRegion[]; controls: readonly string[] }>>;
-export const STATE_KEYS: readonly string[];
+export const STATE_KEYS: readonly UiStateKey[];
 export const ICON_NAMES: readonly string[];
-export const CHART_TYPES: readonly string[];
+export const CHART_TYPES: ReadonlyArray<{ readonly id: string; readonly labelKey: string }>;
 export const DRAWING_TOOLS: readonly DrawingRailTool[];
-export const INDICATORS: readonly string[];
+export const INDICATORS: ReadonlyArray<{ readonly id: string; readonly label: string }>;
 export const NARROW_WIDTH: number;
 export const THEMES: Readonly<Record<string, Record<string, string>>>;
 export const THEME_NAMES: readonly string[];

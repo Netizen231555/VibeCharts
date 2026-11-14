@@ -2,6 +2,7 @@
 
 ## 0.1.0 — unreleased
 
+- The headless interface layer is a documented, typed contract: `UiController`, `UiModel`, `UiControl`, `UiActionResult`, `UiActionAccess`, `UiStateKey` and `UiReadKey` replace the loose `Record<string, unknown>` types, and `CHART_TYPES`, `INDICATORS`, `createToolbarModel`, `activateControl` and `findControl` are typed precisely. Controller `get`, `snapshot`, `model` and `actions` now throw `UI_DESTROYED` after `destroy()` (they threw `CHART_DESTROYED` or nothing before). The controller works with no built-in part mounted; see "Headless interface layer" in `docs/contract.md`.
 - The status line keeps its state text whole and, when narrower than 460px, shows only the DEMO tag (full wording in the tooltip).
 - The keyboard focus ring of the chart host is drawn inside the container (negative outline offset) instead of spilling onto neighbouring panels.
 - Alert level lines show their status in the chart language (`alerts.status.*`) instead of the raw engine token.

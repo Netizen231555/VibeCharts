@@ -918,16 +918,107 @@ export interface UiPartInstance {
   destroy?(): void;
 }
 
-export interface UiController {
-  get(key: 'theme' | 'chartType' | 'indicator' | 'tool' | 'interval' | 'follow' | 'crosshair' | 'tableVisible' | 'priceMode' | 'snapMode'): unknown;
-  snapshot(): Record<string, unknown>;
-  subscribe(keys: string | string[], listener: (changedKeys: string[]) => void): () => void;
-  model(): { groups: Array<{ id: string; label: string; controls: Array<Record<string, unknown>> }> };
-  run(controlId: string, value?: unknown): { ok?: boolean; reason?: string; [key: string]: unknown };
-  announce(text: string, options?: { error?: boolean }): string;
-  actions(): Array<{ id: string; label: string; kind: string; keyboard: string[] | null; menu: string | null }>;
-  destroy(): void;
+/** Keys of readable state (`controller.get`). */
+export type UiReadKey = 'theme' | 'chartType' | 'indicator' | 'tool' | 'interval' | 'follow' | 'crosshair' | 'tableVisible' | 'priceMode' | 'snapMode';
+/** Keys a host can subscribe to; the read keys plus status and structural changes. */
+export type UiStateKey = UiReadKey | 'status' | 'message' | 'data' | 'panes' | 'indicatorErrors' | 'derived' | 'drawings' | 'capabilities';
+
+/** One control of the model. `pressed` is set on toggles, `value` on tools, selects and chart-type/indicator toggles. */
+export interface UiControl {
+  /** Unique id: `tool:<name>`, `chartType:<id>`, `indicator:<id>`, `interval`, or a plain action id such as `undo`. */
+  id: string;
+  kind: 'toggle' | 'button' | 'select';
+  /** Localized (chart `locale`) unless the host supplied the label. */
+  label: string;
+  enabled: boolean;
+  /** Localized sentence stating why the control cannot act; `null` when enabled. */
+  reason: string | null;
+  /** What `controller.run` performs. */
+  action: string;
+  pressed?: boolean;
+  value?: string;
+  /** Drawing-rail group of a tool control (`null` for a host tool without one). */
+  group?: string | null;
+  /** Options of a `select` control. */
+  options?: Array<{ value: string; label: string }>;
+}
+
+export interface UiControlGroup {
+  /** `chartType`, `indicators`, `tools`, `actions` or `interval`. */
+  id: string;
+  label: string;
+  controls: UiControl[];
+}
+
+export interface UiModel {
+  groups: UiControlGroup[];
+}
+
+/** Result of `controller.run`. A refusal is `{ ok: false, reason }`; it never throws. */
+export interface UiActionResult {
+  ok: boolean;
+  /** Stable machine code of a refusal, for example `CONTROL_DISABLED`, `TOOL_UNAVAILABLE`, `NOTHING_TO_REVERT`. */
+  code?: string;
+  /** Localized sentence for a refusal. */
+  reason?: string;
   [key: string]: unknown;
+}
+
+/** How an action can be invoked besides a control. */
+export interface UiActionAccess {
+  id: string;
+  label: string;
+  kind: string;
+  /** Bound chords, one per keyboard action that must be held; `null` when none is bound. */
+  keyboard: string[] | null;
+  /** Context-menu item id, or `null`. */
+  menu: string | null;
+}
+
+export interface UiController {
+  readonly chart: Chart;
+  readonly interaction: InteractionHandle | null;
+  readonly options: Readonly<Record<string, unknown>>;
+  readonly destroyed: boolean;
+  /** Translates a UI string for the chart locale at the moment of the call. */
+  t(key: string, params?: Record<string, string | number>): string;
+  locale(): string;
+  /** Throws `UI_DESTROYED` after `destroy()`. */
+  get(key: UiReadKey): unknown;
+  snapshot(): Record<string, unknown>;
+  /** `keys` is one key, a list, or `'*'`. The listener receives only the subscribed keys that changed. The returned function is idempotent. */
+  subscribe(keys: UiStateKey | UiStateKey[] | '*', listener: (changedKeys: UiStateKey[]) => void): () => void;
+  model(): UiModel;
+  /** Runs a control by id. Throws `UNKNOWN_CONTROL` for an unknown id; a disabled control returns `{ ok: false, reason }` with the model's reason. */
+  run(controlId: string, value?: unknown): UiActionResult;
+  runAction(action: string, value?: unknown): UiActionResult;
+  announce(text: string, options?: { error?: boolean }): string;
+  clearError(): void;
+  actions(): UiActionAccess[];
+  refresh(): void;
+  notify(...keys: UiStateKey[]): void;
+  capabilities(): Record<string, boolean>;
+  removeActions(ids: string[], reason?: string): void;
+  resetRemovedActions(): void;
+  setTheme(mode: 'light' | 'dark'): 'light' | 'dark';
+  toggleTheme(): 'light' | 'dark';
+  setTableVisible(visible: boolean): { ok: true; visible: boolean };
+  /** Chart status and data-state parts; see the interface section of the contract. */
+  readonly statusModel: unknown;
+  readonly derived: unknown;
+  readonly message: { text: string; error: boolean };
+  panes: { list: () => unknown[]; api: unknown };
+  table(): unknown;
+  rowsSource(): unknown;
+  indicatorErrors(): string;
+  setDerivedView(view: unknown): unknown;
+  startLoading(params?: Record<string, unknown>): unknown;
+  resolveAvailable(params?: Record<string, unknown>): unknown;
+  resolveEmpty(params?: Record<string, unknown>): unknown;
+  fail(params: Record<string, unknown>): unknown;
+  setValueUnavailable(field: string, reason: string): unknown;
+  /** Idempotent. */
+  destroy(): void;
 }
 
 export type UiPartFactory = (controller: UiController, context: UiPartContext) => UiPartInstance;

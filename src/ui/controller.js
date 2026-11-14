@@ -104,6 +104,7 @@ export function createUiController(chart, options = {}) {
   }
 
   function snapshot() {
+    assertAlive();
     return {
       chartType: read('chartType'),
       indicator: read('indicator'),
@@ -181,6 +182,7 @@ export function createUiController(chart, options = {}) {
   }
 
   function model() {
+    assertAlive();
     const built = createToolbarModel({ current: snapshot(), capabilities: capabilities(), locale: locale() });
     if (removed.size === 0) return built;
     return {
@@ -567,7 +569,7 @@ export function createUiController(chart, options = {}) {
     t: tr,
     locale,
     get destroyed() { return destroyed; },
-    get(key) { return read(key); },
+    get(key) { assertAlive(); return read(key); },
     snapshot,
     refresh,
     capabilities,
