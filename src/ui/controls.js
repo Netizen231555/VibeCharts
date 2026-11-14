@@ -58,6 +58,15 @@ function labelOf(entry, locale) {
   return entry.label ?? t(locale, entry.labelKey);
 }
 
+const TOOL_GROUP_IDS = Object.freeze(['lines', 'channels', 'shapes', 'annotations', 'analysis']);
+
+/** Library groups are translated; a host-supplied group keeps its own `groupLabel`, or shows its id as given. */
+function groupLabelOf(entry, locale) {
+  if (!entry.group) return null;
+  if (entry.groupLabel !== undefined) return entry.groupLabel;
+  return TOOL_GROUP_IDS.includes(entry.group) ? t(locale, `toolGroup.${entry.group}`) : entry.group;
+}
+
 /** Log toggle availability: the host hook, a scale to act on, and not a percent scale (its base is owned by the host). */
 function logScaleAvailability(current, capabilities, REASONS) {
   if (capabilities.canLogScale === false) return { enabled: false, reason: REASONS.logScale };
@@ -119,6 +128,7 @@ export function createToolbarModel({ current = {}, capabilities = {}, locale = '
           action: 'tool',
           value: entry.id,
           group: entry.group ?? null,
+          groupLabel: groupLabelOf(entry, locale),
         })),
       },
       {

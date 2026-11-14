@@ -941,6 +941,8 @@ export interface UiControl {
   value?: string;
   /** Drawing-rail group of a tool control (`null` for a host tool without one). */
   group?: string | null;
+  /** Localized name of `group` for a library group; a host group shows its own `groupLabel`, or its id. `null` without a group. */
+  groupLabel?: string | null;
   /** Options of a `select` control. */
   options?: Array<{ value: string; label: string }>;
 }

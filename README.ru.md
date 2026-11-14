@@ -70,6 +70,7 @@ createChartUI(chart, { host, interaction: chart.interaction });
 ## Документация и примеры
 
 - [docs/contract.md](docs/contract.md) — полный справочник (на английском).
+- [docs/parts.md](docs/parts.md) — как заменить любую часть интерфейса своей разметкой (на английском).
 - [examples/](examples/) — запускаемые страницы, см. [examples/README.md](examples/README.md):
 
 ```sh

@@ -30,7 +30,7 @@ export interface UiToolbarCurrent {
   /** Replace the built-in lists; a tool entry is `{ id, label, group? }`. */
   chartTypes?: ReadonlyArray<{ id: string; label?: string; labelKey?: string }>;
   indicators?: ReadonlyArray<{ id: string; label?: string; labelKey?: string }>;
-  tools?: ReadonlyArray<{ id: string; label?: string; labelKey?: string; group?: string }>;
+  tools?: ReadonlyArray<{ id: string; label?: string; labelKey?: string; group?: string; groupLabel?: string }>;
   intervals?: ReadonlyArray<{ id: string; label: string }>;
 }
 /** Pure: builds the control model from state and capabilities (`false` disables the matching controls with a reason). */

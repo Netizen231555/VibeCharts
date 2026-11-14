@@ -70,6 +70,7 @@ Interface language follows the `locale` option (`en-*` or `ru-*`). Keyboard: `Ho
 ## Documentation and examples
 
 - [docs/contract.md](docs/contract.md) is the full reference.
+- [docs/parts.md](docs/parts.md) shows how to replace any part of the interface with your own markup.
 - [examples/](examples/) has runnable pages, see [examples/README.md](examples/README.md):
 
 ```sh

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Custom interface parts</title>
+  <link rel="icon" href="data:,">
+  <!-- Resolves the package names to the local sources of this checkout. An installed package uses its bundler or
+       its own import map for the same names. -->
+  <script type="importmap">
+  { "imports": {
+    "vibecharts": "../../src/index.js",
+    "vibecharts/ui": "../../src/ui/index.js"
+  } }
+  </script>
+  <link rel="stylesheet" href="../../src/styles/charting.css">
+  <link rel="stylesheet" href="../../src/styles/ui.css">
+  <link rel="stylesheet" href="./parts.css">
+  <script type="module" src="./parts.js"></script>
+</head>
+<body>
+  <header class="page-header">
+    <h1>Custom interface parts</h1>
+    <label>Drawing tools as
+      <select id="mode">
+        <option value="builtin">Built-in rail (reference)</option>
+        <option value="popover" selected>Popup (recipe)</option>
+        <option value="select">Select (recipe)</option>
+      </select>
+    </label>
+  </header>
+  <main>
+    <p class="data-notice">Example data is synthetic. The two recipes are copyable parts built only on the public controller; see docs/parts.md.</p>
+    <div id="host" class="example-host" data-chart-ui-host></div>
+    <pre id="layout" aria-label="Active layout"></pre>
+  </main>
+</body>
+</html>
