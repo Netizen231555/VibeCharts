@@ -23,14 +23,14 @@ function setHidden(node, hidden) {
 }
 
 /** Same wording as the former toolbar status: source, observation time, delay. */
-function formatSource(info, options) {
+function formatSource(info, options, t) {
   const parts = [];
-  if (info.source !== undefined) parts.push(`Источник: ${info.source}`);
+  if (info.source !== undefined) parts.push(t('status.source', { value: info.source }));
   if (info.observedAt !== undefined) {
-    parts.push(`Наблюдение: ${formatTimestamp(info.observedAt, { locale: options.locale, timeZone: options.timeZone })}`);
+    parts.push(t('status.observed', { value: formatTimestamp(info.observedAt, { locale: options.locale, timeZone: options.timeZone }) }));
   }
-  if (info.delayText !== undefined) parts.push(`Задержка: ${info.delayText}`);
-  else if (info.delay !== undefined) parts.push(`Задержка: ${String(info.delay)}`);
+  if (info.delayText !== undefined) parts.push(t('status.delay', { value: info.delayText }));
+  else if (info.delay !== undefined) parts.push(t('status.delay', { value: String(info.delay) }));
   return parts.join('; ');
 }
 
@@ -38,7 +38,7 @@ export function createStatusLine(controller, context) {
   const doc = context.document;
   const options = controller.options || {};
 
-  const element = createElement(doc, 'div', { class: 'chart-ui-status-line', role: 'group', 'aria-label': 'Состояние данных' });
+  const element = createElement(doc, 'div', { class: 'chart-ui-status-line', role: 'group', 'aria-label': controller.t('status.label') });
 
   const statusRegion = createElement(doc, 'div', { class: 'chart-ui-status-region', role: 'status' });
   const stateText = createElement(doc, 'span', { class: 'chart-ui-status-state' });
@@ -50,7 +50,8 @@ export function createStatusLine(controller, context) {
   let demo = null;
   if (options.demo === true) {
     demo = createElement(doc, 'span', { class: 'chart-ui-status-demo' });
-    const label = typeof options.demoLabel === 'string' ? options.demoLabel : '';
+    // An omitted label means the default wording; a non-string value means no label at all.
+    const label = options.demoLabel === undefined ? controller.t('chart.demoLabel') : (typeof options.demoLabel === 'string' ? options.demoLabel : '');
     append(demo, createElement(doc, 'strong', { class: 'chart-ui-status-demo-tag' }, 'DEMO'));
     if (label !== '') append(demo, createElement(doc, 'span', { class: 'chart-ui-status-demo-label' }, `: ${label}`));
     demo.setAttribute('title', label === '' ? 'DEMO' : `DEMO: ${label}`);
@@ -84,7 +85,7 @@ export function createStatusLine(controller, context) {
       setText(stateText, description.text);
       setText(stateError, '');
     }
-    setText(sourceText, formatSource(controller.statusModel.sourceInfo(), options));
+    setText(sourceText, formatSource(controller.statusModel.sourceInfo(), options, controller.t));
     setHidden(sourceText, sourceText.textContent === '');
     syncAlert();
   }

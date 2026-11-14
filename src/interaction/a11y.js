@@ -9,14 +9,13 @@
  * moving pointer cannot flood a live region.
  */
 import { isFiniteNumber } from './geometry.js';
+import { translate, absentText, resolveLocale } from './messages.js';
 
-export const ABSENT = 'нет данных';
-
-const DEFAULT_LOCALE = 'ru-RU';
+const DEFAULT_LOCALE = 'en-US';
 const UTC_LABEL = 'UTC';
 
 export function formatTimestamp(time, { locale = DEFAULT_LOCALE, timeZone = null } = {}) {
-  if (!isFiniteNumber(time)) return ABSENT;
+  if (!isFiniteNumber(time)) return absentText(locale);
   const zone = timeZone || 'UTC';
   try {
     const formatter = new Intl.DateTimeFormat(locale, {
@@ -36,7 +35,7 @@ export function formatTimestamp(time, { locale = DEFAULT_LOCALE, timeZone = null
   }
 }
 
-export function formatSessionDate(sessionDate, { absent = ABSENT } = {}) {
+export function formatSessionDate(sessionDate, { locale = DEFAULT_LOCALE, absent = absentText(locale) } = {}) {
   if (!sessionDate) return absent;
   const { year, month, day } = sessionDate;
   if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return absent;
@@ -52,7 +51,7 @@ function valueText(value, unit, absent) {
  * Rows for the semantic data table. One row per slot in host order; a series
  * without a point in a slot reports absence for that series' fields.
  */
-export function buildAccessibleRows({ slots = [], series = [], getValues = () => [], metadata = {}, absent = ABSENT, locale = DEFAULT_LOCALE, timeZone = null } = {}) {
+export function buildAccessibleRows({ slots = [], series = [], getValues = () => [], metadata = {}, locale = DEFAULT_LOCALE, absent = absentText(locale), timeZone = null } = {}) {
   const rows = [];
   for (const slot of slots) {
     const values = getValues(slot.barId) || [];
@@ -60,7 +59,7 @@ export function buildAccessibleRows({ slots = [], series = [], getValues = () =>
       barId: slot.barId,
       time: isFiniteNumber(slot.time) ? formatTimestamp(slot.time, { locale, timeZone }) : absent,
       timeAbsent: !isFiniteNumber(slot.time),
-      sessionDate: formatSessionDate(slot.sessionDate, { absent }),
+      sessionDate: formatSessionDate(slot.sessionDate, { locale, absent }),
       sessionDateAbsent: !slot.sessionDate,
       series: {},
     };
@@ -86,8 +85,13 @@ export function buildAccessibleRows({ slots = [], series = [], getValues = () =>
   return rows;
 }
 
-export function buildTableModel(rows, { caption, series = [], seriesLabels = {} } = {}) {
-  const columns = [{ key: 'barId', label: 'Идентификатор слота' }, { key: 'time', label: 'Время' }, { key: 'sessionDate', label: 'Торговая дата' }];
+export function buildTableModel(rows, { caption, series = [], seriesLabels = {}, locale = DEFAULT_LOCALE } = {}) {
+  const absent = absentText(locale);
+  const columns = [
+    { key: 'barId', label: translate(locale, 'table.barId') },
+    { key: 'time', label: translate(locale, 'table.time') },
+    { key: 'sessionDate', label: translate(locale, 'table.sessionDate') },
+  ];
   const fieldsBySeries = new Map(series.map((entry) => {
     const numeric = ['line', 'histogram', 'area', 'baseline'].includes(entry.type) ||
       rows.some((row) => Object.hasOwn(row.series[entry.id]?.fields ?? {}, 'value'));
@@ -104,24 +108,24 @@ export function buildTableModel(rows, { caption, series = [], seriesLabels = {} 
     for (const entry of series) {
       const data = row.series[entry.id];
       for (const field of fieldsBySeries.get(entry.id)) {
-        if (!data || !data.present) cells.push(ABSENT);
+        if (!data || !data.present) cells.push(absent);
         else if (data.fields[field]) cells.push(data.fields[field].text);
-        else cells.push(ABSENT);
+        else cells.push(absent);
       }
     }
     return cells;
   });
-  return { caption: caption || 'Данные графика', columns, rows: body };
+  return { caption: caption || translate(locale, 'chart.tableCaption'), columns, rows: body };
 }
 
-const STATUS_TEXT = Object.freeze({
-  unknown: 'Состояние данных не сообщено',
-  initialLoading: 'Загрузка данных',
-  loading: 'Обновление данных',
-  empty: 'Успешная загрузка не вернула данных',
-  available: 'Данные доступны',
-  error: 'Ошибка загрузки данных',
-  unavailable: 'Значение недоступно',
+const STATUS_KEYS = Object.freeze({
+  unknown: 'status.unknown',
+  initialLoading: 'status.initialLoading',
+  loading: 'status.loading',
+  empty: 'status.empty',
+  available: 'status.available',
+  error: 'status.error',
+  unavailable: 'status.unavailable',
 });
 
 /**
@@ -129,7 +133,8 @@ const STATUS_TEXT = Object.freeze({
  * A failed refresh keeps the previous rows but marks them stale, so they are
  * never presented as freshly updated.
  */
-export function createStatusModel() {
+export function createStatusModel({ locale = DEFAULT_LOCALE } = {}) {
+  const text = (key, params) => translate(resolveLocale(locale), key, params);
   let state = {
     phase: 'unknown',
     operation: null,
@@ -148,7 +153,7 @@ export function createStatusModel() {
     get state() {
       return snapshot();
     },
-    startLoading({ operation = 'загрузка данных' } = {}) {
+    startLoading({ operation = text('status.operation') } = {}) {
       const hasRows = state.rows.length > 0;
       state = {
         ...state,
@@ -159,11 +164,11 @@ export function createStatusModel() {
       };
       return snapshot();
     },
-    resolveEmpty({ operation = 'загрузка данных', meta = {} } = {}) {
+    resolveEmpty({ operation = text('status.operation'), meta = {} } = {}) {
       state = { phase: 'empty', operation, message: null, rows: [], stale: false, unavailableFields: [], meta };
       return snapshot();
     },
-    resolveAvailable({ rows = [], operation = 'загрузка данных', meta = {} } = {}) {
+    resolveAvailable({ rows = [], operation = text('status.operation'), meta = {} } = {}) {
       state = { phase: 'available', operation, message: null, rows: rows.slice(), stale: false, unavailableFields: [], meta };
       return snapshot();
     },
@@ -172,7 +177,7 @@ export function createStatusModel() {
       state = { ...state, unavailableFields: [...state.unavailableFields.filter((entry) => entry.field !== field), { field, reason: reason || null }] };
       return snapshot();
     },
-    fail({ operation = 'загрузка данных', message = 'Операция завершилась ошибкой' } = {}) {
+    fail({ operation = text('status.operation'), message = text('status.failed') } = {}) {
       state = {
         ...state,
         phase: 'error',
@@ -183,19 +188,19 @@ export function createStatusModel() {
       return snapshot();
     },
     describe() {
-      const staleSuffix = state.stale && state.phase !== 'initial-loading' ? '; показаны прежние данные, они не считаются свежими' : '';
-      if (state.phase === 'unknown') return { role: 'status', phase: state.phase, text: STATUS_TEXT.unknown, stale: false };
+      const staleSuffix = state.stale && state.phase !== 'initial-loading' ? text('status.staleSuffix') : '';
+      if (state.phase === 'unknown') return { role: 'status', phase: state.phase, text: text(STATUS_KEYS.unknown), stale: false };
       if (state.phase === 'error') {
-        return { role: 'alert', phase: state.phase, text: `${STATUS_TEXT.error}: ${state.operation}. ${state.message}${staleSuffix}`, stale: state.stale };
+        return { role: 'alert', phase: state.phase, text: `${text(STATUS_KEYS.error)}: ${state.operation}. ${state.message}${staleSuffix}`, stale: state.stale };
       }
       if (state.phase === 'empty') {
-        return { role: 'status', phase: state.phase, text: `${STATUS_TEXT.empty}: ${state.operation}`, stale: false };
+        return { role: 'status', phase: state.phase, text: `${text(STATUS_KEYS.empty)}: ${state.operation}`, stale: false };
       }
       if (state.phase === 'available') {
-        const unavailable = state.unavailableFields.length > 0 ? `; недоступно: ${state.unavailableFields.map((entry) => entry.field).join(', ')}` : '';
-        return { role: 'status', phase: state.phase, text: `${STATUS_TEXT.available}${unavailable}${staleSuffix}`, stale: state.stale };
+        const unavailable = state.unavailableFields.length > 0 ? text('status.unavailableFields', { fields: state.unavailableFields.map((entry) => entry.field).join(', ') }) : '';
+        return { role: 'status', phase: state.phase, text: `${text(STATUS_KEYS.available)}${unavailable}${staleSuffix}`, stale: state.stale };
       }
-      return { role: 'status', phase: state.phase, text: `${STATUS_TEXT[state.phase === 'initial-loading' ? 'initialLoading' : 'loading']}: ${state.operation}${staleSuffix}`, stale: state.stale };
+      return { role: 'status', phase: state.phase, text: `${text(STATUS_KEYS[state.phase === 'initial-loading' ? 'initialLoading' : 'loading'])}: ${state.operation}${staleSuffix}`, stale: state.stale };
     },
     sourceInfo() {
       const { source, observedAt, delay, delayText } = state.meta;

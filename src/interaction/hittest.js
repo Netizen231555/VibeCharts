@@ -40,14 +40,14 @@ export function normalizeHitRadius(value, field = 'hitRadius') {
   return value;
 }
 
-const TWO_ANCHOR_STROKE = new Set(['trendLine', 'arrow', 'measure', 'segment', 'fibRetracement', 'fibonacci']);
+const TWO_ANCHOR_STROKE = new Set(['arrow', 'measure', 'segment', 'fibRetracement']);
 const THREE_ANCHOR_STROKE = new Set(['triangle', 'angle', 'andrewsPitchfork', 'fibExtension']);
 const RECT_TYPES = new Set(['rectangle', 'fibZones']);
 const POINT_LISTS = new Set(['polyline', 'brush', 'marker', 'bezier']);
 const TEXT_TYPES = new Set(['text', 'callout', 'flag', 'priceLabel', 'anchoredVwap']);
 
 export function drawingTypeFamily(type) {
-  if (type === 'ray' || type === 'horizontalRay' || type === 'line' || type === 'horizontalLine' || type === 'verticalLine') return 'line';
+  if (type === 'ray' || type === 'horizontalRay' || type === 'line' || type === 'horizontalLevel' || type === 'verticalLine') return 'line';
   if (TWO_ANCHOR_STROKE.has(type)) return 'twoAnchor';
   if (THREE_ANCHOR_STROKE.has(type)) return 'threeAnchor';
   if (RECT_TYPES.has(type)) return 'rect';
@@ -78,7 +78,7 @@ export function resolveDrawing(drawing, ctx) {
     resolved.push({ x, y, price: isFiniteNumber(price) ? price : null, anchor });
   }
   if (family === 'line') {
-    if (drawing.type === 'horizontalLine') {
+    if (drawing.type === 'horizontalLevel') {
       if (!resolved[0] || resolved[0].y === null) return null;
     } else if (drawing.type === 'verticalLine') {
       if (!resolved[0] || resolved[0].x === null) return null;
@@ -105,7 +105,7 @@ function handlePoints(resolved, plot) {
   const points = [];
   if (family === 'line') {
     const first = anchors[0];
-    if (drawing.type === 'horizontalLine') {
+    if (drawing.type === 'horizontalLevel') {
       points.push({ x: plot.x + plot.width - 6, y: first.y, anchorIndex: 0, kind: 'price' });
     } else if (drawing.type === 'verticalLine') {
       points.push({ x: first.x, y: plot.y + 6, anchorIndex: 0, kind: 'index' });
@@ -136,7 +136,7 @@ function bodyDistance(resolved, point, plot) {
   const type = drawing.type;
   if (family === 'line') {
     const first = anchors[0];
-    if (type === 'horizontalLine') {
+    if (type === 'horizontalLevel') {
       return Math.abs(point.y - first.y) <= plot.height && point.x >= plot.x && point.x <= plot.x + plot.width ? Math.abs(point.y - first.y) : Infinity;
     }
     if (type === 'verticalLine') {
@@ -247,7 +247,7 @@ function isClipped(resolved, plot) {
     return pointInRect(anchors[0], plot);
   }
   if (family === 'text' || family === 'line') {
-    if (family === 'line' && resolved.drawing.type === 'horizontalLine') {
+    if (family === 'line' && resolved.drawing.type === 'horizontalLevel') {
       const y = anchors[0].y;
       return y !== null && y >= plot.y && y <= plot.y + plot.height && plot.width > 0;
     }

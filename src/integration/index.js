@@ -8,6 +8,7 @@ import { attachDrawings } from './drawings.js';
 import { attachIndicators } from './indicators.js';
 import { attachAlertPresentation } from './alertPresentation.js';
 import { createModuleScope } from '../core/module-scope.js';
+import { translate } from './messages.js';
 
 /** Attach optional chart capabilities. The host owns data sources, persistence and alert delivery. */
 export function attachChartFeatures(chart, options = {}) {
@@ -123,7 +124,7 @@ export function attachChartFeatures(chart, options = {}) {
     const report = error => {
       if (chart._destroyed) return;
       if (options.datafeed?.mapObservation && error.operation === 'observe') interruptAlerts('datafeed-error', feed.getState().context);
-      if (ui) ui.fail({ operation: 'источник данных', message: error.message });
+      if (ui) ui.fail({ operation: translate(chart._options.locale, 'datafeed.operation'), message: error.message });
       chart.surface.emit('error', { operation: 'datafeed', error });
       options.datafeed?.onError?.(error);
     };
@@ -138,7 +139,7 @@ export function attachChartFeatures(chart, options = {}) {
           if (event.status === 'loading' || event.status === 'reconciling') ui.startLoading();
           else if (event.status === 'empty') ui.resolveEmpty();
           else if (event.status === 'available') ui.resolveAvailable({ rows: chart.timeline.listSlots() });
-          else if (event.status === 'unavailable' || event.status === 'disconnected') ui.fail({ operation: 'источник данных', message: 'Источник недоступен или отключён' });
+          else if (event.status === 'unavailable' || event.status === 'disconnected') ui.fail({ operation: translate(chart._options.locale, 'datafeed.operation'), message: translate(chart._options.locale, 'datafeed.unavailable') });
         }
         options.datafeed?.onStatus?.(event);
       },

@@ -24,7 +24,7 @@ export function createDerivedPanel(controller, { document: doc } = {}) {
   const uid = `chart-ui-derived-${instanceCounter}`;
   const element = createElement(doc, 'section', {
     class: 'chart-ui-panel chart-ui-panel-derived',
-    'aria-label': 'Производный вид',
+    'aria-label': controller.t('derived.label'),
     tabindex: '-1',
   });
   const body = createElement(doc, 'div', { class: 'chart-ui-panel-body' });
@@ -56,7 +56,7 @@ export function createDerivedPanel(controller, { document: doc } = {}) {
     const model = controller.derived;
     if (!readout || !model) return;
     const description = model.describe();
-    const text = description ? description.text : 'Элемент не выбран.';
+    const text = description ? description.text : controller.t('derived.noSelection');
     if (readout.textContent !== text) readout.textContent = text;
   }
 
@@ -76,16 +76,16 @@ export function createDerivedPanel(controller, { document: doc } = {}) {
     renderedModel = model;
     renderedSignature = model ? signatureOf(model) : null;
     if (!model) {
-      append(body, createElement(doc, 'p', {}, 'Производный вид не задан.'));
+      append(body, createElement(doc, 'p', {}, controller.t('derived.notSet')));
       return;
     }
     const view = model.view;
     const options = controller.options;
     const buttonClass = 'chart-ui-btn chart-ui-surface-btn chart-ui-panel-btn';
-    append(body, createElement(doc, 'h3', { class: 'chart-ui-panel-title' }, `Производный вид: ${view.name}`));
+    append(body, createElement(doc, 'h3', { class: 'chart-ui-panel-title' }, controller.t('derived.heading', { name: view.name })));
 
-    const viewRow = field('Вид графика');
-    const viewSelect = createElement(doc, 'select', { name: 'derivedView', class: 'chart-ui-select', 'aria-label': 'Вид графика (производный)' });
+    const viewRow = field(controller.t('derived.viewKind'));
+    const viewSelect = createElement(doc, 'select', { name: 'derivedView', class: 'chart-ui-select', 'aria-label': controller.t('derived.viewKindAria') });
     for (const kind of options.derivedKinds || DEFAULT_KINDS) {
       const option = createElement(doc, 'option', { value: kind.id }, kind.label);
       if (kind.id === view.kind) option.setAttribute('selected', '');
@@ -97,45 +97,45 @@ export function createDerivedPanel(controller, { document: doc } = {}) {
     if (typeof options.onDerivedViewChange !== 'function') {
       viewSelect.setAttribute('disabled', '');
       viewSelect.setAttribute('aria-disabled', 'true');
-      viewSelect.setAttribute('title', 'Смена производного вида не подключена');
+      viewSelect.setAttribute('title', controller.t('derived.viewChangeUnavailable'));
       viewSelect.setAttribute('aria-describedby', `${uid}-view-reason`);
-      viewReason = createElement(doc, 'span', { id: `${uid}-view-reason`, class: 'chart-ui-sr' }, 'Смена производного вида не подключена');
+      viewReason = createElement(doc, 'span', { id: `${uid}-view-reason`, class: 'chart-ui-sr' }, controller.t('derived.viewChangeUnavailable'));
     } else {
       viewSelect.addEventListener('change', () => {
         try {
           options.onDerivedViewChange(viewSelect.value);
-          controller.announce(`Выбран вид: ${viewSelect.value}`);
+          controller.announce(controller.t('derived.viewSelected', { kind: viewSelect.value }));
         } catch (error) {
-          controller.announce(`Вид не изменён: ${error.message}`, { error: true });
+          controller.announce(controller.t('derived.viewNotChanged', { message: error.message }), { error: true });
         }
       });
     }
     append(viewRow, viewSelect, viewReason);
     append(body, viewRow);
-    append(body, createElement(doc, 'p', { class: 'chart-ui-panel-params' }, view.parametersText || 'Параметры не заданы'));
+    append(body, createElement(doc, 'p', { class: 'chart-ui-panel-params' }, view.parametersText || controller.t('derived.noParameters')));
 
     const controls = createElement(doc, 'div', {
       class: 'chart-ui-group chart-ui-panel-controls',
       role: 'group',
-      'aria-label': 'Управление производным видом',
+      'aria-label': controller.t('derived.controls'),
     });
-    const prev = createElement(doc, 'button', { type: 'button', class: buttonClass }, 'Предыдущий элемент');
+    const prev = createElement(doc, 'button', { type: 'button', class: buttonClass }, controller.t('derived.prev'));
     prev.addEventListener('click', () => {
       const result = model.prev();
-      if (!result.ok) controller.announce('Предыдущего элемента нет');
+      if (!result.ok) controller.announce(controller.t('derived.noPrev'));
       renderReadout();
     });
-    const next = createElement(doc, 'button', { type: 'button', class: buttonClass }, 'Следующий элемент');
+    const next = createElement(doc, 'button', { type: 'button', class: buttonClass }, controller.t('derived.next'));
     next.addEventListener('click', () => {
       const result = model.next();
-      if (!result.ok) controller.announce('Следующего элемента нет');
+      if (!result.ok) controller.announce(controller.t('derived.noNext'));
       renderReadout();
     });
     const visibility = createElement(
       doc,
       'button',
       { type: 'button', class: buttonClass, 'aria-pressed': model.visible ? 'true' : 'false' },
-      model.visible ? 'Скрыть метки' : 'Показать метки',
+      controller.t(model.visible ? 'derived.hideMarks' : 'derived.showMarks'),
     );
     visibility.addEventListener('click', () => {
       model.setVisible(!model.visible);
@@ -148,18 +148,18 @@ export function createDerivedPanel(controller, { document: doc } = {}) {
     append(body, controls);
 
     const inputs = createElement(doc, 'div', { class: 'chart-ui-panel-inputs' });
-    const colorLabel = field('Цвет элементов');
-    const colorInput = createElement(doc, 'input', { type: 'text', name: 'color', class: 'chart-ui-panel-input', 'aria-label': 'Цвет элементов' });
+    const colorLabel = field(controller.t('derived.color'));
+    const colorInput = createElement(doc, 'input', { type: 'text', name: 'color', class: 'chart-ui-panel-input', 'aria-label': controller.t('derived.color') });
     colorInput.value = model.color || '';
-    const colorApply = createElement(doc, 'button', { type: 'button', class: buttonClass }, 'Применить цвет');
+    const colorApply = createElement(doc, 'button', { type: 'button', class: buttonClass }, controller.t('derived.applyColor'));
     colorApply.addEventListener('click', () => {
       const result = model.setColor(colorInput.value);
       if (!result.ok) {
-        controller.announce('Цвет отклонён: недопустимое значение', { error: true });
+        controller.announce(controller.t('derived.colorRejected'), { error: true });
         return;
       }
       controller.clearError();
-      controller.announce(`Цвет элементов: ${result.color}`);
+      controller.announce(controller.t('derived.colorSet', { color: result.color }));
       render();
     });
     focusables.set('color', colorInput);
@@ -171,14 +171,14 @@ export function createDerivedPanel(controller, { document: doc } = {}) {
     const parameterInputs = [];
     for (const [name, value] of Object.entries(view.parameters || {})) {
       const label = field(name);
-      const input = createElement(doc, 'input', { type: 'number', name, class: 'chart-ui-panel-input', 'aria-label': `Параметр ${name}` });
+      const input = createElement(doc, 'input', { type: 'number', name, class: 'chart-ui-panel-input', 'aria-label': controller.t('derived.parameterAria', { name }) });
       input.value = String(value);
       parameterInputs.push({ name, input });
       focusables.set(`parameter:${name}`, input);
       append(label, input);
       append(inputs, label);
     }
-    const apply = createElement(doc, 'button', { type: 'button', class: buttonClass }, 'Применить параметры');
+    const apply = createElement(doc, 'button', { type: 'button', class: buttonClass }, controller.t('derived.applyParameters'));
     apply.addEventListener('click', () => {
       const parameters = { ...view.parameters };
       for (const { name, input } of parameterInputs) {
@@ -187,11 +187,11 @@ export function createDerivedPanel(controller, { document: doc } = {}) {
       }
       const result = model.setParameters(parameters);
       if (!result.ok) {
-        controller.announce(`Параметры отклонены: ${result.message || 'недопустимое значение'}`, { error: true });
+        controller.announce(controller.t('chart.parametersRejected', { message: result.message || controller.t('derived.invalidValue') }), { error: true });
         return;
       }
       controller.clearError();
-      controller.announce('Параметры применены');
+      controller.announce(controller.t('derived.parametersApplied'));
       render();
     });
     focusables.set('apply', apply);

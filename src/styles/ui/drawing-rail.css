@@ -9,3 +9,30 @@
 .chart-ui-tip.chart-ui-rail-tip[hidden] { display: none; }
 
 .chart-ui-rail .chart-ui-btn[aria-disabled="true"]:hover { background: transparent; }
+
+/* Tall rail: scrolls inside the chart's height instead of growing past it (the compact strip scrolls in its region). */
+.chart-ui-rail[aria-orientation="vertical"] {
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--chart-ui-border) transparent;
+}
+
+/* Many tools: two columns of compact buttons. The DOM order stays one toolbar; only the arrangement changes. */
+.chart-ui-rail-grid[aria-orientation="vertical"] {
+  display: grid;
+  grid-template-columns: repeat(2, calc(var(--chart-ui-control-size) - 4px));
+  justify-content: center;
+  align-items: center;
+  gap: var(--chart-ui-gap);
+  padding: 6px;
+}
+.chart-ui-rail-grid .chart-ui-rail-btn {
+  min-width: 0;
+  min-height: calc(var(--chart-ui-control-size) - 4px);
+  padding: 0;
+}
+/* Rules between groups span both columns. */
+.chart-ui-rail-grid[aria-orientation="vertical"] > .chart-ui-sep { grid-column: 1 / -1; margin: 2px 0; }
+.chart-ui-rail-grid .chart-ui-rail-text { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }

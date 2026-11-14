@@ -10,8 +10,7 @@
  */
 import { InteractionError } from './errors.js';
 import { createEmitter } from './emitter.js';
-
-export const ABSENT = 'нет данных';
+import { translate, absentText, resolveLocale } from './messages.js';
 
 export const DERIVED_VIEW_KINDS = Object.freeze({
   BASELINE: 'baseline',
@@ -68,33 +67,34 @@ export function describeParameters(parameters) {
     .join(', ');
 }
 
-function elementText(element, { name, parametersText, absent = ABSENT } = {}) {
+function elementText(element, { name, parametersText, locale, absent = absentText(locale) } = {}) {
+  const t = (key, params) => translate(locale, key, params);
   const rows = [
-    { field: 'view', label: 'Вид', value: name },
-    { field: 'parameters', label: 'Параметры', value: parametersText || absent, absent: !parametersText },
-    { field: 'id', label: 'Идентификатор элемента', value: element.id },
-    { field: 'sourceBarIds', label: 'Исходные слоты', value: element.sourceBarIds.length > 0 ? element.sourceBarIds.join(', ') : absent, absent: element.sourceBarIds.length === 0 },
+    { field: 'view', label: t('derived.view'), value: name },
+    { field: 'parameters', label: t('derived.parameters'), value: parametersText || absent, absent: !parametersText },
+    { field: 'id', label: t('derived.elementId'), value: element.id },
+    { field: 'sourceBarIds', label: t('derived.sourceBarIds'), value: element.sourceBarIds.length > 0 ? element.sourceBarIds.join(', ') : absent, absent: element.sourceBarIds.length === 0 },
   ];
   if (element.sourceValues.length === 0) {
-    rows.push({ field: 'sourceValues', label: 'Исходные значения', value: absent, absent: true });
+    rows.push({ field: 'sourceValues', label: t('derived.sourceValues'), value: absent, absent: true });
   } else {
     for (const entry of element.sourceValues) {
       const fields = Object.entries(entry)
         .filter(([key]) => key !== 'barId')
         .map(([key, value]) => `${key}=${value}`)
         .join(' ');
-      rows.push({ field: `source:${entry.barId}`, label: `Исходный слот ${entry.barId}`, value: fields || absent, absent: !fields });
+      rows.push({ field: `source:${entry.barId}`, label: t('derived.sourceSlot', { id: entry.barId }), value: fields || absent, absent: !fields });
     }
   }
   if (!element.computed) {
-    rows.push({ field: 'computed', label: 'Вычисленные значения', value: absent, absent: true });
+    rows.push({ field: 'computed', label: t('derived.computed'), value: absent, absent: true });
   } else {
     const fields = Object.entries(element.computed)
       .map(([key, value]) => `${key}=${value}`)
       .join(' ');
-    rows.push({ field: 'computed', label: 'Вычисленные значения', value: fields || absent, absent: !fields });
+    rows.push({ field: 'computed', label: t('derived.computed'), value: fields || absent, absent: !fields });
   }
-  if (element.direction) rows.push({ field: 'direction', label: 'Направление', value: element.direction });
+  if (element.direction) rows.push({ field: 'direction', label: t('derived.direction'), value: element.direction });
   return { id: element.id, rows, text: rows.map((row) => `${row.label}: ${row.value}`).join('; ') };
 }
 
@@ -102,7 +102,10 @@ function elementText(element, { name, parametersText, absent = ABSENT } = {}) {
  * `validateParameters` is supplied by the view owner; an invalid update is
  * announced and the previous valid view stays in place.
  */
-export function createDerivedViewAccessibility({ view, validateParameters = null, onAnnounce = () => {} } = {}) {
+export function createDerivedViewAccessibility({ view, validateParameters = null, onAnnounce = () => {}, locale } = {}) {
+  // `locale` may be a function so a changed chart locale applies to the next text produced.
+  const t = (key, params) => translate(resolveLocale(locale), key, params);
+  const textOf = (entry) => elementText(entry, { name: current.name, parametersText: current.parametersText, locale: resolveLocale(locale) });
   const emitter = createEmitter();
   let current = normalizeDerivedView(view);
   let selectedId = null;
@@ -122,7 +125,7 @@ export function createDerivedViewAccessibility({ view, validateParameters = null
     if (selectedId === null) return null;
     const found = element(selectedId);
     if (!found) return null;
-    return elementText(found, { name: current.name, parametersText: current.parametersText });
+    return textOf(found);
   }
 
   const model = {
@@ -179,7 +182,7 @@ export function createDerivedViewAccessibility({ view, validateParameters = null
       if (id === null) return null;
       const found = element(id);
       if (!found) return null;
-      return elementText(found, { name: current.name, parametersText: current.parametersText });
+      return textOf(found);
     },
     /** Recompute after a correction; a vanished selection is never replaced. */
     sync(nextView) {
@@ -204,7 +207,7 @@ export function createDerivedViewAccessibility({ view, validateParameters = null
           return { ok: false, code: 'INVALID_PARAMETERS', field, message: error.message };
         }
         if (result === false) {
-          announce('invalidParameters', { field: 'parameters', message: 'Параметры отклонены' });
+          announce('invalidParameters', { field: 'parameters', message: t('derived.rejected') });
           return { ok: false, code: 'INVALID_PARAMETERS', field: 'parameters' };
         }
       }
@@ -214,7 +217,7 @@ export function createDerivedViewAccessibility({ view, validateParameters = null
     },
     setVisible(next) {
       visible = next === true;
-      announce('visibility', { visible, state: visible ? 'показано' : 'скрыто' });
+      announce('visibility', { visible, state: t(visible ? 'derived.shown' : 'derived.hidden') });
       return { ok: true, visible };
     },
     setColor(next) {
@@ -227,17 +230,17 @@ export function createDerivedViewAccessibility({ view, validateParameters = null
     },
     controls() {
       return [
-        { id: 'view', label: 'Вид графика', value: current.name, state: current.kind },
-        { id: 'parameters', label: 'Параметры вида', value: current.parametersText || ABSENT, state: JSON.stringify(current.parameters) },
-        { id: 'visible', label: 'Видимость меток', value: visible ? 'показано' : 'скрыто', state: visible ? 'true' : 'false' },
-        { id: 'color', label: 'Цвет элементов', value: color || ABSENT, state: color || 'none' },
+        { id: 'view', label: t('derived.controlView'), value: current.name, state: current.kind },
+        { id: 'parameters', label: t('derived.controlParameters'), value: current.parametersText || absentText(resolveLocale(locale)), state: JSON.stringify(current.parameters) },
+        { id: 'visible', label: t('derived.controlVisible'), value: t(visible ? 'derived.shown' : 'derived.hidden'), state: visible ? 'true' : 'false' },
+        { id: 'color', label: t('derived.controlColor'), value: color || absentText(resolveLocale(locale)), state: color || 'none' },
       ];
     },
     textAlternative() {
       if (current.elements.length === 0) {
-        return { name: current.name, parametersText: current.parametersText, rows: [], text: `${current.name}: элементов нет` };
+        return { name: current.name, parametersText: current.parametersText, rows: [], text: t('derived.noElements', { name: current.name }) };
       }
-      const rows = current.elements.map((entry) => elementText(entry, { name: current.name, parametersText: current.parametersText }));
+      const rows = current.elements.map(textOf);
       return { name: current.name, parametersText: current.parametersText, rows, text: rows.map((row) => row.text).join('\n') };
     },
   };

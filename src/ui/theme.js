@@ -5,6 +5,7 @@
  * colour alone (the UI adds a shape and a text label).
  */
 import { InteractionError } from '../interaction/errors.js';
+import { t } from './messages.js';
 
 export const THEME_NAMES = Object.freeze(['light', 'dark']);
 
@@ -55,17 +56,17 @@ export function createTheme(mode) {
 /**
  * Direction is conveyed with a text label and a shape marker, not only colour.
  */
-export function directionLabel(open, close) {
+export function directionLabel(open, close, locale = 'en-US') {
   if (typeof open !== 'number' || typeof close !== 'number' || !Number.isFinite(open) || !Number.isFinite(close)) {
-    return { direction: 'unknown', shape: '?', label: 'направление недоступно', colorKey: 'candleEqual' };
+    return { direction: 'unknown', shape: '?', label: t(locale, 'direction.unknown'), colorKey: 'candleEqual' };
   }
-  if (close > open) return { direction: 'up', shape: '▲', label: 'рост', colorKey: 'candleUp' };
-  if (close < open) return { direction: 'down', shape: '▼', label: 'падение', colorKey: 'candleDown' };
-  return { direction: 'equal', shape: '=', label: 'без изменения', colorKey: 'candleEqual' };
+  if (close > open) return { direction: 'up', shape: '▲', label: t(locale, 'direction.up'), colorKey: 'candleUp' };
+  if (close < open) return { direction: 'down', shape: '▼', label: t(locale, 'direction.down'), colorKey: 'candleDown' };
+  return { direction: 'equal', shape: '=', label: t(locale, 'direction.equal'), colorKey: 'candleEqual' };
 }
 
-export function valueWithDirection(value, open, close) {
-  const direction = directionLabel(open, close);
+export function valueWithDirection(value, open, close, locale = 'en-US') {
+  const direction = directionLabel(open, close, locale);
   return {
     text: `${direction.shape} ${value}`,
     direction: direction.direction,

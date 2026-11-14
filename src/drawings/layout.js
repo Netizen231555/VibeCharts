@@ -170,11 +170,26 @@ function formatPriceLabel(adapter, price, binding) {
     const text = adapter.formatPrice(price, binding);
     if (typeof text === 'string') return text;
   }
-  return String(price);
+  return String(Number(price.toPrecision(12)));
 }
 
-function signed(value) {
-  return value >= 0 ? `+${value}` : String(value);
+// Float noise (4.670005912000022) never reaches a label: round to 12 significant digits, then to the requested decimals.
+function signed(value, text = String(Number(value.toPrecision(12)))) {
+  return value >= 0 ? `+${text}` : text;
+}
+
+// A price difference uses the price step's decimals when the host can supply them; otherwise a bounded precision.
+function formatPriceDelta(adapter, delta, binding) {
+  if (typeof adapter.formatPriceDelta === 'function') {
+    const text = adapter.formatPriceDelta(delta, binding);
+    if (typeof text === 'string') return signed(delta, text);
+  }
+  return signed(delta);
+}
+
+// Bar counts may be fractional when an anchor has an offset; two decimals are the most a reader can use.
+function formatIntervals(delta) {
+  return signed(delta, String(Number(delta.toFixed(2))));
 }
 
 function labelText(level) {
@@ -276,12 +291,12 @@ const BUILDERS = {
   },
   measure({ a, b, adapter, binding }) {
     const measure = measureAnchors([a, b], adapter, binding);
-    const labels = [{ x: (a.x + b.x) / 2 + 6, y: (a.y + b.y) / 2 - 6, text: `price ${signed(measure.priceDelta)}` }];
+    const labels = [{ x: (a.x + b.x) / 2 + 6, y: (a.y + b.y) / 2 - 6, text: `price ${formatPriceDelta(adapter, measure.priceDelta, binding)}` }];
     if (measure.relativeChange !== null) {
       labels.push({ x: (a.x + b.x) / 2 + 6, y: (a.y + b.y) / 2 + 8, text: `change ${(measure.relativeChange * 100).toFixed(2)}%` });
     }
     if (measure.indexDelta !== null) {
-      labels.push({ x: (a.x + b.x) / 2 + 6, y: (a.y + b.y) / 2 + 22, text: `intervals ${signed(measure.indexDelta)}` });
+      labels.push({ x: (a.x + b.x) / 2 + 6, y: (a.y + b.y) / 2 + 22, text: `intervals ${formatIntervals(measure.indexDelta)}` });
     }
     return { primitives: [{ kind: 'segment', role: 'measure', x1: a.x, y1: a.y, x2: b.x, y2: b.y }], labels, measure };
   },

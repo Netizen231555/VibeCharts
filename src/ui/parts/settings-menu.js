@@ -56,8 +56,8 @@ export function createSettingsMenu(controller, context) {
     type: 'button',
     id: `${prefix}-trigger`,
     class: 'chart-ui-btn chart-ui-surface-btn',
-    'aria-label': 'Настройки графика',
-    title: 'Настройки графика',
+    'aria-label': controller.t('settings.label'),
+    title: controller.t('settings.label'),
     'aria-haspopup': 'menu',
     'aria-expanded': 'false',
     'aria-controls': `${prefix}-menu`,
@@ -110,9 +110,9 @@ export function createSettingsMenu(controller, context) {
   }
 
   const dialogItems = [
-    { key: 'dialog:panes', title: 'Панели', label: 'Панели…', icon: 'panes', mount: mountPanes },
-    { key: 'dialog:drawings', title: 'Настройки рисунков', label: 'Настройки рисунков…', icon: null, mount: mountDrawings },
-    { key: 'dialog:derived', title: 'Производный вид', label: 'Производный вид…', icon: null, mount: mountDerived },
+    { key: 'dialog:panes', get title() { return controller.t('settings.panesTitle'); }, label: controller.t('settings.panesItem'), icon: 'panes', mount: mountPanes },
+    { key: 'dialog:drawings', get title() { return controller.t('settings.drawingsTitle'); }, label: controller.t('settings.drawingsItem'), icon: null, mount: mountDrawings },
+    { key: 'dialog:derived', get title() { return controller.t('settings.derivedTitle'); }, label: controller.t('settings.derivedItem'), icon: null, mount: mountDerived },
   ];
 
   function addControl(id, role, extra = {}) {
@@ -154,7 +154,7 @@ export function createSettingsMenu(controller, context) {
       entry.node.removeAttribute('title');
       if (entry.reasonNode.textContent !== '') entry.reasonNode.textContent = '';
     } else {
-      const text = reason || 'Действие недоступно';
+      const text = reason || controller.t('ui.actionUnavailable');
       entry.node.setAttribute('aria-disabled', 'true');
       entry.node.setAttribute('aria-describedby', entry.reasonId);
       entry.node.setAttribute('title', `${name}: ${text}`);
@@ -188,7 +188,7 @@ export function createSettingsMenu(controller, context) {
         });
       } else if (entry.dialog.key === 'dialog:drawings') {
         const available = drawingsAvailable();
-        applyState(entry, { enabled: available, reason: available ? null : 'Рисунки недоступны: у графика нет хранилища рисунков' });
+        applyState(entry, { enabled: available, reason: available ? null : controller.t('settings.drawingsUnavailable') });
       } else {
         applyState(entry, { enabled: true });
       }
@@ -346,13 +346,13 @@ export function createSettingsMenu(controller, context) {
     if (dialog) return;
     const candidate = createElement(doc, 'dialog', { class: 'chart-ui-dialog chart-ui-settings-dialog', 'aria-labelledby': `${prefix}-dialog-title` });
     if (typeof candidate.showModal !== 'function') {
-      throw new InteractionError('Модальный диалог недоступен: элемент dialog не поддерживает showModal()', { code: 'UNSUPPORTED_DOM', field: 'dialog' });
+      throw new InteractionError(controller.t('settings.dialogUnsupported'), { code: 'UNSUPPORTED_DOM', field: 'dialog' });
     }
     const frame = createElement(doc, 'div', { class: 'chart-ui-settings-dialog-frame' });
     const head = createElement(doc, 'div', { class: 'chart-ui-settings-dialog-head' });
     titleNode = createElement(doc, 'h2', { id: `${prefix}-dialog-title`, class: 'chart-ui-settings-dialog-title' });
     const closeButton = createElement(doc, 'button', { type: 'button', class: 'chart-ui-btn chart-ui-surface-btn chart-ui-settings-dialog-close' });
-    append(closeButton, createIcon(doc, 'close', { size: 16 }), createElement(doc, 'span', {}, 'Закрыть'));
+    append(closeButton, createIcon(doc, 'close', { size: 16 }), createElement(doc, 'span', {}, controller.t('settings.close')));
     append(head, titleNode, closeButton);
     bodyNode = createElement(doc, 'div', { class: 'chart-ui-settings-dialog-body' });
     append(frame, head, bodyNode);
@@ -399,7 +399,7 @@ export function createSettingsMenu(controller, context) {
       announce: (text, options) => controller.announce(text, options),
     });
     if (controls === null) {
-      throw new InteractionError('Форма построения недоступна: у графика нет хранилища рисунков', { code: 'DRAWINGS_UNAVAILABLE', field: 'drawings' });
+      throw new InteractionError(controller.t('settings.formUnavailable'), { code: 'DRAWINGS_UNAVAILABLE', field: 'drawings' });
     }
     return { release() { controls.detach(); } };
   }

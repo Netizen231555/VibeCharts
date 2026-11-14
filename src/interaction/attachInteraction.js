@@ -18,7 +18,8 @@ import { createKeyboard, createCrosshairNavigation, isEditableTarget } from './k
 import { createGestureRecognizer } from './gestures.js';
 import { hitTest, paneAtPoint, normalizeHitRadius } from './hittest.js';
 import { buildMenuItems, createContextMenu } from './menu.js';
-import { buildAccessibleRows, buildTableModel, createAnnouncer, formatTimestamp, ABSENT } from './a11y.js';
+import { buildAccessibleRows, buildTableModel, createAnnouncer, formatTimestamp } from './a11y.js';
+import { translate, absentText } from './messages.js';
 import { createElement, append, clearElement, on, pointFromEvent, contains, focusElement, isConnected, setStyle, hide, show } from './dom.js';
 import { isFiniteNumber } from './geometry.js';
 import { createDrawingTool, drawingAnchor, effectiveSnap, modifierState, SHIFT_HORIZONTAL_TYPES, SNAP_MODIFIERS } from './drawingTool.js';
@@ -26,8 +27,10 @@ import { drawLayout } from '../drawings/render.js';
 import { createModuleScope } from '../core/module-scope.js';
 import { formatPrice } from '../render/axes.js';
 
-export const DEFAULT_INSTRUCTIONS =
-  'Стрелки влево и вправо — сдвиг по времени; + и − — масштаб; Shift+стрелки вверх и вниз — масштаб цены; Home — автомасштаб цены; C — перекрестие с клавиатуры; ContextMenu или Shift+F10 — действия графика; Escape — отмена.';
+/** Default keyboard instructions for a chart locale; text is resolved when the interaction is attached. */
+export function defaultInstructions(locale) {
+  return translate(locale, 'instructions.default');
+}
 
 const interactionContainers = new WeakSet();
 let regionCounter = 0;
@@ -56,6 +59,9 @@ function axisPaneForPoint(layout, point) {
 }
 
 export function attachInteraction(chart, options = {}) {
+  // The interface language follows the chart locale at the moment text is produced.
+  const uiLocale = () => options.locale ?? chart._options?.locale ?? chart.surface?.locale;
+  const tr = (key, params) => translate(uiLocale(), key, params);
   if (options.bindings !== undefined) createKeyboard({ bindings: options.bindings });
   const adapter = resolveInteractionAdapter(chart, options);
   const container = adapter.container;
@@ -124,6 +130,7 @@ export function attachInteraction(chart, options = {}) {
     panes: initialPanes,
     separatorHeight: options.separatorHeight === undefined ? 4 : options.separatorHeight,
     containerHeight: options.containerHeight,
+    locale: uiLocale,
   });
 
   function paneById(paneId) {
@@ -264,7 +271,7 @@ export function attachInteraction(chart, options = {}) {
 
   const regionId = `chart-region-${(regionCounter += 1)}`;
   const instructionsId = `${regionId}-instructions`;
-  const instructions = createElement(doc, 'div', { class: 'chart-instructions', id: instructionsId }, options.instructions || DEFAULT_INSTRUCTIONS);
+  const instructions = createElement(doc, 'div', { class: 'chart-instructions', id: instructionsId }, options.instructions || tr('instructions.default'));
   setStyle(instructions, { position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' });
   const liveRegion = createElement(doc, 'div', { role: 'status', 'aria-live': 'polite', 'aria-atomic': 'true', class: 'chart-live-region' });
   const errorRegion = createElement(doc, 'div', { role: 'alert', 'aria-live': 'assertive', 'aria-atomic': 'true', class: 'chart-alert-region' });
@@ -274,7 +281,7 @@ export function attachInteraction(chart, options = {}) {
   }
 
   const existingLabel = container.getAttribute ? container.getAttribute('aria-label') : null;
-  if (!existingLabel) container.setAttribute('aria-label', options.ariaLabel || 'График');
+  if (!existingLabel) container.setAttribute('aria-label', options.ariaLabel || tr('chart.label'));
   const existingRole = container.getAttribute ? container.getAttribute('role') : null;
   if (!existingRole) container.setAttribute('role', 'group');
   const existingDescribedBy = container.getAttribute ? container.getAttribute('aria-describedby') : null;
@@ -319,7 +326,8 @@ export function attachInteraction(chart, options = {}) {
 
   function tableModel() {
     return buildTableModel(rows(), {
-      caption: options.tableCaption || 'Данные графика',
+      caption: options.tableCaption || tr('chart.tableCaption'),
+      locale: uiLocale(),
       series: seriesList(),
     });
   }
@@ -463,7 +471,7 @@ export function attachInteraction(chart, options = {}) {
       hide(timeLabel);
       setStyle(timeLabel, { display: 'none' });
     }
-    const readoutOptions = { absent: ABSENT, ...(options.readout || {}) };
+    const readoutOptions = { absent: absentText(uiLocale()), ...(options.readout || {}) };
     // Unless the host chose digits or a unit, prices follow the series price step like the axis labels.
     const metadataFormatter = readoutOptions.priceFormatter || readoutOptions.priceDigits != null || readoutOptions.priceUnit != null
       ? null
@@ -476,7 +484,7 @@ export function attachInteraction(chart, options = {}) {
       locale: presentation.locale,
       timeFormatter: readoutOptions.timeFormatter || ((time) => formatTimestamp(time, presentation)),
     });
-    const fieldNames = { open: 'ОТКР', high: 'МАКС', low: 'МИН', close: 'ЗАКР', volume: 'Объём', value: 'Значение' };
+    const fieldNames = { open: tr('readout.open'), high: tr('readout.high'), low: tr('readout.low'), close: tr('readout.close'), volume: tr('readout.volume'), value: tr('readout.value') };
     const indicators = typeof chart.indicators?.list === 'function' ? chart.indicators.list() : [];
     const indicatorOutputs = new Map();
     for (const indicator of indicators) {
@@ -510,7 +518,7 @@ export function attachInteraction(chart, options = {}) {
     }
     const extra = payload.series.filter((series) => series !== primary);
     if (extra.length) {
-      readoutSummary.textContent = `Индикаторы и другие серии (${extra.length})`;
+      readoutSummary.textContent = tr('readout.summary', { count: extra.length });
       readoutExtra.textContent = extra.map((series) => {
         const label = indicatorOutputs.get(series.seriesId) || series.seriesId;
         return `${label}: ${rowsForSeries(series).map(describe).join(' · ')}`;
@@ -544,7 +552,7 @@ export function attachInteraction(chart, options = {}) {
         emitter.emit('crosshairSelection', description);
       }
     },
-    absent: ABSENT,
+    locale: uiLocale,
   });
 
   /* ---------------------------- gestures ------------------------------ */
@@ -564,8 +572,8 @@ export function attachInteraction(chart, options = {}) {
   function updateKeyboardInstructions() {
     if (options.instructions) return;
     const bindings = keyboard.getBindings();
-    const labels = Object.entries(bindings).map(([action, chord]) => `${chord} — ${keyboard.labels[action]}`);
-    if (bindings.contextMenu && bindings.contextMenu !== 'shift+f10') labels.push('shift+f10 — Открыть меню графика');
+    const labels = Object.entries(bindings).map(([action, chord]) => `${chord} — ${keyboard.labels(uiLocale())[action]}`);
+    if (bindings.contextMenu && bindings.contextMenu !== 'shift+f10') labels.push(tr('instructions.contextMenuAlias'));
     instructions.textContent = `${labels.join('; ')}.`;
   }
   updateKeyboardInstructions();
@@ -656,7 +664,7 @@ export function attachInteraction(chart, options = {}) {
       return { drawing, binding, anchors };
     });
     if (entries.some(entry => entry === null) || (entries.length > 1 && typeof store.updateBatch !== 'function')) {
-      reportError(new Error('Невозможно переместить все выбранные рисунки: координаты или массовое обновление недоступны'), { action: 'drawing-update' });
+      reportError(new Error(tr('drawing.moveUnavailable')), { action: 'drawing-update' });
       return null;
     }
     let preview = null;
@@ -677,7 +685,7 @@ export function attachInteraction(chart, options = {}) {
           if (request.anchorIndex !== null && request.anchorIndex !== index) return item.anchor;
           const moved = drawingAnchor(chart, { x: item.x === null ? point.x : item.x + dx,
             y: item.y === null ? point.y : item.y + dy }, binding,
-          { x: item.x !== null, price: item.y !== null }, effectiveSnap(chart, binding, drawingSnap, mods), notify);
+          { x: item.x !== null, price: item.y !== null }, effectiveSnap(chart, binding, drawingSnap, mods), notify, uiLocale());
           // Shift keeps a two-point line horizontal: the dragged handle takes the other anchor's price.
           if (shift && request.anchorIndex !== null && initial.length === 2 && SHIFT_HORIZONTAL_TYPES.includes(drawing.type) &&
               moved.price !== undefined) moved.price = initial[1 - index].anchor.price;
@@ -693,7 +701,7 @@ export function attachInteraction(chart, options = {}) {
           append(overlay, preview);
         }
         const ctx = preview.getContext('2d');
-        if (!ctx) throw new Error('Предпросмотр перемещения недоступен');
+        if (!ctx) throw new Error(tr('drawing.movePreviewUnavailable'));
         const bounds = container.getBoundingClientRect();
         const dpr = doc.defaultView?.devicePixelRatio || 1;
         const width = Math.round(bounds.width * dpr), height = Math.round(bounds.height * dpr);
@@ -705,7 +713,7 @@ export function attachInteraction(chart, options = {}) {
         for (let i = 0; i < entries.length; i += 1) {
           const { drawing, binding } = entries[i];
           const layout = store.previewLayout({ ...drawing, ...updates[i].patch });
-          if (!layout.resolved) throw new Error(layout.error?.message || layout.reason || 'Геометрия недоступна');
+          if (!layout.resolved) throw new Error(layout.error?.message || layout.reason || tr('drawing.geometryUnavailable'));
           drawLayout(ctx, layout, surface.getVisibleRect(binding), true);
         }
         lastPreviewError = null;
@@ -996,18 +1004,19 @@ export function attachInteraction(chart, options = {}) {
   function openMenu({ target, point = null, invokerId = 'chart-region' } = {}) {
     closeMenu('replace');
     const resolvedTarget = target || { kind: MENU_TARGET_KINDS.chart };
-    const items = buildMenuItems({ target: resolvedTarget, capabilities: menuCapabilities(resolvedTarget) });
+    const items = buildMenuItems({ target: resolvedTarget, capabilities: menuCapabilities(resolvedTarget), locale: uiLocale() });
     // Nothing to offer: no empty menu and no stale announcement; the caller decides what to tell the user.
     if (items.length === 0) return { opened: false, reason: 'no-items' };
     const model = createContextMenu({
       target: resolvedTarget,
+      locale: uiLocale(),
       items,
       actions: menuActions,
       isAvailable: (id) => (id === 'chart-region' ? isConnected(container) : Boolean(focusRegistry.get(id) && isConnected(focusRegistry.get(id)))),
       onClose: () => {},
     });
     model.setInvoker(invokerId);
-    const element = createElement(doc, 'div', { role: 'menu', 'aria-label': 'Действия графика', tabindex: '-1', class: 'chart-context-menu' });
+    const element = createElement(doc, 'div', { role: 'menu', 'aria-label': tr('chart.menuLabel'), tabindex: '-1', class: 'chart-context-menu' });
     setStyle(element, { position: 'absolute', zIndex: '10', pointerEvents: 'auto' });
     if (point) setStyle(element, { left: `${point.x}px`, top: `${point.y}px` });
     const itemElements = [];
@@ -1342,12 +1351,12 @@ export function attachInteraction(chart, options = {}) {
     const paneId = activePaneId;
     if (resolved === null || resolved === undefined) return { handled: false };
     if (typeof resolved === 'object' && resolved.action === 'crosshairToggled') {
-      writeLive(resolved.active ? 'Перекрестие с клавиатуры включено. Стрелки влево и вправо выбирают слоты.' : 'Перекрестие с клавиатуры выключено');
+      writeLive(tr(resolved.active ? 'announce.crosshairOn' : 'announce.crosshairOff'));
       return { handled: true };
     }
     if (typeof resolved === 'object' && (resolved.action === 'crosshairPrev' || resolved.action === 'crosshairNext')) {
       if (!resolved.result || resolved.result.ok !== true) {
-        writeLive(resolved.action === 'crosshairPrev' ? 'Предыдущего слота нет' : 'Следующего слота нет');
+        writeLive(tr(resolved.action === 'crosshairPrev' ? 'announce.noPrevSlot' : 'announce.noNextSlot'));
       }
       return { handled: true };
     }
@@ -1360,24 +1369,24 @@ export function attachInteraction(chart, options = {}) {
       case 'priceZoomOut': return { handled: navigation.keyboardPriceZoom(-1, paneId).applied };
       case 'priceAuto': {
         const result = navigation.enablePriceAuto(paneId, null);
-        announce(result.applied ? 'Автомасштаб цены включён' : 'Ценовая шкала недоступна');
+        announce(tr(result.applied ? 'announce.priceAutoOn' : 'announce.priceScaleUnavailable'));
         return { handled: result.applied };
       }
       case 'follow': {
         if (adapter.paneKind(paneId) === 'derived') {
-          announce('Следование за реальным временем недоступно на производной панели');
+          announce(tr('announce.followDerived'));
           return { handled: true };
         }
         const enable = !navigation.follow;
         const result = enable ? navigation.scrollToRealTime(paneId) : navigation.setFollow(false, paneId);
         emitter.emit('viewChange', { reason: 'follow', result });
-        announce(enable ? 'Следование за реальным временем включено' : 'Следование за реальным временем выключено');
+        announce(tr(enable ? 'announce.followOn' : 'announce.followOff'));
         return { handled: true };
       }
       case 'fitContent': {
         const result = navigation.fitContent(paneId);
         emitter.emit('viewChange', { reason: 'fit-content', result });
-        announce('Показаны все данные');
+        announce(tr('announce.fitAll'));
         return { handled: true };
       }
       case 'toggleLogScale': {
@@ -1390,11 +1399,11 @@ export function attachInteraction(chart, options = {}) {
           return { handled: true };
         }
         if (!result.applied) {
-          announce(result.reason === 'percent-mode' ? 'Процентная шкала: переключение на логарифмическую недоступно' : 'Ценовая шкала недоступна');
+          announce(tr(result.reason === 'percent-mode' ? 'announce.percentNoLog' : 'announce.priceScaleUnavailable'));
           return { handled: result.reason === 'percent-mode' };
         }
         emitter.emit('viewChange', { reason: 'price-mode', result });
-        announce(result.mode === 'log' ? 'Логарифмическая шкала цены включена' : 'Линейная шкала цены включена');
+        announce(tr(result.mode === 'log' ? 'announce.logOn' : 'announce.logOff'));
         return { handled: true };
       }
       case 'cancel': {
@@ -1421,7 +1430,7 @@ export function attachInteraction(chart, options = {}) {
       }
       case 'contextMenu': {
         const opened = openMenu({ target: focusedMenuTarget(), point: null, invokerId: 'chart-region' });
-        if (!opened.opened) writeLive('Нет доступных действий');
+        if (!opened.opened) writeLive(tr('menu.noActions'));
         return { handled: true };
       }
       default:
@@ -1674,40 +1683,40 @@ export function attachInteraction(chart, options = {}) {
       return toolState;
     },
     setDrawingSnap(value) {
-      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Параметры привязки должны быть объектом');
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError(tr('snap.notObject'));
       const allowed = ['mode', 'threshold', 'magnet', 'magnetThreshold', 'rounding', 'step', 'sourceId', 'modifier'];
-      for (const key of Object.keys(value)) if (!allowed.includes(key)) throw new Error(`Неизвестный параметр привязки: ${key}`);
+      for (const key of Object.keys(value)) if (!allowed.includes(key)) throw new Error(tr('snap.unknownOption', { key }));
       const next = { ...drawingSnap, ...value };
-      if (!['free', 'weak', 'strong'].includes(next.mode)) throw new Error('Недопустимый режим привязки');
+      if (!['free', 'weak', 'strong'].includes(next.mode)) throw new Error(tr('snap.badMode'));
       for (const key of ['threshold', 'magnetThreshold']) {
-        if (next[key] !== undefined && (!Number.isFinite(next[key]) || next[key] < 0)) throw new Error(`${key} должен быть неотрицательным числом`);
+        if (next[key] !== undefined && (!Number.isFinite(next[key]) || next[key] < 0)) throw new Error(tr('snap.notNonNegative', { key }));
       }
       for (const key of ['magnet', 'rounding']) {
-        if (next[key] !== undefined && typeof next[key] !== 'boolean') throw new Error(`${key} должен быть логическим значением`);
+        if (next[key] !== undefined && typeof next[key] !== 'boolean') throw new Error(tr('snap.notBoolean', { key }));
       }
       if (next.modifier !== null && !SNAP_MODIFIERS.includes(next.modifier)) {
-        throw Object.assign(new Error('modifier должен быть alt, ctrl, meta или null (shift занят ограничением по горизонтали)'), { field: 'modifier' });
+        throw Object.assign(new Error(tr('snap.badModifier')), { field: 'modifier' });
       }
-      if (next.sourceId !== undefined && typeof next.sourceId !== 'string') throw new Error('sourceId должен быть строкой');
-      if (next.step !== undefined && (!Number.isFinite(next.step) || next.step <= 0)) throw new Error('Шаг цены должен быть положительным');
-      if (next.rounding === true && next.step === undefined) throw new Error('Для округления нужен шаг цены');
+      if (next.sourceId !== undefined && typeof next.sourceId !== 'string') throw new Error(tr('snap.sourceIdNotString'));
+      if (next.step !== undefined && (!Number.isFinite(next.step) || next.step <= 0)) throw new Error(tr('snap.stepNotPositive'));
+      if (next.rounding === true && next.step === undefined) throw new Error(tr('snap.roundingNeedsStep'));
       drawingSnap = next;
       return { ...drawingSnap };
     },
     getDrawingSnap() { return { ...drawingSnap }; },
     armDrawing(id, config = {}) {
       const pane = paneById(config.paneId || activePaneId);
-      if (!pane) throw new Error('Панель недоступна');
+      if (!pane) throw new Error(tr('pane.unavailable'));
       const binding = { paneId: pane.id, scaleId: config.scaleId || primaryScaleId(pane) };
       const tool = createDrawingTool(chart, id, {
-        binding, props: config.props || {}, getSnap: () => drawingSnap,
+        binding, props: config.props || {}, getSnap: () => drawingSnap, locale: uiLocale,
         announce: text => announce(text),
         complete: () => interaction.setTool(null),
       });
       ownedTools.add(tool);
       interaction.setTool(tool);
       focusElement(container);
-      announce('Стрелки перемещают курсор, Enter задаёт якорь, F завершает полилинию, Escape отменяет');
+      announce(tr('instructions.drawing'));
       return tool;
     },
     cancelGesture(reason = CANCEL_REASONS.ESCAPE) {
@@ -1740,7 +1749,7 @@ export function attachInteraction(chart, options = {}) {
           default: throw new InteractionError('Unknown keyboard button action', { code: 'INVALID_ARGUMENT', field: 'action' });
         }
         if (result?.ok === false || result?.applied === false) {
-          return { ok: false, reason: 'Действие недоступно для текущих данных или достигнут предел' };
+          return { ok: false, reason: tr('announce.actionUnavailable') };
         }
         return { ok: true, result };
       },
@@ -1805,8 +1814,8 @@ export function attachInteraction(chart, options = {}) {
   };
 
   if (options.accessibleTable === true) {
-    const section = createElement(doc, 'section', { class: 'chart-accessible-alternative', 'aria-label': 'Доступная таблица данных графика' });
-    const caption = createElement(doc, 'caption', {}, options.tableCaption || 'Данные графика');
+    const section = createElement(doc, 'section', { class: 'chart-accessible-alternative', 'aria-label': tr('chart.accessibleTable') });
+    const caption = createElement(doc, 'caption', {}, options.tableCaption || tr('chart.tableCaption'));
     const table = createElement(doc, 'table', {});
     append(table, caption);
     const head = createElement(doc, 'thead', {});

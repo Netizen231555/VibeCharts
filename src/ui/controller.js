@@ -13,10 +13,9 @@ import { createDerivedViewAccessibility } from '../interaction/derived.js';
 import { createToolbarModel, activateControl } from './controls.js';
 import { createTheme } from './theme.js';
 import { describeActionAccess } from './access.js';
+import { t, localeOf } from './messages.js';
 
 const DEFAULT_OPTIONS = Object.freeze({
-  title: 'График',
-  demoLabel: 'Демонстрационные данные',
   accessibleActions: false,
 });
 
@@ -29,6 +28,9 @@ const READ_KEYS = ['theme', 'chartType', 'indicator', 'tool', 'interval', 'follo
 
 export function createUiController(chart, options = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
+  // Resolved on every call: the chart locale may change while the UI is mounted.
+  const locale = () => localeOf(chart);
+  const tr = (key, params) => t(locale(), key, params);
   if (opts.accessibleActions !== undefined && typeof opts.accessibleActions !== 'boolean') {
     throw new InteractionError('accessibleActions must be a boolean', { code: 'INVALID_UI_OPTION', field: 'accessibleActions' });
   }
@@ -43,13 +45,14 @@ export function createUiController(chart, options = {}) {
   // The table is an opt-in view: the canvas already has its own accessible alternative.
   let tableVisible = opts.tableVisible === true;
   let message = { text: '', error: false };
-  const statusModel = createStatusModel();
+  const statusModel = createStatusModel({ locale });
   let derived = opts.derived ? createDerivedViewAccessibility({
+    locale,
     view: opts.derived,
     validateParameters: opts.validateDerivedParameters,
     onAnnounce: (event) => {
-      if (event.type === 'selectionRemoved') announce(`Выбранный элемент ${event.id} больше не существует`, { error: false });
-      if (event.type === 'invalidParameters') announce(`Параметры отклонены: ${event.message}`, { error: true });
+      if (event.type === 'selectionRemoved') announce(tr('chart.selectionRemoved', { id: event.id }), { error: false });
+      if (event.type === 'invalidParameters') announce(tr('chart.parametersRejected', { message: event.message }), { error: true });
     },
   }) : null;
   let last = {};
@@ -178,7 +181,7 @@ export function createUiController(chart, options = {}) {
   }
 
   function model() {
-    const built = createToolbarModel({ current: snapshot(), capabilities: capabilities() });
+    const built = createToolbarModel({ current: snapshot(), capabilities: capabilities(), locale: locale() });
     if (removed.size === 0) return built;
     return {
       ...built,
@@ -194,7 +197,7 @@ export function createUiController(chart, options = {}) {
   /* ------------------------------ removed actions ------------------------------ */
   // Actions the host removed on purpose stay in the model, disabled with a reason, so nothing disappears silently.
   const removed = new Map();
-  function removeActions(ids, reason = 'Снято хостом') {
+  function removeActions(ids, reason = tr('chart.removedByHost')) {
     for (const id of ids) removed.set(id, reason);
     notify('capabilities');
   }
@@ -218,11 +221,35 @@ export function createUiController(chart, options = {}) {
   }
 
   /* ---------------------------------- actions --------------------------------- */
+
+  /** Label of a rail tool as the model shows it (host-supplied labels included); the raw id for a tool outside the model. */
+  function toolLabel(id) {
+    const entry = model().groups.flatMap((group) => group.controls).find((control) => control.action === 'tool' && control.value === id);
+    return entry ? entry.label : id;
+  }
+
+  /**
+   * Properties a tool needs before its first click, since the rail has no form: annotation tools start with their
+   * own name as text (editable afterwards), data-bound tools bind to the chart's own series. When the chart has no
+   * suitable series the tool is refused with a reason instead of failing on the first click.
+   */
+  function armProps(id, label) {
+    if (id === 'text' || id === 'callout' || id === 'flag') return { props: { text: label } };
+    if (id !== 'regressionChannel' && id !== 'anchoredVwap') return { props: {} };
+    const series = typeof chart?.series?.list === 'function' ? chart.series.list().filter((entry) => entry.visible) : [];
+    const price = series.find((entry) => ['candlestick', 'bar', 'line', 'area', 'baseline'].includes(entry.type));
+    if (!price) return { refusal: tr('tool.needsPriceSeries', { tool: label }) };
+    if (id === 'regressionChannel') return { props: { seriesId: price.id, k: 2 } };
+    const volume = series.find((entry) => entry.type === 'histogram');
+    if (!volume) return { refusal: tr('tool.needsVolumeSeries', { tool: label }) };
+    return { props: { priceSeriesId: price.id, volumeSeriesId: volume.id } };
+  }
+
   function setTheme(mode) {
     assertAlive();
     createTheme(mode);
     if (typeof chart?.applyOptions !== 'function') {
-      throw new InteractionError('Управление темой графика недоступно', { code: 'CONTROL_DISABLED', field: 'theme' });
+      throw new InteractionError(tr('chart.themeUnavailable'), { code: 'CONTROL_DISABLED', field: 'theme' });
     }
     chart.applyOptions({ theme: mode });
     theme = mode;
@@ -268,7 +295,7 @@ export function createUiController(chart, options = {}) {
         if (interaction && typeof interaction.setTool === 'function' && typeof opts.createTool === 'function') {
           const tool = opts.createTool(value);
           if (!tool) {
-            announce('Инструмент недоступен', { error: true });
+            announce(tr('chart.toolUnavailable'), { error: true });
             return { ok: false, code: 'TOOL_UNAVAILABLE' };
           }
           const active = interaction.getTool && interaction.getTool();
@@ -281,8 +308,23 @@ export function createUiController(chart, options = {}) {
         }
         if (nativeDrawingAvailable()) {
           const active = interaction.getTool();
-          if (active && active.id === value) interaction.setTool(null);
-          else interaction.armDrawing(value);
+          if (active && active.id === value) {
+            interaction.setTool(null);
+            return { ok: true, tool: null };
+          }
+          const label = toolLabel(value);
+          const prepared = armProps(value, label);
+          if (prepared.refusal) {
+            announce(prepared.refusal, { error: true });
+            return { ok: false, code: 'TOOL_UNAVAILABLE' };
+          }
+          // A tool the interaction cannot arm (unknown id, rejected props) is announced with its reason, never swallowed.
+          try {
+            interaction.armDrawing(value, { props: prepared.props });
+          } catch (error) {
+            announce(tr('tool.armFailed', { tool: label, message: error.message }), { error: true });
+            return { ok: false, code: 'TOOL_UNAVAILABLE' };
+          }
           return { ok: true, tool: value };
         }
         return { ok: false, code: 'CONTROL_DISABLED' };
@@ -293,14 +335,14 @@ export function createUiController(chart, options = {}) {
         else return { ok: false, code: 'CONTROL_DISABLED' };
         // Clearing ends an unfinished construction, so no tool stays armed over an empty chart.
         if (interaction && typeof interaction.setTool === 'function' && read('tool') !== null) interaction.setTool(null);
-        announce('Рисунки очищены');
+        announce(tr('chart.drawingsCleared'));
         return { ok: true };
       case 'undo':
       case 'redo': {
         const store = chart && chart.drawings;
         if (!store || typeof store[action] !== 'function') return { ok: false, code: 'CONTROL_DISABLED' };
         const applied = store[action]();
-        if (applied === false) return { ok: false, code: 'NOTHING_TO_REVERT', reason: action === 'undo' ? 'Нечего отменять' : 'Нечего повторять' };
+        if (applied === false) return { ok: false, code: 'NOTHING_TO_REVERT', reason: tr(action === 'undo' ? 'reason.undo' : 'reason.redo') };
         return { ok: true };
       }
       case 'panLeft':
@@ -327,7 +369,7 @@ export function createUiController(chart, options = {}) {
         return { ok: false, code: 'CONTROL_DISABLED' };
       case 'logScale': {
         const result = interaction.toggleLogScale();
-        if (!result.applied) return { ok: false, code: 'SCALE_UNAVAILABLE', reason: 'Ценовая шкала недоступна' };
+        if (!result.applied) return { ok: false, code: 'SCALE_UNAVAILABLE', reason: tr('chart.scaleUnavailable') };
         return { ok: true, mode: result.mode };
       }
       case 'drawingSnap': {
@@ -349,7 +391,7 @@ export function createUiController(chart, options = {}) {
   function run(controlId, value) {
     assertAlive();
     const built = model();
-    const activation = activateControl(built, controlId);
+    const activation = activateControl(built, controlId, { locale: locale() });
     if (!activation.ok) {
       announce(activation.reason);
       return { ok: false, reason: activation.reason };
@@ -397,7 +439,7 @@ export function createUiController(chart, options = {}) {
     const source = rowsSource();
     if (!source) return null;
     const rows = source();
-    return buildTableModel(rows, { caption: opts.tableCaption || 'Данные графика', series: seriesForTable(rows) });
+    return buildTableModel(rows, { caption: opts.tableCaption || tr('chart.tableCaption'), series: seriesForTable(rows), locale: locale() });
   }
 
   /* ----------------------------------- panes ----------------------------------- */
@@ -422,7 +464,7 @@ export function createUiController(chart, options = {}) {
         if (!Array.isArray(indicators)) throw new Error('invalid indicator list');
       } catch {
         indicators = [];
-        errors.push('Состояние индикаторов недоступно.');
+        errors.push(tr('chart.indicatorsUnavailable'));
       }
       for (const indicator of indicators) {
         try {
@@ -432,10 +474,10 @@ export function createUiController(chart, options = {}) {
           if (!Array.isArray(details)) throw new Error('invalid indicator error state');
           if (details.length) {
             const fields = [...new Set(details.map((item) => item.field).filter((field) => typeof field === 'string' && field))];
-            errors.push(`Индикатор ${indicator.id}: ошибка вычисления${fields.length ? ` (${fields.join(', ')})` : ''}. Проверьте источник и параметры.`);
+            errors.push(tr('chart.indicatorError', { id: indicator.id, fields: fields.length ? ` (${fields.join(', ')})` : '' }));
           }
         } catch {
-          errors.push(`Индикатор ${indicator.id}: состояние ошибки недоступно.`);
+          errors.push(tr('chart.indicatorErrorUnavailable', { id: indicator.id }));
         }
       }
     }
@@ -521,6 +563,9 @@ export function createUiController(chart, options = {}) {
     chart,
     interaction,
     options: opts,
+    /** Translates a UI string for the chart locale at the moment of the call. */
+    t: tr,
+    locale,
     get destroyed() { return destroyed; },
     get(key) { return read(key); },
     snapshot,

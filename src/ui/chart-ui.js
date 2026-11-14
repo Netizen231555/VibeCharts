@@ -13,7 +13,7 @@
 import { InteractionError } from '../interaction/errors.js';
 import { createElement, append, setStyle } from '../interaction/dom.js';
 import { isFiniteNumber } from '../interaction/geometry.js';
-import { ABSENT } from '../interaction/a11y.js';
+import { absentText } from '../interaction/messages.js';
 import { createUiController } from './controller.js';
 import { REGIONS, validateLayout, isRemoved } from './layout-config.js';
 import { BUILTIN_PART_FACTORIES } from './parts/index.js';
@@ -85,7 +85,7 @@ export function createChartUI(chart, options = {}) {
     controller.resetRemovedActions();
     const controlIds = controller.model().groups.flatMap((group) => group.controls.map((control) => control.id));
     controller.removeActions(controlIds.filter((id) => isRemoved(forPlan.without, id)));
-    if (!forPlan.parts.has('dataTable')) controller.removeActions(['accessibleTable'], 'Таблица данных не включена в раскладке');
+    if (!forPlan.parts.has('dataTable')) controller.removeActions(['accessibleTable'], controller.t('chart.tableNotInLayout'));
   }
 
   function mountPart(part, region, regionElement, forPlan, before = null) {
@@ -289,8 +289,9 @@ export function createChartUI(chart, options = {}) {
     get demo() { return options.demo === true; },
     themeNames: ['light', 'dark'],
     tokens: THEMES,
-    directionLabel,
-    absent: ABSENT,
+    // Bound to the chart locale; the standalone export takes the locale explicitly.
+    directionLabel: (open, close) => directionLabel(open, close, controller.locale()),
+    get absent() { return absentText(controller.locale()); },
   };
   return ui;
 }

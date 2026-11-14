@@ -10,6 +10,7 @@
  */
 import { InteractionError } from './errors.js';
 import { clamp, isFiniteNumber } from './geometry.js';
+import { translate, resolveLocale } from './messages.js';
 import { createEmitter } from './emitter.js';
 
 function normalizePanes(panes, defaults = {}) {
@@ -47,7 +48,7 @@ function clone(list) {
   return list.map((pane) => ({ ...pane }));
 }
 
-export function createPaneLayout({ panes, separatorHeight = 4, containerHeight = null, minHeight = 24 } = {}) {
+export function createPaneLayout({ panes, separatorHeight = 4, containerHeight = null, minHeight = 24, locale } = {}) {
   const emitter = createEmitter();
   let committed = normalizePanes(panes, { height: 120, minHeight }).sort((a, b) => a.order - b.order);
   let preview = null;
@@ -130,7 +131,7 @@ export function createPaneLayout({ panes, separatorHeight = 4, containerHeight =
       const pane = find(committed, id);
       if (!pane.visible) return { ok: false, code: 'ALREADY_HIDDEN', paneId: id };
       if (committed.filter((entry) => entry.visible).length <= 1) {
-        return { ok: false, code: 'LAST_VISIBLE_PANE', paneId: id, reason: 'Нельзя скрыть единственную видимую панель' };
+        return { ok: false, code: 'LAST_VISIBLE_PANE', paneId: id, reason: translate(resolveLocale(locale), 'pane.lastVisible') };
       }
       return { ok: true, paneId: id };
     },
@@ -247,7 +248,7 @@ export function createPaneLayout({ panes, separatorHeight = 4, containerHeight =
         value: nextHeight,
         min: pane.minHeight,
         max,
-        text: announce ? `Высота панели ${nextHeight} пикселей, минимум ${pane.minHeight}, максимум ${max === null ? 'не ограничен' : max}` : null,
+        text: announce ? translate(resolveLocale(locale), 'pane.height', { height: nextHeight, min: pane.minHeight, max: max === null ? translate(resolveLocale(locale), 'pane.unbounded') : max }) : null,
       };
       emitChange('resize', { paneId: id, height: nextHeight, announcement });
       return { ok: true, paneId: id, height: nextHeight, min: pane.minHeight, max, announcement };

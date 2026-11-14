@@ -133,7 +133,7 @@ one at attach time.
 ```ts
 {
   id: string;
-  type: string;                       // trendLine, ray, line, horizontalLine,
+  type: string;                       // segment, ray, line, horizontalLevel,
                                       // horizontalRay, verticalLine, rectangle,
                                       // ellipse, fibRetracement, fibExtension,
                                       // fibFan, fibArcs, fibZones, polyline,
@@ -195,6 +195,7 @@ chart's own index scale.
 - Alert level lines (`chart.alertUI.hitTest`) are draggable with a mouse or pen: pointer down on a line selects the alert and starts a vertical drag (`chart.alertUI.beginDrag(id)` returns `{ move(point), commit(point), cancel() }`, or `null` when the line is not a constant-threshold level). A preview line follows the pointer; only a release after a real move commits the new price through `alertUI.edit` → `engine.update(id, { <constant side>: { ...source, value } }, revision)`. A rejected update (stale revision, backend-authority alert, invalid value) is reported through the `error` event and the error region, the preview is dropped and the line stays at the stored price. Escape, pointer cancel or lost capture cancels without touching the engine. A click without movement only selects. Touch keeps tap-to-select; a touch drag pans the chart.
 - `options.locale`, `options.timeZone` — formatting for time labels and the
   accessible table; without `timeZone` labels are UTC and say `UTC`.
+- Interface language: every user-visible string (instructions, aria-labels, menu labels, announcements, readout field names, errors) follows `options.locale ?? chart.locale` — any `ru` locale selects Russian, otherwise English — via `src/interaction/messages.js`; a missing key throws. The former constants are functions: `DEFAULT_INSTRUCTIONS` → `defaultInstructions(locale)`, `ABSENT` / `ABSENT_TEXT` → `absentText(locale)`, `keyboard.labels` → `keyboard.labels(locale)`, `actionLabel(action, locale)`. `createStatusModel`, `createDerivedViewAccessibility`, `createPaneLayout`, `createDrawingTool` accept `locale` (a string, or a function resolved at use time); `buildMenuItems`, `createContextMenu`, `buildReadout`, `buildTableModel` accept a string `locale`.
 
 ## Interaction-owned DOM
 
@@ -214,7 +215,7 @@ the accessible table retains slot IDs, time and trading date.
 
 ## Context menu
 
-`buildMenuItems({ target, capabilities })` returns only the actions that can act on the target kind (`plot`/`drawing`: fit, return to last bar, price auto-scale; `priceAxis`: auto-scale, the opposite price-scale side, inversion, log toggle on the primary non-percent scale; `indexAxis` and `chart`: fit, return to last bar), plus hide/move-up/move-down of the pane while more than one pane is visible (move-up is omitted on the first pane, move-down on the last). Items carry no `enabled`/`reason`; checkable ones (`invertPriceScale`, `toggleLogScale`) carry `checked`. An empty list opens no menu: `menu.open()` returns `{ opened: false, reason: 'no-items' }`, and the keyboard `contextMenu` action announces «Нет доступных действий» through the live region. `interaction.toggleLogScale(paneId?)` / `getPriceScaleMode(paneId?)` give the UI the same primary-scale toggle as the `toggleLogScale` binding.
+`buildMenuItems({ target, capabilities })` returns only the actions that can act on the target kind (`plot`/`drawing`: fit, return to last bar, price auto-scale; `priceAxis`: auto-scale, the opposite price-scale side, inversion, log toggle on the primary non-percent scale; `indexAxis` and `chart`: fit, return to last bar), plus hide/move-up/move-down of the pane while more than one pane is visible (move-up is omitted on the first pane, move-down on the last). Items carry no `enabled`/`reason`; checkable ones (`invertPriceScale`, `toggleLogScale`) carry `checked`. An empty list opens no menu: `menu.open()` returns `{ opened: false, reason: 'no-items' }`, and the keyboard `contextMenu` action announces the localized `menu.noActions` message through the live region. `interaction.toggleLogScale(paneId?)` / `getPriceScaleMode(paneId?)` give the UI the same primary-scale toggle as the `toggleLogScale` binding.
 
 ## Events
 

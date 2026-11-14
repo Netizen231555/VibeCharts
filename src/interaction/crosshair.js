@@ -9,6 +9,7 @@
  */
 import { isFiniteNumber } from './geometry.js';
 import { createEmitter } from './emitter.js';
+import { absentText } from './messages.js';
 
 const EMPTY_SERIES = Object.freeze({ present: false, values: null });
 
@@ -169,7 +170,7 @@ export function formatOffset(value, locale) {
  * `priceFormatter(seriesId | null, value)` (null = the crosshair price) takes
  * precedence over `priceDigits`, so a host can format by series metadata.
  */
-export function buildReadout(payload, { absent = 'нет данных', timeFormatter = null, priceDigits = null, priceFormatter = null, volumeDigits = null, priceUnit = null, volumeUnit = null, locale } = {}) {
+export function buildReadout(payload, { locale, absent = absentText(locale), timeFormatter = null, priceDigits = null, priceFormatter = null, volumeDigits = null, priceUnit = null, volumeUnit = null } = {}) {
   if (!payload || payload.visible !== true) return null;
   const rows = [];
   const priceText = (value, seriesId = null) => {

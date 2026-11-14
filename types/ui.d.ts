@@ -1,6 +1,21 @@
 import type { Chart, ChartUIOptions, UIHandle, UiController, UiLayout, UiPresetName, UiRegion } from './index.js';
 export type { ChartUIOptions, UIHandle, UiController, UiLayout, UiPartContext, UiPartFactory, UiPartInstance, UiPartSpec, UiPresetName, UiRegion } from './index.js';
 
+/** Group of a drawing-rail tool; the rail draws a thin separator where the group changes. */
+export type DrawingRailGroup = 'lines' | 'channels' | 'shapes' | 'annotations' | 'analysis';
+/** Rail tool id: exactly the key of the drawing library tool it arms (`chart.interaction.armDrawing(id)`). */
+export type DrawingRailToolId =
+  | 'segment' | 'ray' | 'line' | 'horizontalLevel' | 'horizontalRay' | 'verticalLine' | 'arrow' | 'angle' | 'polyline' | 'brush' | 'bezier'
+  | 'parallelChannel' | 'regressionChannel' | 'pitchfork' | 'fibRetracement' | 'fibExtension' | 'fibFan' | 'fibArcs' | 'fibTimeZones'
+  | 'rectangle' | 'ellipse' | 'triangle'
+  | 'text' | 'callout' | 'flag' | 'priceLabel' | 'marker'
+  | 'measure' | 'anchoredVwap';
+export interface DrawingRailTool {
+  readonly id: DrawingRailToolId;
+  readonly group: DrawingRailGroup;
+  readonly labelKey: string;
+}
+
 export function createChartUI(chart: Chart, options?: ChartUIOptions): UIHandle;
 export function createUiController(chart: Chart, options?: Record<string, unknown>): UiController;
 export function validateLayout(
@@ -24,7 +39,7 @@ export const BUILTIN_PARTS: Readonly<Record<string, { regions: readonly UiRegion
 export const STATE_KEYS: readonly string[];
 export const ICON_NAMES: readonly string[];
 export const CHART_TYPES: readonly string[];
-export const DRAWING_TOOLS: readonly string[];
+export const DRAWING_TOOLS: readonly DrawingRailTool[];
 export const INDICATORS: readonly string[];
 export const NARROW_WIDTH: number;
 export const THEMES: Readonly<Record<string, Record<string, string>>>;

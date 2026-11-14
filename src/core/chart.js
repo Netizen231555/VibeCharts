@@ -23,6 +23,7 @@ import {
 import { axisColumns, computeLayout } from '../render/layout.js';
 import { drawChart } from '../render/canvas.js';
 import { resolveTheme } from '../render/theme.js';
+import { translate } from './messages.js';
 
 export const SERIES_TYPES = Object.freeze([
   'candlestick',
@@ -760,7 +761,7 @@ export class Chart {
   }
 
   _paneConflictMessage(pane, view) {
-    return `Панель ${pane.id}: независимый вид ${view.id} нельзя показать вместе с обычными сериями или другими видами; вынесите его в отдельную панель или скройте остальные`;
+    return translate(this._options.locale, 'pane.viewConflict', { paneId: pane.id, viewId: view.id });
   }
 
   /** Emits one `error` per newly appeared (pane, view) conflict. */

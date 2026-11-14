@@ -1,0 +1,15 @@
+/* Plain dark stage: the chart is a fixed-size block so a screenshot of its element id has exact pixel dimensions. */
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #0b0f14; }
+body { padding: 32px; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #cdd5dd; }
+#stage { display: flex; flex-direction: column; gap: 32px; width: max-content; }
+
+/* The whole chart UI (top bar, rail, plot, status line) fits into 1280x720; the plot takes what the chrome leaves. */
+#hero { width: 1280px; height: 720px; overflow: hidden; }
+#hero-chart { min-width: 0; min-height: 0; }
+
+#gallery-error { position: fixed; right: 16px; bottom: 16px; max-width: 640px; padding: 12px 16px; border: 1px solid #d9645a; border-radius: 6px; background: #2a1517; color: #ffd9d5; font-weight: 600; white-space: pre-wrap; }
+#gallery-error p { margin: 0; }
+#gallery-error p + p { margin-top: 8px; }
+#gallery-error[hidden] { display: none; }

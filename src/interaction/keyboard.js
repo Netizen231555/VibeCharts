@@ -6,8 +6,7 @@
  * also requires the chart region itself to hold focus or be hit by the pointer.
  */
 import { InteractionError } from './errors.js';
-
-export const ABSENT_TEXT = 'нет данных';
+import { translate, absentText, resolveLocale } from './messages.js';
 
 const RESERVED_KEYS = new Set(['tab', 'space', 'backspace', 'browserback', 'browserforward']);
 
@@ -38,26 +37,19 @@ export const DEFAULT_BINDINGS = Object.freeze({
   // plus explicit aliases handled by the resolver.
 });
 
-const ACTION_LABELS = Object.freeze({
-  panLeft: 'Шаг влево по времени',
-  panRight: 'Шаг вправо по времени',
-  zoomIn: 'Увеличить масштаб',
-  zoomOut: 'Уменьшить масштаб',
-  priceZoomIn: 'Увеличить ценовой масштаб',
-  priceZoomOut: 'Уменьшить ценовой масштаб',
-  priceAuto: 'Автомасштаб цены активной панели',
-  follow: 'Следование за реальным временем',
-  fitContent: 'Показать все данные активной панели',
-  toggleLogScale: 'Логарифмическая шкала цены',
-  cancel: 'Отменить жест или построение',
-  contextMenu: 'Открыть меню графика',
-  toggleCrosshair: 'Перекрестие с клавиатуры',
-  crosshairPrev: 'Предыдущий слот',
-  crosshairNext: 'Следующий слот',
-});
+// Action ids are the stable contract; their user-facing labels live in the
+// messages tables under `keyboard.<id>` and are resolved per locale on demand.
+const ACTION_IDS = Object.freeze([
+  'panLeft', 'panRight', 'zoomIn', 'zoomOut', 'priceZoomIn', 'priceZoomOut', 'priceAuto', 'follow',
+  'fitContent', 'toggleLogScale', 'cancel', 'contextMenu', 'toggleCrosshair', 'crosshairPrev', 'crosshairNext',
+]);
 
-export function actionLabel(action) {
-  return ACTION_LABELS[action] || action;
+function labelsFor(locale) {
+  return Object.freeze(Object.fromEntries(ACTION_IDS.map((action) => [action, translate(locale, `keyboard.${action}`)])));
+}
+
+export function actionLabel(action, locale) {
+  return ACTION_IDS.includes(action) ? translate(locale, `keyboard.${action}`) : action;
 }
 
 export function normalizeKeyName(key) {
@@ -143,7 +135,7 @@ export function createKeyboard({ bindings = {}, crosshair = null } = {}) {
     actionToChord = new Map();
     for (const [action, chord] of Object.entries(DEFAULT_BINDINGS)) actionToChord.set(action, chord);
     for (const [action, chord] of Object.entries(next || {})) {
-      if (!Object.hasOwn(ACTION_LABELS, action)) {
+      if (!ACTION_IDS.includes(action)) {
         throw new InteractionError(`Unknown keyboard action ${action}`, { code: 'INVALID_BINDING', field: 'bindings', action });
       }
       if (chord === null || chord === undefined) actionToChord.delete(action);
@@ -239,7 +231,7 @@ export function createKeyboard({ bindings = {}, crosshair = null } = {}) {
       if (!crosshairActive && crosshair) crosshair.clear();
       return crosshairActive;
     },
-    labels: ACTION_LABELS,
+    labels: labelsFor,
   };
   return keyboard;
 }
@@ -248,7 +240,7 @@ export function createKeyboard({ bindings = {}, crosshair = null } = {}) {
  * Sequential navigation over existing slots in host order, independent of
  * whether slots carry time. Descriptions list only provided values.
  */
-export function createCrosshairNavigation({ getSlots, getValues, describe: describeValue = null, onSelect = () => {}, absent = ABSENT_TEXT, isDerived = () => false, sourceBarId = (id) => id }) {
+export function createCrosshairNavigation({ getSlots, getValues, describe: describeValue = null, onSelect = () => {}, locale, absent: explicitAbsent = null, isDerived = () => false, sourceBarId = (id) => id }) {
   let selectedBarId = null;
 
   function slots() {
@@ -270,6 +262,8 @@ export function createCrosshairNavigation({ getSlots, getValues, describe: descr
   }
 
   function describe(barId) {
+    // `locale` may be a function; the marker is resolved per description, not once.
+    const absent = explicitAbsent ?? absentText(resolveLocale(locale));
     const slot = slots().find((entry) => entry.barId === barId);
     const derived = isDerived();
     // A derived element is not a time slot: it reports its source completion bar and no time.

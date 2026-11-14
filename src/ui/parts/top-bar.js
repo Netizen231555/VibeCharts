@@ -11,10 +11,6 @@
 import { createElement, append, on, contains } from '../../interaction/dom.js';
 import { createIcon, hasIcon } from '../icons.js';
 
-const NO_REASON = 'Действие недоступно';
-const NO_INDICATOR = 'Без индикатора';
-const NOT_CHOSEN = 'Не выбран';
-const HISTORY_LABEL = 'История рисунков';
 
 let instances = 0;
 
@@ -31,8 +27,14 @@ function findControl(model, id) {
   return null;
 }
 
-/** Icon node for a control value, or `null` when the set has no such icon (the text label still names the control). */
-function iconFor(doc, name, size) {
+/** Icon name of a control: chart types live under their own prefix because a tool can share their id. */
+function controlIconName(control) {
+  return control.action === 'chartType' ? `chartType.${control.value}` : control.value;
+}
+
+/** Icon node for a control, or `null` when the set has no such icon (the text label still names the control). */
+function iconFor(doc, control, size) {
+  const name = controlIconName(control);
   return hasIcon(name) ? createIcon(doc, name, { size }) : null;
 }
 
@@ -43,13 +45,13 @@ function iconFor(doc, name, size) {
  * that turns disabled would drop keyboard focus, so it keeps focus (and
  * refuses with an announced reason on activation) until it is left.
  */
-function paintAvailability(doc, element, reasonNode, control, { native }) {
+function paintAvailability(doc, element, reasonNode, control, { native, t }) {
   const unavailable = control.enabled === false;
-  const reason = unavailable ? (control.reason || NO_REASON) : '';
+  const reason = unavailable ? (control.reason || t('ui.actionUnavailable')) : '';
   if (unavailable) element.setAttribute('aria-disabled', 'true');
   else element.removeAttribute('aria-disabled');
   element.setAttribute('title', unavailable ? `${control.label}: ${reason}` : control.label);
-  reasonNode.textContent = unavailable ? ` (недоступно: ${reason})` : '';
+  reasonNode.textContent = unavailable ? t('ui.unavailableSuffix', { reason }) : '';
   if (!native) return;
   element.disabled = unavailable && doc.activeElement !== element;
 }
@@ -98,7 +100,7 @@ function createMenuButton(doc, { id, groupLabel, itemRole, controls, onSelect, o
     // The check mark is a shape, so the chosen entry is not told apart by colour alone.
     const check = createElement(doc, 'span', { class: 'chart-ui-topbar-check', hidden: true });
     append(check, createIcon(doc, 'check', { size: 16 }));
-    const icon = iconFor(doc, control.value, 18);
+    const icon = iconFor(doc, control, 18);
     const text = createElement(doc, 'span', { class: 'chart-ui-topbar-item-text' }, control.label);
     const reason = reasonSpan(doc);
     append(button, check, icon, text, reason);
@@ -193,7 +195,7 @@ export function createTopBar(controller, context) {
   const root = createElement(doc, 'div', {
     class: 'chart-ui-bar chart-ui-topbar',
     role: 'toolbar',
-    'aria-label': 'Параметры графика',
+    'aria-label': controller.t('top.label'),
   });
 
   const title = createElement(doc, 'span', { class: 'chart-ui-topbar-title' });
@@ -239,12 +241,12 @@ export function createTopBar(controller, context) {
     menus.push(menu);
     append(root, menu.element);
   }
-  addMenu('type', 'chartType', 'menuitemradio', NOT_CHOSEN);
-  addMenu('indicator', 'indicators', 'menuitemcheckbox', NO_INDICATOR);
+  addMenu('type', 'chartType', 'menuitemradio', controller.t('top.notChosen'));
+  addMenu('indicator', 'indicators', 'menuitemcheckbox', controller.t('top.noIndicator'));
 
   /* ----------------------------------- undo ----------------------------------- */
   const history = [];
-  const historyGroup = createElement(doc, 'div', { class: 'chart-ui-group chart-ui-topbar-history', role: 'group', 'aria-label': HISTORY_LABEL });
+  const historyGroup = createElement(doc, 'div', { class: 'chart-ui-group chart-ui-topbar-history', role: 'group', 'aria-label': controller.t('top.history') });
   for (const [id, icon] of [['undo', 'undo'], ['redo', 'redo']]) {
     const control = findControl(initial, id);
     if (!control) continue;
@@ -265,7 +267,7 @@ export function createTopBar(controller, context) {
     const { controls } = groupControls(model, menu.groupId);
     const current = controls.find((control) => control.pressed === true);
     menu.value.textContent = current ? current.label : menu.emptyText;
-    const iconName = current && hasIcon(current.value) ? current.value : null;
+    const iconName = current && hasIcon(controlIconName(current)) ? controlIconName(current) : null;
     if (iconName !== menu.iconName) {
       menu.iconName = iconName;
       while (menu.triggerIcon.firstChild) menu.triggerIcon.removeChild(menu.triggerIcon.firstChild);
@@ -277,7 +279,7 @@ export function createTopBar(controller, context) {
       entry.button.setAttribute('aria-checked', control.pressed ? 'true' : 'false');
       if (control.pressed) entry.check.removeAttribute('hidden');
       else entry.check.setAttribute('hidden', '');
-      paintAvailability(doc, entry.button, entry.reason, control, { native: false });
+      paintAvailability(doc, entry.button, entry.reason, control, { native: false, t: controller.t });
     }
     // The trigger is unavailable only when no entry can act; the first reason explains it.
     const blocked = controls.length > 0 && controls.every((control) => control.enabled === false);
@@ -286,12 +288,12 @@ export function createTopBar(controller, context) {
       label: menu.groupLabel,
       enabled: !blocked,
       reason: blocked ? controls[0].reason : null,
-    }, { native: true });
+    }, { native: true, t: controller.t });
   }
 
   function update() {
     const model = controller.model();
-    const text = controller.options.title;
+    const text = controller.options.title ?? controller.t('chart.title');
     if (title.textContent !== text) {
       title.textContent = text;
       title.setAttribute('title', text);
@@ -303,13 +305,13 @@ export function createTopBar(controller, context) {
         const index = [...interval.select.options].findIndex((option) => option.value === current);
         // No matching option leaves the select empty: an interval the host never chose is not invented.
         if (interval.select.selectedIndex !== index) interval.select.selectedIndex = index;
-        paintAvailability(doc, interval.select, interval.reason, control, { native: true });
+        paintAvailability(doc, interval.select, interval.reason, control, { native: true, t: controller.t });
       }
     }
     for (const menu of menus) updateMenu(menu, model);
     for (const entry of history) {
       const control = findControl(model, entry.id);
-      if (control) paintAvailability(doc, entry.button, entry.reason, control, { native: true });
+      if (control) paintAvailability(doc, entry.button, entry.reason, control, { native: true, t: controller.t });
     }
   }
   update();

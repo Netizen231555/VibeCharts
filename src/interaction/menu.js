@@ -9,6 +9,7 @@
  */
 import { InteractionError } from './errors.js';
 import { createEmitter } from './emitter.js';
+import { translate } from './messages.js';
 
 export const MENU_ACTION_IDS = Object.freeze([
   'fitContent',
@@ -27,23 +28,10 @@ function hasPane(target) {
   return target && typeof target.paneId === 'string' && target.paneId.length > 0;
 }
 
-const ITEM_LABELS = Object.freeze({
-  fitContent: 'Подогнать данные',
-  scrollToRealTime: 'Вернуться к последнему бару',
-  priceAutoScale: 'Автомасштаб цены',
-  priceScaleLeft: 'Ценовая шкала слева',
-  priceScaleRight: 'Ценовая шкала справа',
-  invertPriceScale: 'Инвертировать ценовую шкалу',
-  toggleLogScale: 'Логарифмическая шкала',
-  hidePane: 'Скрыть панель',
-  movePaneUp: 'Переместить панель выше',
-  movePaneDown: 'Переместить панель ниже',
-});
-
 /**
  * @returns {Array<{id:string,label:string,checked?:boolean}>} possibly empty: the caller shows no menu then
  */
-export function buildMenuItems({ target, capabilities = {} } = {}) {
+export function buildMenuItems({ target, capabilities = {}, locale } = {}) {
   if (!target || typeof target !== 'object') {
     throw new InteractionError('Context menu requires a hit-test target', { code: 'INVALID_MENU_TARGET', field: 'target' });
   }
@@ -78,14 +66,14 @@ export function buildMenuItems({ target, capabilities = {} } = {}) {
     if (capabilities.canMoveDown === true) ids.push('movePaneDown');
   }
   return ids.map((id) => {
-    const item = { id, label: ITEM_LABELS[id] };
+    const item = { id, label: translate(locale, `menu.${id}`) };
     if (id === 'invertPriceScale') item.checked = target.inverted === true;
     if (id === 'toggleLogScale') item.checked = capabilities.priceMode === 'log';
     return item;
   });
 }
 
-export function createContextMenu({ target, items, actions = {}, isAvailable = () => true, onClose = () => {} } = {}) {
+export function createContextMenu({ target, items, actions = {}, isAvailable = () => true, onClose = () => {}, locale } = {}) {
   if (!Array.isArray(items) || items.length === 0) {
     throw new InteractionError('Context menu requires items', { code: 'INVALID_MENU', field: 'items' });
   }
@@ -158,7 +146,7 @@ export function createContextMenu({ target, items, actions = {}, isAvailable = (
       const item = items[index];
       const action = actions[id];
       if (typeof action !== 'function') {
-        return { ok: false, code: 'ACTION_UNAVAILABLE', id, reason: 'Действие не подключено' };
+        return { ok: false, code: 'ACTION_UNAVAILABLE', id, reason: translate(locale, 'menu.actionNotConnected') };
       }
       const result = action({ target, item });
       close({ reason: 'action' });

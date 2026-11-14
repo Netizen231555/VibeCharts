@@ -1,6 +1,9 @@
 /**
  * drawingRail: icon column of drawing tools, a cursor button that drops the
- * active tool, and a separated "clear drawings" button.
+ * active tool, and a separated "clear drawings" button. Tools are separated
+ * by a thin rule wherever their `group` changes. Past `GRID_THRESHOLD` tools
+ * the column becomes a two-column grid of compact buttons (still one toolbar
+ * in DOM order) and scrolls vertically when it is taller than the chart.
  *
  * The rail is one Tab stop (roving tabindex) with arrow-key navigation. Buttons
  * that cannot act stay focusable (`aria-disabled`, not `disabled`) so their
@@ -11,8 +14,8 @@
 import { createElement, append, on, contains } from '../../interaction/dom.js';
 import { createIcon, hasIcon } from '../icons.js';
 
-const CURSOR_LABEL = 'Курсор';
-const NO_REASON = 'Действие недоступно';
+// More tools than this switch the rail to the two-column grid.
+const GRID_THRESHOLD = 12;
 
 export function createDrawingRail(controller, context) {
   const doc = context.document;
@@ -23,17 +26,17 @@ export function createDrawingRail(controller, context) {
   const clearControl = initial.groups.flatMap((group) => group.controls).find((control) => control.id === 'clearDrawings') || null;
 
   const root = createElement(doc, 'div', {
-    class: 'chart-ui-bar chart-ui-rail',
+    class: `chart-ui-bar chart-ui-rail${tools.length > GRID_THRESHOLD ? ' chart-ui-rail-grid' : ''}`,
     role: 'toolbar',
     'aria-orientation': 'vertical',
-    'aria-label': 'Инструменты рисования',
+    'aria-label': controller.t('rail.label'),
   });
   const tip = createElement(doc, 'div', { class: 'chart-ui-tip chart-ui-rail-tip', 'aria-hidden': 'true', hidden: true });
 
-  /** @type {Array<{ kind: 'cursor'|'tool'|'clear', controlId: string|null, button: HTMLElement, label: string, reason: HTMLElement }>} */
+  /** @type {Array<{ kind: 'cursor'|'tool'|'clear', controlId: string|null, group: string|null, button: HTMLElement, label: string, reason: HTMLElement }>} */
   const items = [];
 
-  function addItem(kind, controlId, label, iconName) {
+  function addItem(kind, controlId, label, iconName, group = null) {
     const button = createElement(doc, 'button', {
       type: 'button',
       class: 'chart-ui-btn chart-ui-rail-btn',
@@ -46,20 +49,20 @@ export function createDrawingRail(controller, context) {
     const reason = createElement(doc, 'span', { class: 'chart-ui-sr' });
     append(button, reason);
     if (kind !== 'clear') button.setAttribute('aria-pressed', 'false');
-    const item = { kind, controlId, button, label, reason };
+    const item = { kind, controlId, group, button, label, reason };
     items.push(item);
     return item;
   }
 
-  if (tools.length > 0) addItem('cursor', null, CURSOR_LABEL, 'cursor');
-  for (const control of tools) addItem('tool', control.id, control.label, control.value);
-  let clearItem = null;
-  if (clearControl) clearItem = addItem('clear', clearControl.id, clearControl.label, 'clear');
+  if (tools.length > 0) addItem('cursor', null, controller.t('rail.cursor'), 'cursor', 'cursor');
+  for (const control of tools) addItem('tool', control.id, control.label, control.value, control.group ?? null);
+  if (clearControl) addItem('clear', clearControl.id, clearControl.label, 'clear', 'clear');
 
-  for (const item of items) {
-    if (item === clearItem && items.length > 1) append(root, createElement(doc, 'span', { class: 'chart-ui-sep', 'aria-hidden': 'true' }));
+  // A rule between groups; tools without a group (host-supplied sets) form one run and get no inner rules.
+  items.forEach((item, index) => {
+    if (index > 0 && item.group !== items[index - 1].group) append(root, createElement(doc, 'span', { class: 'chart-ui-sep', 'aria-hidden': 'true' }));
     append(root, item.button);
-  }
+  });
   append(root, tip);
 
   /* ----------------------------------- tip ----------------------------------- */
@@ -142,7 +145,7 @@ export function createDrawingRail(controller, context) {
     if (controller.get('tool') === null) return;
     const control = activeToolControl();
     if (!control) {
-      controller.announce(`Активный инструмент "${controller.get('tool')}" нельзя снять из колонки рисования`, { error: true });
+      controller.announce(controller.t('rail.cannotDrop', { tool: controller.get('tool') }), { error: true });
       return;
     }
     controller.run(control.id);
@@ -164,12 +167,12 @@ export function createDrawingRail(controller, context) {
   /* ---------------------------------- update ---------------------------------- */
   function paint(item, control) {
     const unavailable = control.enabled === false;
-    const reason = unavailable ? (control.reason || NO_REASON) : '';
+    const reason = unavailable ? (control.reason || controller.t('ui.actionUnavailable')) : '';
     if (unavailable) item.button.setAttribute('aria-disabled', 'true');
     else item.button.removeAttribute('aria-disabled');
     if (unavailable) item.button.setAttribute('title', reason);
     else item.button.removeAttribute('title');
-    item.reason.textContent = unavailable ? ` (недоступно: ${reason})` : '';
+    item.reason.textContent = unavailable ? controller.t('ui.unavailableSuffix', { reason }) : '';
     if (tipTarget === item) showTip(item);
   }
 

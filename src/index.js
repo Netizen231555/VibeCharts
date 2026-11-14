@@ -33,7 +33,8 @@ export function createChart(container, options = {}) {
   }
   const host = createDomHost(container, {
     autoSize: options?.autoSize,
-    accessibilityLabel: options?.accessibilityLabel
+    accessibilityLabel: options?.accessibilityLabel,
+    locale: options?.locale
   });
   try {
     const chart = new Chart(host, options ?? {});

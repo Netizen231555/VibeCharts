@@ -2,6 +2,18 @@ import { createDrawingStore } from '../drawings/index.js';
 import { drawLayout, drawPrimitive } from '../drawings/render.js';
 import { DRAWING_RESTORE_HOOKS } from '../drawings/store.js';
 import { createModuleScope } from '../core/module-scope.js';
+import { translate } from './messages.js';
+import { formatPrice, priceDecimals } from '../render/axes.js';
+
+// Drawing texts use the same price formatting as the axis labels: the step of the first series on the drawing's scale decides the decimals.
+function scaleMetadata(chart, binding) {
+  const entries = chart.series.list().filter(entry => entry.paneId === binding?.paneId && entry.priceScaleId === binding?.scaleId);
+  for (const entry of entries) {
+    const metadata = chart.series(entry.id).metadata();
+    if (metadata && priceDecimals(metadata.priceStep) !== null) return metadata;
+  }
+  return entries.length > 0 ? chart.series(entries[0].id).metadata() : null;
+}
 
 export function attachDrawings(chart, { context, historyLimit = 100, alertEngine = null, drawingChartId } = {}) {
   const surface = chart.surface;
@@ -25,7 +37,17 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
       return barId === null ? null : { barId };
     },
     indexOf: (id, binding) => paneContext(binding).scale.barIdToIndex(id),
-    getSeriesValues: id => chart.series(id).data(),
+    // Drawing analytics consume {index, value}; a barId without a timeline index stays null so the analytics reports an invalid series.
+    getSeriesValues: id => chart.series(id).data().map(point => ({ index: chart.timeline.indexOf(point.barId), value: point.value ?? point.close })),
+    formatPrice: (price, binding) => formatPrice(price, {
+      priceScale: chart.priceScale(binding.paneId, binding.scaleId), metadata: scaleMetadata(chart, binding), locale: surface.locale
+    }),
+    // A price difference is not a price: no percent-scale conversion, no unit suffix, only the step's decimals.
+    formatPriceDelta: (delta, binding) => {
+      const decimals = priceDecimals(scaleMetadata(chart, binding)?.priceStep);
+      if (decimals === null) return null;
+      return new Intl.NumberFormat(surface.locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(delta);
+    },
     hasBinding: ({ paneId, scaleId }) => chart.getInteractionLayout().panes.some(pane => pane.id === paneId && pane.priceScales.some(scale => scale.id === scaleId))
   };
   const store = createDrawingStore({
@@ -41,7 +63,7 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
   if (alertRegion) {
     alertRegion.setAttribute('role', 'status');
     alertRegion.setAttribute('aria-live', 'polite');
-    alertRegion.setAttribute('aria-label', 'Геометрия backend-алертов');
+    alertRegion.setAttribute('aria-label', translate(chart._options.locale, 'alerts.region'));
     Object.assign(alertRegion.style, { position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clipPath: 'inset(50%)' });
     chart.container.appendChild(alertRegion);
   }
@@ -108,7 +130,7 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
           const text = activeAlerts.map(entry => {
             const anchors = entry.anchors.map(anchor => anchor.anchorBarId === undefined
               ? `${anchor.price}` : `${anchor.anchorBarId} + ${anchor.offset}: ${anchor.price}`).join('; ');
-            return `Алерт ${entry.id}: ${entry.unknown ? 'последняя подтверждённая активная геометрия, согласование неизвестно' : 'активен'}; ревизия ${entry.revision}; ${anchors}`;
+            return translate(chart._options.locale, 'alerts.region.line', { id: entry.id, state: translate(chart._options.locale, entry.unknown ? 'alerts.stateUnknownGeometry' : 'alerts.stateActive'), revision: entry.revision, anchors });
           }).join('. ');
           if (alertRegion.textContent !== text) alertRegion.textContent = text;
         }
@@ -136,7 +158,7 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
             ctx.textAlign = 'left';
             ctx.textBaseline = 'bottom';
             const y = Math.max(rect.y + 12, Math.min(rect.y + rect.height - 2, (first.y1 ?? rect.y + 14) - 4));
-            ctx.fillText(`Алерт ${entry.id}: ${entry.unknown ? 'последняя подтверждённая активная, согласование неизвестно' : 'активен'} (ревизия ${entry.revision})`, rect.x + 4, y);
+            ctx.fillText(translate(chart._options.locale, 'alerts.canvas.line', { id: entry.id, state: translate(chart._options.locale, entry.unknown ? 'alerts.stateUnknownShort' : 'alerts.stateActive'), revision: entry.revision }), rect.x + 4, y);
           } finally { ctx.restore(); }
         }
         activeBinding = {};

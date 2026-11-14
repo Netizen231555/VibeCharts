@@ -10,9 +10,6 @@
  */
 import { createElement, append, clearElement } from '../../interaction/dom.js';
 
-const NO_SOURCE_TEXT = 'Источник данных для таблицы не предоставлен.';
-const FALLBACK_LABEL = 'Таблица данных';
-
 // Unique per part instance: several charts may share one document.
 let instanceCounter = 0;
 
@@ -66,13 +63,13 @@ export function createDataTable(controller, context) {
       model = controller.table();
     } catch (error) {
       clearElement(scroll);
-      failure.textContent = `Не удалось построить таблицу данных: ${error.message}`;
+      failure.textContent = controller.t('data.failed', { message: error.message });
       showOnly(failure);
       return;
     }
     if (model === null) {
       clearElement(scroll);
-      notice.textContent = NO_SOURCE_TEXT;
+      notice.textContent = controller.t('data.noSource');
       showOnly(notice);
       return;
     }
@@ -87,7 +84,7 @@ export function createDataTable(controller, context) {
   }
 
   // Before the first table is built the region still needs a name for assistive technology.
-  scroll.setAttribute('aria-label', FALLBACK_LABEL);
+  scroll.setAttribute('aria-label', controller.t('data.label'));
   render();
   // A feed can append several bars per frame and every rebuild is O(rows), so data changes are drawn once per animation
   // frame; toggling visibility stays immediate because the user is waiting for it. Without a window the render is synchronous.

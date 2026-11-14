@@ -1,7 +1,6 @@
 import { DRAWING_TOOLS } from '../drawings/tools.js';
 import { drawLayout } from '../drawings/render.js';
-
-export const TOOL_ALIASES = { trendLine: 'segment', horizontalLine: 'horizontalLevel' };
+import { translate, resolveLocale } from './messages.js';
 
 // Two-point line-family tools that Shift pins to the first anchor's price.
 export const SHIFT_HORIZONTAL_TYPES = Object.freeze(['segment', 'ray', 'line', 'arrow', 'measure']);
@@ -30,7 +29,7 @@ export function effectiveSnap(chart, binding, snap = {}, mods = {}) {
   return effective;
 }
 
-export function drawingAnchor(chart, point, binding, spec, snap = {}, announce = () => {}) {
+export function drawingAnchor(chart, point, binding, spec, snap = {}, announce = () => {}, locale) {
   const surface = chart.surface;
   const store = chart.drawings;
   // The anchor lives on the x axis of its own pane: a derived pane resolves
@@ -39,15 +38,15 @@ export function drawingAnchor(chart, point, binding, spec, snap = {}, announce =
   let horizontal = null;
   if (spec.x) {
     const logical = surface.xToLogical(point.x, xBinding);
-    if (!Number.isFinite(logical)) throw new Error('Координата элемента недоступна');
+    if (!Number.isFinite(logical)) throw new Error(translate(locale, 'drawing.coordinateUnavailable'));
     const threshold = snap.magnetThreshold === undefined ? undefined : Math.abs(surface.xToLogical(point.x + snap.magnetThreshold, xBinding) - logical);
     horizontal = store.snapX(logical, { magnet: snap.magnet === true, threshold, paneId: binding.paneId });
-    if (!horizontal) throw new Error('Для построения нужен существующий элемент');
+    if (!horizontal) throw new Error(translate(locale, 'drawing.needsElement'));
   }
   let price;
   if (spec.price) {
     price = surface.yToPrice(point.y, binding);
-    if (!Number.isFinite(price)) throw new Error('Цена недоступна');
+    if (!Number.isFinite(price)) throw new Error(translate(locale, 'drawing.priceUnavailable'));
     // Source series values are indexed by source bars; a derived element has none to snap to.
     const sourceAxis = chart._paneXContext(binding.paneId).kind !== 'derived';
     const candidateAnchor = sourceAxis ? horizontal || (snap.sourceId ? surface.xToAnchor(point.x, xBinding) : null) : null;
@@ -57,15 +56,17 @@ export function drawingAnchor(chart, point, binding, spec, snap = {}, announce =
     const result = store.snapPrice(price, { ...binding, mode: snap.mode || 'free', threshold: snap.threshold ?? 5,
       rounding: snap.rounding === true, ...(snap.step === undefined ? {} : { step: snap.step }), candidates });
     price = result.price;
-    if (result.reason) announce(`Привязка недоступна: ${result.reason}`);
+    if (result.reason) announce(translate(locale, 'drawing.snapUnavailable', { reason: result.reason }));
   }
   return { ...(horizontal || {}), ...(spec.price ? { price } : {}) };
 }
 
-export function createDrawingTool(chart, id, { binding, props = {}, getSnap = () => ({}), announce = () => {}, complete = () => {} } = {}) {
-  const type = TOOL_ALIASES[id] || id;
+export function createDrawingTool(chart, id, { binding, props = {}, getSnap = () => ({}), announce = () => {}, complete = () => {}, locale } = {}) {
+  // Resolved per message: `locale` may be a function that tracks the chart locale.
+  const t = (key, params) => translate(resolveLocale(locale), key, params);
+  const type = id;
   const spec = DRAWING_TOOLS[type];
-  if (!spec || !chart.surface || !chart.drawings) throw new Error('Инструмент построения недоступен');
+  if (!spec || !chart.surface || !chart.drawings) throw new Error(t('drawing.toolUnavailable'));
   const doc = chart.container.ownerDocument;
   const preview = doc.createElement('canvas');
   preview.setAttribute('aria-hidden', 'true');
@@ -81,7 +82,7 @@ export function createDrawingTool(chart, id, { binding, props = {}, getSnap = ()
     const snap = effectiveSnap(chart, binding, getSnap(), mods);
     if (!preview.parentNode) chart.container.appendChild(preview);
     const ctx = preview.getContext('2d');
-    if (!ctx) throw new Error('Предпросмотр построения недоступен');
+    if (!ctx) throw new Error(t('drawing.previewUnavailable'));
     const bounds = chart.container.getBoundingClientRect();
     const dpr = doc.defaultView?.devicePixelRatio || 1;
     const width = Math.round(bounds.width * dpr);
@@ -94,21 +95,21 @@ export function createDrawingTool(chart, id, { binding, props = {}, getSnap = ()
     try {
       const pending = [...anchors];
       if (!pending.length && down && spec.anchors.count > 1) {
-        pending.push(drawingAnchor(chart, down, binding, spec.anchors, snap, () => {}));
+        pending.push(drawingAnchor(chart, down, binding, spec.anchors, snap, () => {}, resolveLocale(locale)));
       }
       if (!spec.anchors.count || pending.length < spec.anchors.count) {
-        const next = drawingAnchor(chart, point, binding, spec.anchors, snap, () => {});
+        const next = drawingAnchor(chart, point, binding, spec.anchors, snap, () => {}, resolveLocale(locale));
         if (shift && SHIFT_HORIZONTAL_TYPES.includes(type) && pending.length === 1) next.price = pending[0].price;
         pending.push(next);
       }
       const required = spec.anchors.count ?? spec.anchors.min;
       while (pending.length < required) pending.push(pending[pending.length - 1]);
       const layout = chart.drawings.previewLayout({ type, ...binding, anchors: pending, props });
-      if (!layout.resolved) throw new Error(layout.error?.message || layout.reason || 'Геометрия недоступна');
+      if (!layout.resolved) throw new Error(layout.error?.message || layout.reason || t('drawing.geometryUnavailable'));
       drawLayout(ctx, layout, chart.surface.getVisibleRect(binding), true);
       lastPreviewError = null;
     } catch (error) {
-      if (lastPreviewError !== error.message) announce(`Предпросмотр: ${error.message}`);
+      if (lastPreviewError !== error.message) announce(t('drawing.previewError', { message: error.message }));
       lastPreviewError = error.message;
     }
   }
@@ -118,20 +119,20 @@ export function createDrawingTool(chart, id, { binding, props = {}, getSnap = ()
     if (ctx) ctx.clearRect(0, 0, preview.width, preview.height);
   }
   function finish() {
-    if (anchors.length < (spec.anchors.min ?? spec.anchors.count)) throw new Error(`Нужно не менее ${spec.anchors.min ?? spec.anchors.count} якорей`);
+    if (anchors.length < (spec.anchors.min ?? spec.anchors.count)) throw new Error(t('drawing.minAnchors', { count: spec.anchors.min ?? spec.anchors.count }));
     chart.drawings.add({ type, ...binding, anchors, props });
-    clear(); announce('Рисунок добавлен');
+    clear(); announce(t('drawing.added'));
     if (!chart.drawings.getRepeatMode()) { preview.remove(); complete(); }
   }
   function add(point, mods = {}) {
     const shift = mods.shiftKey === true;
-    const anchor = drawingAnchor(chart, point, binding, spec.anchors, effectiveSnap(chart, binding, getSnap(), mods), announce);
+    const anchor = drawingAnchor(chart, point, binding, spec.anchors, effectiveSnap(chart, binding, getSnap(), mods), announce, resolveLocale(locale));
     if (shift && SHIFT_HORIZONTAL_TYPES.includes(type) && anchors.length === 1) anchor.price = anchors[0].price;
     anchors.push(anchor); points.push({ ...point });
     if (spec.anchors.count && anchors.length === spec.anchors.count) {
       try { finish(); } catch (error) { anchors.pop(); points.pop(); throw error; }
     }
-    else { show(point); announce(`Якорь ${anchors.length} добавлен${spec.anchors.min ? '; F завершает построение' : ''}`); }
+    else { show(point); announce(`${t('drawing.anchorAdded', { count: anchors.length })}${spec.anchors.min ? t('drawing.finishHint') : ''}`); }
   }
   return {
     id, active: true,
@@ -164,7 +165,7 @@ export function createDrawingTool(chart, id, { binding, props = {}, getSnap = ()
     },
     handleKey(event) {
       const rect = chart.surface.getVisibleRect(binding);
-      if (!rect) throw new Error('Область построения недоступна');
+      if (!rect) throw new Error(t('drawing.areaUnavailable'));
       if (!cursor) cursor = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
       const step = event.shiftKey ? 10 : 1;
       if (event.key === 'ArrowLeft') cursor.x -= step;

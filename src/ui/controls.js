@@ -4,11 +4,13 @@
  * never acts as a no-op.
  */
 import { InteractionError } from '../interaction/errors.js';
+import { t } from './messages.js';
+import { DRAWING_TOOLS as LIBRARY_TOOLS } from '../drawings/tools.js';
 
 export const CHART_TYPES = Object.freeze([
-  { id: 'candles', label: 'Свечи' },
-  { id: 'bars', label: 'OHLC-бары' },
-  { id: 'line', label: 'Линия закрытия' },
+  { id: 'candles', labelKey: 'chartType.candles' },
+  { id: 'bars', labelKey: 'chartType.bars' },
+  { id: 'line', labelKey: 'chartType.line' },
 ]);
 
 export const INDICATORS = Object.freeze([
@@ -16,44 +18,59 @@ export const INDICATORS = Object.freeze([
   { id: 'ema20', label: 'EMA(20)' },
 ]);
 
-export const DRAWING_TOOLS = Object.freeze([
-  { id: 'trendLine', label: 'Отрезок' },
-  { id: 'horizontalLine', label: 'Горизонтальный уровень' },
-  { id: 'verticalLine', label: 'Вертикальный уровень' },
-  { id: 'rectangle', label: 'Прямоугольник' },
-  { id: 'fibRetracement', label: 'Фибоначчи' },
-]);
-
-const REASONS = Object.freeze({
-  chartType: 'Смена типа графика не подключена',
-  indicator: 'Выбор индикатора не подключён',
-  drawing: 'Инструмент построения не подключён',
-  clear: 'Очистка рисунков не подключена',
-  undo: 'Нечего отменять',
-  redo: 'Нечего повторять',
-  interval: 'Переключение интервала не подключено',
-  navigation: 'Навигация графика недоступна',
-  theme: 'Управление темой недоступно',
-  table: 'Таблица данных недоступна',
-  logScale: 'Переключение шкалы цены недоступно',
-  logScalePercent: 'Процентная шкала: переключение на логарифмическую недоступно',
-  logScaleNone: 'Ценовая шкала недоступна',
-  drawingSnap: 'Привязка рисунков недоступна',
-  crosshair: 'Клавиатурное перекрестие недоступно',
+// A rail tool id IS the drawing library tool name, so arming needs no mapping. Order is the rail order;
+// a change of `group` draws a separator between neighbouring tools.
+const TOOL_GROUPS = Object.freeze({
+  lines: ['segment', 'ray', 'line', 'horizontalLevel', 'horizontalRay', 'verticalLine', 'arrow', 'angle', 'polyline', 'brush', 'bezier'],
+  channels: ['parallelChannel', 'regressionChannel', 'pitchfork', 'fibRetracement', 'fibExtension', 'fibFan', 'fibArcs', 'fibTimeZones'],
+  shapes: ['rectangle', 'ellipse', 'triangle'],
+  annotations: ['text', 'callout', 'flag', 'priceLabel', 'marker'],
+  analysis: ['measure', 'anchoredVwap'],
 });
 
+export const DRAWING_TOOLS = Object.freeze(
+  Object.entries(TOOL_GROUPS).flatMap(([group, ids]) => ids.map((id) => Object.freeze({ id, group, labelKey: `tool.${id}` }))),
+);
+
+// The rail must offer exactly what the library can draw: a tool added to or removed from the library fails here, not silently in the UI.
+{
+  const known = Object.keys(LIBRARY_TOOLS);
+  const listed = DRAWING_TOOLS.map((entry) => entry.id);
+  const unknown = listed.filter((id) => !known.includes(id));
+  const missing = known.filter((id) => !listed.includes(id));
+  if (unknown.length > 0 || missing.length > 0) {
+    throw new InteractionError(`Drawing rail out of sync with the drawing library (unknown: ${unknown.join(', ') || '-'}; missing: ${missing.join(', ') || '-'})`, { code: 'INVALID_TOOLBAR', field: 'DRAWING_TOOLS' });
+  }
+}
+
+const REASON_KEYS = Object.freeze([
+  'chartType', 'indicator', 'drawing', 'clear', 'undo', 'redo', 'interval', 'navigation', 'theme', 'table',
+  'logScale', 'logScalePercent', 'logScaleNone', 'drawingSnap', 'crosshair',
+]);
+
+/** Reasons are resolved per model build so they follow the chart locale at that moment. */
+function reasonsFor(locale) {
+  return Object.fromEntries(REASON_KEYS.map((key) => [key, t(locale, `reason.${key}`)]));
+}
+
+/** Host-supplied entries keep their own `label`; the built-in ones are translated. */
+function labelOf(entry, locale) {
+  return entry.label ?? t(locale, entry.labelKey);
+}
+
 /** Log toggle availability: the host hook, a scale to act on, and not a percent scale (its base is owned by the host). */
-function logScaleAvailability(current, capabilities) {
+function logScaleAvailability(current, capabilities, REASONS) {
   if (capabilities.canLogScale === false) return { enabled: false, reason: REASONS.logScale };
   if (current.priceMode === 'percent') return { enabled: false, reason: REASONS.logScalePercent };
   if (current.priceMode === null) return { enabled: false, reason: REASONS.logScaleNone };
   return { enabled: true, reason: null };
 }
 
-export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
+export function createToolbarModel({ current = {}, capabilities = {}, locale = 'en-US' } = {}) {
   if (typeof current !== 'object' || current === null) {
     throw new InteractionError('Toolbar current state must be an object', { code: 'INVALID_TOOLBAR', field: 'current' });
   }
+  const REASONS = reasonsFor(locale);
   const chartTypes = current.chartTypes || CHART_TYPES;
   const indicators = current.indicators || INDICATORS;
   const tools = current.tools || DRAWING_TOOLS;
@@ -63,11 +80,11 @@ export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
     groups: [
       {
         id: 'chartType',
-        label: 'Тип графика',
+        label: t(locale, 'group.chartType'),
         controls: chartTypes.map((entry) => ({
           id: `chartType:${entry.id}`,
           kind: 'toggle',
-          label: entry.label,
+          label: labelOf(entry, locale),
           pressed: current.chartType === entry.id,
           enabled: capabilities.canChangeChartType !== false,
           reason: capabilities.canChangeChartType === false ? REASONS.chartType : null,
@@ -77,11 +94,11 @@ export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
       },
       {
         id: 'indicators',
-        label: 'Индикатор',
+        label: t(locale, 'group.indicators'),
         controls: indicators.map((entry) => ({
           id: `indicator:${entry.id}`,
           kind: 'toggle',
-          label: entry.label,
+          label: labelOf(entry, locale),
           pressed: current.indicator === entry.id,
           enabled: capabilities.canSelectIndicator !== false,
           reason: capabilities.canSelectIndicator === false ? REASONS.indicator : null,
@@ -91,26 +108,27 @@ export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
       },
       {
         id: 'tools',
-        label: 'Инструменты построения',
+        label: t(locale, 'group.tools'),
         controls: tools.map((entry) => ({
           id: `tool:${entry.id}`,
           kind: 'toggle',
-          label: entry.label,
+          label: labelOf(entry, locale),
           pressed: current.tool === entry.id,
           enabled: capabilities.canDraw !== false,
           reason: capabilities.canDraw === false ? REASONS.drawing : null,
           action: 'tool',
           value: entry.id,
+          group: entry.group ?? null,
         })),
       },
       {
         id: 'actions',
-        label: 'Действия',
+        label: t(locale, 'group.actions'),
         controls: [
           {
             id: 'clearDrawings',
             kind: 'button',
-            label: 'Очистить рисунки',
+            label: t(locale, 'control.clearDrawings'),
             enabled: capabilities.canClearDrawings !== false,
             reason: capabilities.canClearDrawings === false ? REASONS.clear : null,
             action: 'clearDrawings',
@@ -118,7 +136,7 @@ export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
           {
             id: 'undo',
             kind: 'button',
-            label: 'Отменить рисунок',
+            label: t(locale, 'control.undo'),
             enabled: capabilities.canUndo !== false,
             reason: capabilities.canUndo === false ? REASONS.undo : null,
             action: 'undo',
@@ -126,29 +144,22 @@ export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
           {
             id: 'redo',
             kind: 'button',
-            label: 'Повторить рисунок',
+            label: t(locale, 'control.redo'),
             enabled: capabilities.canRedo !== false,
             reason: capabilities.canRedo === false ? REASONS.redo : null,
             action: 'redo',
           },
           ...[
-            ['panLeft', 'Сдвинуть график влево'],
-            ['panRight', 'Сдвинуть график вправо'],
-            ['zoomIn', 'Увеличить масштаб графика'],
-            ['zoomOut', 'Уменьшить масштаб графика'],
-            ['priceZoomIn', 'Увеличить масштаб цены'],
-            ['priceZoomOut', 'Уменьшить масштаб цены'],
-            ['crosshairPrev', 'Предыдущий бар'],
-            ['crosshairNext', 'Следующий бар'],
-          ].map(([id, label]) => ({
-            id, kind: 'button', label, action: id,
+            'panLeft', 'panRight', 'zoomIn', 'zoomOut', 'priceZoomIn', 'priceZoomOut', 'crosshairPrev', 'crosshairNext',
+          ].map((id) => ({
+            id, kind: 'button', label: t(locale, `control.${id}`), action: id,
             enabled: capabilities.canKeyboardActions !== false,
             reason: capabilities.canKeyboardActions === false ? REASONS.navigation : null,
           })),
           {
             id: 'fitContent',
             kind: 'button',
-            label: 'Подогнать данные',
+            label: t(locale, 'control.fitContent'),
             enabled: capabilities.canNavigate !== false,
             reason: capabilities.canNavigate === false ? REASONS.navigation : null,
             action: 'fitContent',
@@ -156,7 +167,7 @@ export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
           {
             id: 'scrollToRealTime',
             kind: 'button',
-            label: 'К последнему бару',
+            label: t(locale, 'control.scrollToRealTime'),
             enabled: capabilities.canNavigate !== false,
             reason: capabilities.canNavigate === false ? REASONS.navigation : null,
             action: 'scrollToRealTime',
@@ -164,7 +175,7 @@ export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
           {
             id: 'priceAuto',
             kind: 'button',
-            label: 'Автомасштаб цены',
+            label: t(locale, 'control.priceAuto'),
             enabled: capabilities.canPriceAuto !== false,
             reason: capabilities.canPriceAuto === false ? REASONS.navigation : null,
             action: 'priceAuto',
@@ -172,7 +183,7 @@ export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
           {
             id: 'follow',
             kind: 'toggle',
-            label: 'Следование последнему бару',
+            label: t(locale, 'control.follow'),
             pressed: current.follow === true,
             enabled: capabilities.canNavigate !== false,
             reason: capabilities.canNavigate === false ? REASONS.navigation : null,
@@ -181,7 +192,7 @@ export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
           {
             id: 'crosshair',
             kind: 'toggle',
-            label: 'Перекрестие с клавиатуры',
+            label: t(locale, 'control.crosshair'),
             pressed: current.crosshair === true,
             enabled: capabilities.canToggleCrosshair !== false,
             reason: capabilities.canToggleCrosshair === false ? REASONS.crosshair : null,
@@ -190,7 +201,7 @@ export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
           {
             id: 'theme',
             kind: 'toggle',
-            label: 'Тёмная тема',
+            label: t(locale, 'control.theme'),
             pressed: current.theme === 'dark',
             enabled: capabilities.canToggleTheme !== false,
             reason: capabilities.canToggleTheme === false ? REASONS.theme : null,
@@ -199,7 +210,7 @@ export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
           {
             id: 'accessibleTable',
             kind: 'toggle',
-            label: 'Таблица данных',
+            label: t(locale, 'control.accessibleTable'),
             pressed: current.tableVisible !== false,
             enabled: capabilities.canShowTable !== false,
             reason: capabilities.canShowTable === false ? REASONS.table : null,
@@ -208,15 +219,15 @@ export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
           {
             id: 'logScale',
             kind: 'toggle',
-            label: 'Логарифмическая шкала',
+            label: t(locale, 'control.logScale'),
             pressed: current.priceMode === 'log',
-            ...logScaleAvailability(current, capabilities),
+            ...logScaleAvailability(current, capabilities, REASONS),
             action: 'logScale',
           },
           {
             id: 'drawingSnap',
             kind: 'toggle',
-            label: 'Привязка рисунков',
+            label: t(locale, 'control.drawingSnap'),
             // Strong snapping (set from the drawing dialog) also counts as on; the toggle then turns it off.
             pressed: typeof current.snapMode === 'string' && current.snapMode !== 'free',
             enabled: capabilities.canDrawingSnap !== false,
@@ -229,12 +240,12 @@ export function createToolbarModel({ current = {}, capabilities = {} } = {}) {
         ? [
             {
               id: 'interval',
-              label: 'Интервал',
+              label: t(locale, 'group.interval'),
               controls: [
                 {
                   id: 'interval',
                   kind: 'select',
-                  label: 'Интервал',
+                  label: t(locale, 'control.interval'),
                   value: current.interval || '',
                   options: intervals.map((entry) => ({ value: entry.id, label: entry.label })),
                   enabled: capabilities.canChangeInterval !== false,
@@ -257,11 +268,11 @@ export function findControl(model, id) {
   return null;
 }
 
-export function activateControl(model, id, { disabled = null } = {}) {
+export function activateControl(model, id, { disabled = null, locale = 'en-US' } = {}) {
   const found = findControl(model, id);
   if (!found) throw new InteractionError(`Unknown control ${id}`, { code: 'UNKNOWN_CONTROL', field: 'id' });
   if (found.control.enabled === false || disabled === true) {
-    return { ok: false, code: 'CONTROL_DISABLED', id, reason: found.control.reason || 'Действие недоступно' };
+    return { ok: false, code: 'CONTROL_DISABLED', id, reason: found.control.reason || t(locale, 'ui.actionUnavailable') };
   }
   return { ok: true, id, action: found.control.action, value: found.control.value };
 }

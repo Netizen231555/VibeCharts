@@ -41,7 +41,7 @@ export function createNavCluster(controller, context) {
   const element = createElement(doc, 'div', {
     class: 'chart-ui-bar chart-ui-nav',
     role: 'toolbar',
-    'aria-label': 'Навигация по графику',
+    'aria-label': controller.t('nav.label'),
   });
 
   const entries = [];
@@ -70,7 +70,7 @@ export function createNavCluster(controller, context) {
         button.setAttribute('title', control.label);
         if (reason.textContent !== '') reason.textContent = '';
       } else {
-        const text = control.reason || 'Действие недоступно';
+        const text = control.reason || controller.t('ui.actionUnavailable');
         button.setAttribute('aria-disabled', 'true');
         button.setAttribute('aria-describedby', reasonId);
         button.setAttribute('title', `${control.label}: ${text}`);

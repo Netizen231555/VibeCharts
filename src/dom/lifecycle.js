@@ -1,5 +1,6 @@
 import { ChartError } from '../errors.js';
 import { computeBufferSize } from '../render/canvas.js';
+import { translate } from './messages.js';
 
 let hostCounter = 0;
 
@@ -100,7 +101,7 @@ export function createDomHost(container, options = {}) {
   labelOverflow.style.color = 'var(--charting-text, CanvasText)';
   labelOverflow.style.overflowWrap = 'anywhere';
   const labelSummary = createElement(doc, 'summary');
-  setText(labelSummary, 'Другие значения');
+  setText(labelSummary, translate(options.locale, 'labels.otherValues'));
   const labelList = createElement(doc, 'ul');
   labelOverflow.appendChild(labelSummary);
   labelOverflow.appendChild(labelList);

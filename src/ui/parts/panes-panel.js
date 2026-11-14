@@ -22,11 +22,11 @@ export function createPanesPanel(controller, { document: doc, announce } = {}) {
 
   const element = createElement(doc, 'section', {
     class: 'chart-ui-panel chart-ui-panel-panes',
-    'aria-label': 'Панели графика',
+    'aria-label': controller.t('panes.label'),
     tabindex: '-1',
   });
   const list = createElement(doc, 'div', { class: 'chart-ui-panel-list' });
-  append(element, createElement(doc, 'h3', { class: 'chart-ui-panel-title' }, 'Панели'), list);
+  append(element, createElement(doc, 'h3', { class: 'chart-ui-panel-title' }, controller.t('panes.title')), list);
 
   // Controls of the current render by key; a rebuild keeps focus by looking the same key up again.
   const focusables = new Map();
@@ -82,7 +82,7 @@ export function createPanesPanel(controller, { document: doc, announce } = {}) {
     focusables.clear();
     const panes = controller.panes.list();
     if (panes.length === 0) {
-      append(list, createElement(doc, 'p', {}, 'Панели не предоставлены.'));
+      append(list, createElement(doc, 'p', {}, controller.t('panes.none')));
       element.removeAttribute('data-panes-scroll');
       return;
     }
@@ -106,29 +106,29 @@ export function createPanesPanel(controller, { document: doc, announce } = {}) {
   }
 
   function buildRow(pane, index, count, visibleCount) {
-    const row = createElement(doc, 'div', { class: 'chart-ui-panel-row', role: 'group', 'aria-label': `Панель ${pane.id}` });
+    const row = createElement(doc, 'div', { class: 'chart-ui-panel-row', role: 'group', 'aria-label': controller.t('panes.rowAria', { id: pane.id }) });
     append(row, createElement(doc, 'span', { class: 'chart-ui-panel-name' }, pane.id));
     const buttonClass = 'chart-ui-btn chart-ui-surface-btn chart-ui-panel-btn';
 
     // Reason text follows its button so the reading order stays "control, why it is off".
     const reasons = [];
-    const up = createElement(doc, 'button', { type: 'button', class: buttonClass, 'aria-label': `Переместить панель ${pane.id} выше` }, 'Выше');
+    const up = createElement(doc, 'button', { type: 'button', class: buttonClass, 'aria-label': controller.t('panes.moveUpAria', { id: pane.id }) }, controller.t('panes.up'));
     focusables.set(key('up', pane.id), up);
     if (index === 0) {
-      reasons.push(disable(up, `${uid}-${index}-up`, 'Панель уже первая'));
+      reasons.push(disable(up, `${uid}-${index}-up`, controller.t('panes.alreadyFirst')));
     } else {
       up.addEventListener('click', () => paneApi().move(pane.id, -1));
     }
-    const down = createElement(doc, 'button', { type: 'button', class: buttonClass, 'aria-label': `Переместить панель ${pane.id} ниже` }, 'Ниже');
+    const down = createElement(doc, 'button', { type: 'button', class: buttonClass, 'aria-label': controller.t('panes.moveDownAria', { id: pane.id }) }, controller.t('panes.down'));
     focusables.set(key('down', pane.id), down);
     if (index === count - 1) {
-      reasons.push(disable(down, `${uid}-${index}-down`, 'Панель уже последняя'));
+      reasons.push(disable(down, `${uid}-${index}-down`, controller.t('panes.alreadyLast')));
     } else {
       down.addEventListener('click', () => paneApi().move(pane.id, 1));
     }
     append(row, up, down, ...reasons.splice(0));
 
-    const visibilityLabel = pane.visible ? `Скрыть панель ${pane.id}` : `Показать панель ${pane.id}`;
+    const visibilityLabel = controller.t(pane.visible ? 'panes.hide' : 'panes.show', { id: pane.id });
     const visibility = createElement(
       doc,
       'button',
@@ -137,14 +137,14 @@ export function createPanesPanel(controller, { document: doc, announce } = {}) {
     );
     focusables.set(key('vis', pane.id), visibility);
     if (pane.visible && visibleCount <= 1) {
-      reasons.push(disable(visibility, `${uid}-${index}-vis`, 'Нельзя скрыть последнюю видимую панель'));
+      reasons.push(disable(visibility, `${uid}-${index}-vis`, controller.t('panes.lastVisible')));
     } else {
       visibility.addEventListener('click', () => toggleVisibility(pane, visibility));
     }
     append(row, visibility, ...reasons);
 
     if (!pane.visible) {
-      const restoreLabel = `Восстановить панель ${pane.id}`;
+      const restoreLabel = controller.t('panes.restore', { id: pane.id });
       const restore = createElement(doc, 'button', {
         type: 'button',
         class: buttonClass,
@@ -177,9 +177,9 @@ export function createPanesPanel(controller, { document: doc, announce } = {}) {
     if (result && result.ok === false && result.reason) {
       say(result.reason);
     } else if (result && result.ok && !result.visible) {
-      say(`Панель ${pane.id} скрыта`);
+      say(controller.t('panes.hidden', { id: pane.id }));
     } else if (result && result.ok && result.visible) {
-      say(`Панель ${pane.id} показана`);
+      say(controller.t('panes.shown', { id: pane.id }));
     }
     render();
     if (result && (result.focusId || (result.ok && !result.visible && restoreFocusAfter))) {
@@ -194,10 +194,10 @@ export function createPanesPanel(controller, { document: doc, announce } = {}) {
       role: 'separator',
       tabindex: '0',
       'aria-orientation': 'horizontal',
-      'aria-label': `Изменить высоту панели ${pane.id}`,
+      'aria-label': controller.t('panes.resizeAria', { id: pane.id }),
       'aria-valuemin': String(pane.minHeight),
       'aria-valuenow': String(pane.height),
-      'aria-valuetext': `Высота ${pane.height} пикселей`,
+      'aria-valuetext': controller.t('panes.height', { height: pane.height }),
       class: 'chart-ui-panel-separator',
     });
     focusables.set(key('sep', pane.id), separator);
@@ -209,7 +209,7 @@ export function createPanesPanel(controller, { document: doc, announce } = {}) {
     let dragging = null;
     const update = (height) => {
       separator.setAttribute('aria-valuenow', String(Math.round(height)));
-      separator.setAttribute('aria-valuetext', `Высота ${Math.round(height)} пикселей, минимум ${pane.minHeight}`);
+      separator.setAttribute('aria-valuetext', controller.t('panes.heightMin', { height: Math.round(height), min: pane.minHeight }));
     };
     separator.addEventListener('pointerdown', (event) => {
       const api = paneApi();
@@ -232,7 +232,7 @@ export function createPanesPanel(controller, { document: doc, announce } = {}) {
       const api = paneApi();
       if (typeof separator.releasePointerCapture === 'function') separator.releasePointerCapture(event.pointerId);
       const result = api.commitResize();
-      if (result && result.ok && result.panes) say(`Высота панели ${pane.id} изменена`);
+      if (result && result.ok && result.panes) say(controller.t('panes.resized', { id: pane.id }));
       render();
     });
     const cancel = () => {
@@ -240,7 +240,7 @@ export function createPanesPanel(controller, { document: doc, announce } = {}) {
       dragging = null;
       const api = paneApi();
       if (api) api.cancelResize();
-      say('Изменение высоты отменено');
+      say(controller.t('panes.resizeCancelled'));
       render();
     };
     separator.addEventListener('pointercancel', cancel);
@@ -250,7 +250,7 @@ export function createPanesPanel(controller, { document: doc, announce } = {}) {
       if (!api) return;
       if (event.key === 'Escape') {
         if (api.cancelResize) api.cancelResize();
-        say('Изменение высоты отменено');
+        say(controller.t('panes.resizeCancelled'));
         render();
         if (typeof event.preventDefault === 'function') event.preventDefault();
         return;
@@ -265,10 +265,10 @@ export function createPanesPanel(controller, { document: doc, announce } = {}) {
       const result = api.resizeByKeyboard(pane.id, delta);
       if (result.ok) {
         update(result.height);
-        say(result.announcement && result.announcement.text ? result.announcement.text : `Высота панели ${result.height} пикселей`);
+        say(result.announcement && result.announcement.text ? result.announcement.text : controller.t('panes.heightAnnounce', { height: result.height }));
         render();
       } else {
-        say('Высота не изменена: достигнут предел');
+        say(controller.t('panes.limit'));
       }
     });
     separator.addEventListener('focus', () => {
