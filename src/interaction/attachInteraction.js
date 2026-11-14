@@ -292,7 +292,8 @@ export function attachInteraction(chart, options = {}) {
     focusActive = active;
     if (container.style) {
       container.style.outline = active && chart._theme?.focus ? `2px solid ${chart._theme.focus}` : previousOutline;
-      container.style.outlineOffset = active ? '2px' : previousOutlineOffset;
+      // Inset, so the ring is drawn over the chart edge instead of spilling onto neighbouring panels.
+      container.style.outlineOffset = active ? '-2px' : previousOutlineOffset;
     }
     container.setAttribute('data-focus-visible', active ? 'true' : 'false');
   }

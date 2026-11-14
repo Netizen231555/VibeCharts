@@ -2,6 +2,7 @@
 // All instruments, prices and volumes are SYNTHETIC (see data.js).
 import { createChart, attachChartFeatures } from 'vibecharts';
 import { exportChartPng } from 'vibecharts/workspaces';
+import { sourceKey } from 'vibecharts/alerts';
 import { INSTRUMENTS, INTERVALS, generateSeries, decimalsOf, createTicker } from './data.js';
 
 const TZ = 'Europe/Moscow';
@@ -46,13 +47,14 @@ const ICONS = {
   fullscreen: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
   list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
   forward: '<path d="M7 6l6 6-6 6M13 6l6 6-6 6"/>',
+  bell: '<path d="M6 17v-6a6 6 0 0112 0v6l1.5 2h-15z"/><path d="M10 21h4"/>',
 };
 const svg = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[name] ?? ''}</svg>`;
 
 const $ = (id) => document.getElementById(id);
 const els = {
   terminal: $('terminal'), chart: $('chart'), legend: $('legend'), notice: $('notice'), status: $('status'), clock: $('clock'),
-  toRealtime: $('to-realtime'), watchlist: $('watchlist'), details: $('details'),
+  toRealtime: $('to-realtime'), watchlist: $('watchlist'), details: $('details'), alerts: $('alerts'), listSelect: $('list-select'),
 };
 for (const node of document.querySelectorAll('[data-icon]')) node.innerHTML = svg(node.dataset.icon);
 
@@ -88,9 +90,18 @@ const RANGES = [
   { id: '1y', label: '1Г', days: 365 }, { id: 'all', label: 'Все', all: true },
 ];
 
+// Static lists stand in for user-managed watchlists; membership refers to instrument ids from data.js.
+const LISTS = [
+  { id: 'all', label: 'Все инструменты', ids: null },
+  { id: 'favorites', label: 'Избранное', ids: ['DEMO01', 'DEMO02', 'DEMO05', 'DEMO10'] },
+  { id: 'resources', label: 'Сырьевые', ids: ['DEMO01', 'DEMO03', 'DEMO06', 'DEMO07', 'DEMO10'] },
+  { id: 'services', label: 'Сервисы', ids: ['DEMO02', 'DEMO04', 'DEMO08', 'DEMO09', 'DEMO11', 'DEMO12'] },
+];
+
 const state = {
   instrument: INSTRUMENTS[0], interval: INTERVALS[3], chartType: 'candles', theme: 'dark',
   indicators: new Set(['volume', 'sma']), live: true, tool: null, magnet: false,
+  listId: 'all', alerts: new Map(), // alerts: instrument id -> [{ price, operation, engineId }]
 };
 
 // ---------------------------------------------------------------- formatting
@@ -166,8 +177,8 @@ let chart = null;
 let session = null; // everything owned by the current chart instance
 
 function announce(message) { els.status.textContent = ''; els.status.textContent = message; }
-function showNotice(message) { els.notice.textContent = message; els.notice.hidden = false; announce(message); }
-function clearNotice() { els.notice.hidden = true; els.notice.textContent = ''; }
+function showNotice(message, kind = 'error') { els.notice.textContent = message; els.notice.dataset.kind = kind; els.notice.hidden = false; announce(message); }
+function clearNotice() { els.notice.hidden = true; els.notice.textContent = ''; delete els.notice.dataset.kind; }
 
 function chartOptions(step) {
   const theme = THEMES[state.theme];
@@ -327,7 +338,10 @@ function updateLegend(barId, seriesValues) {
 
 // ---------------------------------------------------------------- watchlist
 function listRows() {
-  return INSTRUMENTS.map((instrument) => {
+  const list = LISTS.find((entry) => entry.id === state.listId);
+  if (!list) throw new Error(`Неизвестный список: ${state.listId}`);
+  const members = list.ids ? INSTRUMENTS.filter((instrument) => list.ids.includes(instrument.id)) : INSTRUMENTS;
+  return members.map((instrument) => {
     const daily = dailyOf(instrument).bars;
     const last = daily[daily.length - 1].close;
     const prev = daily[daily.length - 2].close;
@@ -385,6 +399,137 @@ function renderDetails(liveClose) {
   els.details.replaceChildren(name, price, chg, dl);
 }
 
+// ------------------------------------------------------------------- alerts
+// Alerts are level alerts on the price series: the engine reports a crossing, the line on the chart can be dragged.
+// They are evaluated against the simulated stream only, so they are idle while the stream is switched off.
+const ALERT_UNITS = 'demo';
+let alertCounter = 0;
+let placingAlert = false;
+const alertsFor = () => { if (!state.alerts.has(state.instrument.id)) state.alerts.set(state.instrument.id, []); return state.alerts.get(state.instrument.id); };
+const alertLeft = () => ({ kind: 'series', seriesId: 'price', field: state.chartType === 'line' || state.chartType === 'area' ? 'value' : 'close', units: ALERT_UNITS });
+const alertText = (record, decimals) => `${record.operation === 'crossUp' ? '▲ при росте до' : '▼ при падении до'} ${priceFmt(decimals).format(record.price)}`;
+
+function registerAlert(record) {
+  record.engineId = `alert-${++alertCounter}`;
+  chart.alerts.add({
+    id: record.engineId,
+    // The line label shows the name; the level itself stays readable on the price axis while the line is dragged.
+    name: `${state.instrument.id} ${record.operation === 'crossUp' ? '▲ при росте' : '▼ при падении'}`,
+    left: alertLeft(),
+    right: { kind: 'constant', value: record.price, units: ALERT_UNITS },
+    operation: record.operation,
+    mode: 'once',
+    observationMode: 'partial',
+  });
+}
+function syncAlerts() {
+  for (const entry of chart.alerts.list()) chart.alerts.remove(entry.id);
+  for (const record of alertsFor()) registerAlert(record);
+  renderAlerts();
+}
+function renderAlerts() {
+  const records = alertsFor();
+  const decimals = decimalsOf(session.data.step);
+  const title = document.createElement('h3'); title.textContent = 'Алерты';
+  if (records.length === 0) {
+    const hint = document.createElement('p'); hint.textContent = 'Нет алертов. Нажмите «Алерт» и выберите уровень на графике; линию можно перетащить.';
+    els.alerts.replaceChildren(title, hint);
+    return;
+  }
+  const list = document.createElement('ul');
+  for (const record of records) {
+    const item = document.createElement('li');
+    const label = document.createElement('span'); label.textContent = alertText(record, decimals);
+    const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '✕';
+    remove.setAttribute('aria-label', `Удалить алерт: ${alertText(record, decimals)}`);
+    remove.addEventListener('click', () => removeAlert(record));
+    item.append(label, remove);
+    list.append(item);
+  }
+  els.alerts.replaceChildren(title, list);
+}
+function dropAlertRecord(engineId) {
+  const records = alertsFor();
+  const index = records.findIndex((record) => record.engineId === engineId);
+  if (index >= 0) records.splice(index, 1);
+  return index >= 0;
+}
+function removeAlert(record) {
+  try { chart.alerts.remove(record.engineId); } catch (error) { showNotice(`Алерт не удалён: ${error.message}`); return; }
+  dropAlertRecord(record.engineId);
+  renderAlerts();
+  announce('Алерт удалён');
+}
+function addAlertAt(price) {
+  const step = session.data.step;
+  const level = Number((Math.round(price / step) * step).toFixed(decimalsOf(step)));
+  const bars = session.data.bars;
+  const record = { price: level, operation: level >= bars[bars.length - 1].close ? 'crossUp' : 'crossDown', engineId: null };
+  registerAlert(record);
+  alertsFor().push(record);
+  renderAlerts();
+  announce(`Алерт создан: ${alertText(record, decimalsOf(step))}`);
+}
+function onAlertEvent(event) {
+  if (event.type === 'alert-updated') {
+    const record = alertsFor().find((entry) => entry.engineId === event.alertId);
+    if (record) { record.price = chart.alerts.get(event.alertId).definition.right.value; renderAlerts(); }
+  } else if (event.type === 'alert-event') {
+    const record = alertsFor().find((entry) => entry.engineId === event.alertId);
+    if (!record) return;
+    const text = `Алерт сработал: ${state.instrument.id}, ${alertText(record, decimalsOf(session.data.step)).slice(2)}`;
+    dropAlertRecord(event.alertId);
+    const s = session;
+    // The engine is still dispatching this event; remove the finished alert afterwards.
+    queueMicrotask(() => { if (session !== s) return; try { chart.alerts.remove(event.alertId); } catch (error) { showNotice(`Алерт не удалён: ${error.message}`); } renderAlerts(); });
+    showNotice(text, 'info');
+    setTimeout(() => { if (els.notice.textContent === text) clearNotice(); }, 8000);
+  }
+}
+function observeAlerts(s, bar) {
+  const version = ++s.alertVersion;
+  chart.alerts.observe({
+    version: String(version), prevVersion: version > 1 ? String(version - 1) : null, state: 'partial', barId: bar.barId,
+    values: { [sourceKey(alertLeft())]: bar.close },
+  });
+}
+function setPlacingAlert(on) {
+  placingAlert = on;
+  $('alert-button').setAttribute('aria-pressed', String(on));
+  els.chart.classList.toggle('placing-alert', on);
+  if (on) showNotice('Кликните по графику, чтобы поставить алерт на этот уровень. Esc — отмена.', 'info');
+  else if (els.notice.dataset.kind === 'info') clearNotice();
+}
+// Capture phase on the chart host: a placement click must not also start a pan or a drawing.
+els.chart.addEventListener('pointerdown', (event) => {
+  if (!placingAlert) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const price = session?.hoverPrice;
+  setPlacingAlert(false);
+  try {
+    if (!Number.isFinite(price)) throw new Error('цена под курсором неизвестна: наведите курсор на область цены');
+    addAlertAt(price);
+  } catch (error) { showNotice(`Алерт не создан: ${error.message}`); }
+}, true);
+document.addEventListener('keydown', (event) => { if (placingAlert && event.key === 'Escape') setPlacingAlert(false); });
+
+// -------------------------------------------------------------- list select
+function populateLists() {
+  els.listSelect.replaceChildren(...LISTS.map((list) => {
+    const option = document.createElement('option');
+    option.value = list.id;
+    option.textContent = `${list.label} (${list.ids ? list.ids.length : INSTRUMENTS.length})`;
+    return option;
+  }));
+  els.listSelect.value = state.listId;
+}
+els.listSelect.addEventListener('change', () => {
+  state.listId = els.listSelect.value;
+  renderWatchlist();
+  announce(`Список: ${LISTS.find((list) => list.id === state.listId).label}`);
+});
+
 // ------------------------------------------------------------ chart session
 function teardown() {
   if (!session) return;
@@ -404,7 +549,7 @@ function build() {
   teardown();
   clearNotice();
   const data = dataFor(state.instrument, state.interval);
-  const s = { data, index: new Map(data.bars.map((b, i) => [b.barId, i])), indicators: new Map(), unsubscribe: [], ticker: createTicker(`${state.instrument.id}|${state.interval.id}`, state.instrument, data.step) };
+  const s = { data, index: new Map(data.bars.map((b, i) => [b.barId, i])), indicators: new Map(), unsubscribe: [], alertVersion: 0, hoverPrice: null, ticker: createTicker(`${state.instrument.id}|${state.interval.id}`, state.instrument, data.step) };
   session = s;
   try {
     chart = createChart(els.chart, chartOptions(data.step));
@@ -414,6 +559,7 @@ function build() {
     if (state.indicators.has('volume')) addVolume(s);
     rebuildOverlays(s);
     chart.interaction.setDrawingSnap({ mode: state.magnet ? 'weak' : 'free', ...(state.magnet ? { sourceId: 'price', threshold: 12 } : {}) });
+    syncAlerts();
   } catch (error) {
     teardown();
     showNotice(`Не удалось построить график: ${error.message}`);
@@ -432,9 +578,11 @@ function build() {
   }));
   s.unsubscribe.push(chart.subscribe('crosshairMove', (payload) => {
     s.hoverBarId = payload.insideHistory ? payload.barId : null;
+    s.hoverPrice = payload.paneId === 'main' && Number.isFinite(payload.price) ? payload.price : null;
     updateLegend(s.hoverBarId, payload.insideHistory ? payload.series : undefined);
   }));
   s.unsubscribe.push(chart.subscribe('error', ({ operation, error }) => showNotice(`${operation}: ${error?.message ?? error}`)));
+  s.unsubscribe.push(chart.alerts.subscribe(onAlertEvent));
   s.unsubscribe.push(chart.drawings.subscribe(() => syncHistoryButtons()));
   s.unsubscribe.push(chart.interaction.subscribe('toolChange', ({ toolId }) => { if (toolId === null) setActiveTool(null, true); }));
   syncHistoryButtons();
@@ -459,6 +607,7 @@ function startLive() {
       updateLegend(s.hoverBarId ?? null);
       renderDetails(next.close);
       renderWatchlist(next.close);
+      observeAlerts(s, next);
     } catch (error) { clearInterval(s.timer); showNotice(`Эмуляция потока остановлена: ${error.message}`); }
   }, 1000);
 }
@@ -517,6 +666,7 @@ function changeType(id) {
     removeSeriesSafe(s.price);
     addPrice(s);
     rebuildOverlays(s);
+    syncAlerts();
     updateLegend(null);
   } catch (error) { showNotice(`Не удалось сменить тип графика: ${error.message}`); }
 }
@@ -539,6 +689,7 @@ function toggleIndicator(id) {
 }
 $('undo').addEventListener('click', () => { chart.drawings.undo(); syncHistoryButtons(); });
 $('redo').addEventListener('click', () => { chart.drawings.redo(); syncHistoryButtons(); });
+$('alert-button').addEventListener('click', () => setPlacingAlert(!placingAlert));
 $('live-toggle').addEventListener('click', (event) => {
   state.live = !state.live;
   event.currentTarget.setAttribute('aria-pressed', String(state.live));
@@ -648,6 +799,6 @@ $('auto').addEventListener('click', () => { chart.priceScale('main').setAutoScal
 setInterval(() => { els.clock.textContent = `${fmtClock.format(Date.now())} (Москва, UTC+3)`; }, 1000);
 els.clock.textContent = `${fmtClock.format(Date.now())} (Москва, UTC+3)`;
 
-syncSymbol(); syncIntervals(); syncType();
+syncSymbol(); syncIntervals(); syncType(); populateLists();
 build();
 window.addEventListener('pagehide', teardown);

@@ -1,4 +1,5 @@
 import { alertLineModel, createAlertListModel } from '../alerts/ui.js';
+import { translate } from './messages.js';
 import { createModuleScope } from '../core/module-scope.js';
 
 /** Render levels only when their series or indicator output has a known binding. */
@@ -91,7 +92,7 @@ export function attachAlertPresentation(chart, engine, { chartId } = {}) {
               ctx.setLineDash(selected ? [] : [5, 4]);
               ctx.beginPath(); ctx.moveTo(rect.x, y); ctx.lineTo(rect.x + rect.width, y); ctx.stroke();
               ctx.font = '12px sans-serif';
-              ctx.fillText(`${definition.name ?? definition.id} — ${record.evaluation.status}`, rect.x + 4, Math.max(rect.y + 12, y - 3), Math.max(0, rect.width - 8));
+              ctx.fillText(`${definition.name ?? definition.id} — ${translate(chart._options.locale, `alerts.status.${record.evaluation.status}`)}`, rect.x + 4, Math.max(rect.y + 12, y - 3), Math.max(0, rect.width - 8));
             } finally { ctx.restore(); }
             next.push({ id: record.id, paneId: bound.paneId, rect, y, binding, constantSide: definition.left.kind === 'constant' ? 'left' : 'right' });
           }

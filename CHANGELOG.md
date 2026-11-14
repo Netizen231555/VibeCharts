@@ -2,6 +2,8 @@
 
 ## 0.1.0 — unreleased
 
+- The keyboard focus ring of the chart host is drawn inside the container (negative outline offset) instead of spilling onto neighbouring panels.
+- Alert level lines show their status in the chart language (`alerts.status.*`) instead of the raw engine token.
 - Time-axis labels reserve space for the UTC indicator and skip labels that would overlap or extend beyond the plot.
 - Price labels stay at their actual scale coordinates without leader lines; overlapping ticks are omitted and conflicting series values remain available in the accessible overflow list.
 - Crosshair readout uses a compact instrument/interval and value legend; time and price appear on their axes while slot identity and trading date remain in the accessible table.

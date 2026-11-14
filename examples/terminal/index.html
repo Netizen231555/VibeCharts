@@ -9,7 +9,8 @@
 <script type="importmap">
 { "imports": {
   "vibecharts": "../../src/index.js",
-  "vibecharts/workspaces": "../../src/workspaces/index.js"
+  "vibecharts/workspaces": "../../src/workspaces/index.js",
+  "vibecharts/alerts": "../../src/alerts/engine.js"
 } }
 </script>
 <link rel="stylesheet" href="../../src/styles/charting.css">
@@ -32,6 +33,7 @@
     <span class="sep" aria-hidden="true"></span>
     <button class="tool-btn" id="undo" type="button" aria-label="Отменить"><span class="icon" data-icon="undo"></span></button>
     <button class="tool-btn" id="redo" type="button" aria-label="Повторить"><span class="icon" data-icon="redo"></span></button>
+    <button class="tool-btn wide" id="alert-button" type="button" aria-pressed="false" title="Поставить алерт на уровень цены"><span class="icon" data-icon="bell"></span><span>Алерт</span></button>
     <span class="spacer"></span>
     <button class="chip" id="live-toggle" type="button" aria-pressed="true"><span class="live-dot" aria-hidden="true"></span>Поток (демо)</button>
     <span class="demo-badge" role="note" title="Все данные вымышлены и сгенерированы локально"><span class="full">ДЕМО · синтетические данные, не биржевые котировки</span><span class="short">ДЕМО</span></span>
@@ -61,13 +63,14 @@
 
   <aside class="sidepanel" id="sidepanel" aria-label="Список инструментов">
     <section class="watchlist">
-      <h2>Список <span class="muted">· демонстрация</span></h2>
+      <div class="list-head"><h2>Список</h2><select id="list-select" aria-label="Выбор списка инструментов"></select></div>
       <table>
         <thead><tr><th scope="col">Тикер</th><th scope="col" class="num">Цена</th><th scope="col" class="num">Изм.</th><th scope="col" class="num">Изм.%</th></tr></thead>
         <tbody id="watchlist"></tbody>
       </table>
     </section>
     <section class="details" id="details" aria-live="polite"></section>
+    <section class="alerts" id="alerts" aria-label="Алерты"></section>
     <p class="fineprint">Все данные вымышлены и сгенерированы локально. Нет подключения к бирже; значения не являются котировками или рекомендацией.</p>
   </aside>
 </div>
