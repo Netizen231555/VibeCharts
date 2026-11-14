@@ -2,12 +2,12 @@
 [data-chart-ui-shell] {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-areas:
-    "top top"
-    "start plot"
-    "bottom bottom";
+    "top top top"
+    "start plot end"
+    "bottom bottom bottom";
   min-width: 0;
   background: var(--chart-ui-bg);
   color: var(--chart-ui-text);
@@ -16,6 +16,7 @@
 
 [data-chart-ui-shell] > [data-region="top"] { grid-area: top; min-width: 0; border-bottom: 1px solid var(--chart-ui-border); }
 [data-chart-ui-shell] > [data-region="start"] { grid-area: start; min-height: 0; border-right: 1px solid var(--chart-ui-border); overflow-y: auto; }
+[data-chart-ui-shell] > [data-region="end"] { grid-area: end; min-height: 0; border-left: 1px solid var(--chart-ui-border); overflow-y: auto; }
 [data-chart-ui-shell] > [data-region="plot"] { grid-area: plot; min-width: 0; min-height: 160px; position: relative; }
 [data-chart-ui-shell] > [data-region="bottom"] { grid-area: bottom; min-width: 0; border-top: 1px solid var(--chart-ui-border); }
 
@@ -52,21 +53,26 @@
 /* Narrow hosts: the rail becomes a horizontal strip above the chart and wide bars scroll instead of clipping. */
 [data-chart-ui-shell][data-layout="compact"] {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
   grid-template-areas:
     "top"
     "start"
     "plot"
+    "end"
     "bottom";
 }
-[data-chart-ui-shell][data-layout="compact"] > [data-region="start"] {
+[data-chart-ui-shell][data-layout="compact"] > [data-region="start"],
+[data-chart-ui-shell][data-layout="compact"] > [data-region="end"] {
   border-right: 0;
-  border-bottom: 1px solid var(--chart-ui-border);
   overflow-x: auto;
   overflow-y: hidden;
 }
+[data-chart-ui-shell][data-layout="compact"] > [data-region="start"] { border-bottom: 1px solid var(--chart-ui-border); }
+[data-chart-ui-shell][data-layout="compact"] > [data-region="end"] { border-left: 0; border-top: 1px solid var(--chart-ui-border); }
 [data-chart-ui-shell] > [data-region="top"],
-[data-chart-ui-shell][data-layout="compact"] > [data-region="start"] {
+[data-chart-ui-shell] > [data-region="bottom"],
+[data-chart-ui-shell][data-layout="compact"] > [data-region="start"],
+[data-chart-ui-shell][data-layout="compact"] > [data-region="end"] {
   scrollbar-width: thin;
 }
 [data-chart-ui-shell][data-layout="compact"] > [data-region="top"] { overflow-x: auto; }

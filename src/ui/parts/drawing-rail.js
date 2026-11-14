@@ -22,6 +22,7 @@ export function createDrawingRail(controller, context) {
   const host = context.host;
   const disposers = [];
   const initial = controller.model();
+  const region = context.region;
   const tools = (initial.groups.find((group) => group.id === 'tools') || { controls: [] }).controls;
   const clearControl = initial.groups.flatMap((group) => group.controls).find((control) => control.id === 'clearDrawings') || null;
 
@@ -76,8 +77,9 @@ export function createDrawingRail(controller, context) {
     const view = doc.defaultView;
     const viewportWidth = doc.documentElement.clientWidth || (view ? view.innerWidth : 0);
     const horizontal = root.getAttribute('aria-orientation') === 'horizontal';
-    const left = horizontal ? rect.left : rect.right + 6;
-    const top = horizontal ? rect.bottom + 6 : rect.top + (rect.height - tip.offsetHeight) / 2;
+    // The tip opens away from the chart edge the rail is attached to: left of an end rail, above a bottom rail.
+    const left = horizontal ? rect.left : (region === 'end' ? rect.left - 6 - tip.offsetWidth : rect.right + 6);
+    const top = horizontal ? (region === 'bottom' ? rect.top - 6 - tip.offsetHeight : rect.bottom + 6) : rect.top + (rect.height - tip.offsetHeight) / 2;
     tip.style.left = `${Math.max(4, Math.min(left, viewportWidth - tip.offsetWidth - 4))}px`;
     tip.style.top = `${Math.max(4, top)}px`;
   }
@@ -197,9 +199,11 @@ export function createDrawingRail(controller, context) {
   disposers.push(controller.subscribe(['tool', 'capabilities', 'drawings'], update));
 
   /* ------------------------------- orientation ------------------------------- */
-  // The shell turns the rail into a horizontal strip on narrow hosts; the role must say so.
+  // Along the top or bottom the rail is a row; at the sides or floating it is a column, which the shell turns into a
+  // horizontal strip on narrow hosts (side regions only). The role must say which.
   function syncOrientation() {
-    root.setAttribute('aria-orientation', host && host.getAttribute('data-layout') === 'compact' ? 'horizontal' : 'vertical');
+    const strip = region === 'top' || region === 'bottom' || ((region === 'start' || region === 'end') && host && host.getAttribute('data-layout') === 'compact');
+    root.setAttribute('aria-orientation', strip ? 'horizontal' : 'vertical');
     if (tipTarget) showTip(tipTarget);
   }
   syncOrientation();

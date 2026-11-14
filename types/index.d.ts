@@ -891,13 +891,15 @@ export interface InteractionHandle {
   [key: string]: unknown;
 }
 
-export type UiRegion = 'top' | 'start' | 'overlay' | 'bottom' | 'menu';
+/** `top` and `start` render before the chart, `end` and `bottom` after it; `overlay` and `menu` float over the plot. */
+export type UiRegion = 'top' | 'start' | 'end' | 'overlay' | 'bottom' | 'menu';
 export type UiPresetName = 'full' | 'compact';
 
 /** Where parts go. `without` lists control ids (or `prefix:`) the host removes on purpose. */
 export interface UiLayout {
   top?: string[];
   start?: string[];
+  end?: string[];
   overlay?: string[];
   bottom?: string[];
   menu?: string[];

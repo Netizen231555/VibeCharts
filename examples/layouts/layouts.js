@@ -128,7 +128,26 @@ const layouts = {
     title: 'своя раскладка',
     shown: null,
   },
+  end: {
+    layout: { top: ['topBar'], end: ['drawingRail'], overlay: ['navCluster'], menu: ['settingsMenu'], bottom: ['statusLine'], without: [] },
+    parts: undefined,
+    title: 'инструменты справа',
+    shown: null,
+  },
+  bottom: {
+    layout: { top: ['topBar'], overlay: ['navCluster'], menu: ['settingsMenu'], bottom: ['drawingRail', 'statusLine'], without: [] },
+    parts: undefined,
+    title: 'инструменты снизу',
+    shown: null,
+  },
+  floating: {
+    layout: { top: ['topBar'], overlay: ['drawingRail', 'navCluster'], menu: ['settingsMenu'], bottom: ['statusLine'], without: [] },
+    parts: undefined,
+    title: 'плавающая панель',
+    shown: null,
+  },
 };
+for (const name of ['end', 'bottom', 'floating']) layouts[name].shown = JSON.stringify(layouts[name].layout, null, 2);
 layouts.custom.shown = `parts: { instrument: instrumentPart }\n${JSON.stringify(layouts.custom.layout, null, 2)}`;
 
 for (const section of document.querySelectorAll('[data-layout-example]')) {

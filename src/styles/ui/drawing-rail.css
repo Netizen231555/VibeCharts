@@ -36,3 +36,27 @@
 /* Rules between groups span both columns. */
 .chart-ui-rail-grid[aria-orientation="vertical"] > .chart-ui-sep { grid-column: 1 / -1; margin: 2px 0; }
 .chart-ui-rail-grid .chart-ui-rail-text { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+
+/* Along the top or bottom: a row that scrolls sideways instead of growing past the host width. */
+.chart-ui-rail[aria-orientation="horizontal"] {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--chart-ui-border) transparent;
+}
+.chart-ui-rail[aria-orientation="horizontal"] > .chart-ui-sep { margin: 2px 4px; }
+
+/* Floating over the plot: anchored to the start edge, no taller than the plot, its own surface. Only the rail takes
+   pointer events (the region itself has none), so the chart beside it stays usable. */
+[data-chart-ui-shell] > [data-region="overlay"] > .chart-ui-rail[data-chart-ui-part] {
+  left: 8px;
+  top: 8px;
+  right: auto;
+  bottom: auto;
+  max-height: calc(100% - 8px - var(--chart-ui-inset-y));
+  border: 1px solid var(--chart-ui-border);
+  border-radius: var(--chart-ui-radius);
+  background: var(--chart-ui-overlay-bg);
+  box-shadow: var(--chart-ui-shadow);
+}

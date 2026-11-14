@@ -35,3 +35,14 @@
     pointer-events: auto;
   }
 }
+
+/* Along the top or bottom the cluster is a plain group of buttons sized to its content, always visible. */
+[data-chart-ui-shell] > [data-region="top"] > .chart-ui-nav[data-chart-ui-part],
+[data-chart-ui-shell] > [data-region="bottom"] > .chart-ui-nav[data-chart-ui-part] {
+  width: fit-content;
+  max-width: 100%;
+  justify-content: flex-start;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}

@@ -119,10 +119,17 @@ function createMenuButton(doc, { id, groupLabel, itemRole, controls, onSelect, o
     const viewportWidth = doc.documentElement.clientWidth || (view ? view.innerWidth : 0);
     const viewportHeight = doc.documentElement.clientHeight || (view ? view.innerHeight : 0);
     const left = Math.max(4, Math.min(rect.left, viewportWidth - menu.offsetWidth - 4));
-    const top = rect.bottom + 2;
+    // A bar along the bottom edge has no room below: open upward when that side has more room and the menu does not fit.
+    menu.style.maxHeight = '';
+    const natural = menu.offsetHeight;
+    const below = viewportHeight - rect.bottom - 10;
+    const above = rect.top - 10;
+    const up = viewportHeight > 0 && natural > below && above > below;
+    const room = viewportHeight > 0 ? Math.max(120, up ? above : below) : natural;
+    const top = up ? Math.max(4, rect.top - 2 - Math.min(natural, room)) : rect.bottom + 2;
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
-    if (viewportHeight > 0) menu.style.maxHeight = `${Math.max(120, viewportHeight - top - 8)}px`;
+    if (viewportHeight > 0) menu.style.maxHeight = `${room}px`;
   }
 
   function close({ restoreFocus = true } = {}) {

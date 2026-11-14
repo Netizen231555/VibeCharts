@@ -9,7 +9,7 @@
  */
 import { InteractionError } from '../interaction/errors.js';
 
-export const REGIONS = Object.freeze(['top', 'start', 'overlay', 'bottom', 'menu']);
+export const REGIONS = Object.freeze(['top', 'start', 'end', 'overlay', 'bottom', 'menu']);
 
 /**
  * Built-in parts: where each may be placed and which controls it contains.
@@ -18,9 +18,9 @@ export const REGIONS = Object.freeze(['top', 'start', 'overlay', 'bottom', 'menu
  * is on: the settings menu then lists keyboard-equivalent actions too.
  */
 export const BUILTIN_PARTS = Object.freeze({
-  topBar: Object.freeze({ regions: Object.freeze(['top']), controls: Object.freeze(['chartType:', 'indicator:', 'interval', 'undo', 'redo']) }),
-  drawingRail: Object.freeze({ regions: Object.freeze(['start']), controls: Object.freeze(['tool:', 'clearDrawings']) }),
-  navCluster: Object.freeze({ regions: Object.freeze(['overlay']), controls: Object.freeze(['zoomIn', 'zoomOut', 'fitContent', 'scrollToRealTime', 'priceAuto']) }),
+  topBar: Object.freeze({ regions: Object.freeze(['top', 'bottom']), controls: Object.freeze(['chartType:', 'indicator:', 'interval', 'undo', 'redo']) }),
+  drawingRail: Object.freeze({ regions: Object.freeze(['start', 'end', 'top', 'bottom', 'overlay']), controls: Object.freeze(['tool:', 'clearDrawings']) }),
+  navCluster: Object.freeze({ regions: Object.freeze(['overlay', 'top', 'bottom']), controls: Object.freeze(['zoomIn', 'zoomOut', 'fitContent', 'scrollToRealTime', 'priceAuto']) }),
   settingsMenu: Object.freeze({
     regions: Object.freeze(['menu', 'top']),
     controls: Object.freeze(['theme', 'accessibleTable', 'follow', 'logScale', 'drawingSnap']),
@@ -39,6 +39,7 @@ export const PRESETS = Object.freeze({
   full: freezeLayout({
     top: ['topBar'],
     start: ['drawingRail'],
+    end: [],
     overlay: ['navCluster'],
     menu: ['settingsMenu'],
     bottom: ['statusLine', 'dataTable'],
@@ -48,6 +49,7 @@ export const PRESETS = Object.freeze({
   compact: freezeLayout({
     top: [],
     start: [],
+    end: [],
     overlay: [],
     menu: ['settingsMenu'],
     bottom: ['statusLine'],

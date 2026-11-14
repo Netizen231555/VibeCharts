@@ -2,6 +2,7 @@
 
 ## 0.1.0 — unreleased
 
+- The chart UI has a sixth region, `end` (right of the chart). The drawing rail may stand in `start`, `end`, `top`, `bottom` or `overlay`, the top bar in `top` or `bottom`, the navigation cluster in `overlay`, `top` or `bottom`; the rail's orientation follows its region (rows along the top and bottom scroll sideways; in `overlay` it floats over the plot at the start edge; tooltips open away from the attached edge) and top-bar menus open upward when there is no room below. Existing layouts and the `full`/`compact` presets render as before. `examples/layouts` shows the right, bottom and floating placements.
 - The headless interface layer is a documented, typed contract: `UiController`, `UiModel`, `UiControl`, `UiActionResult`, `UiActionAccess`, `UiStateKey` and `UiReadKey` replace the loose `Record<string, unknown>` types, and `CHART_TYPES`, `INDICATORS`, `createToolbarModel`, `activateControl` and `findControl` are typed precisely. Controller `get`, `snapshot`, `model` and `actions` now throw `UI_DESTROYED` after `destroy()` (they threw `CHART_DESTROYED` or nothing before). The controller works with no built-in part mounted; see "Headless interface layer" in `docs/contract.md`.
 - The status line keeps its state text whole and, when narrower than 460px, shows only the DEMO tag (full wording in the tooltip).
 - The keyboard focus ring of the chart host is drawn inside the container (negative outline offset) instead of spilling onto neighbouring panels.
