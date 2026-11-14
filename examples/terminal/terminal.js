@@ -116,7 +116,11 @@ function showMenu(button, build) {
   panel.className = 'menu';
   panel.setAttribute('role', 'menu');
   build(panel, closeMenu);
-  button.parentElement.append(panel);
+  // The top bar scrolls horizontally, which would clip an absolutely positioned child; the panel lives on <body> instead.
+  document.body.append(panel);
+  const anchor = button.getBoundingClientRect();
+  panel.style.top = `${Math.round(anchor.bottom + 4)}px`;
+  panel.style.left = `${Math.round(Math.max(8, Math.min(anchor.left, window.innerWidth - panel.offsetWidth - 8)))}px`;
   button.setAttribute('aria-expanded', 'true');
   openMenu = { button, panel };
   panel.querySelector('button')?.focus();
@@ -483,7 +487,7 @@ function syncIntervals() {
 }
 function syncType() {
   const type = CHART_TYPES.find((t) => t.id === state.chartType);
-  $('type-button').innerHTML = svg(type.icon);
+  $('type-button').innerHTML = `<span class="icon">${svg(type.icon)}</span><span>${type.label}</span>`;
   $('type-button').setAttribute('aria-label', `Тип графика: ${type.label}`);
   $('type-button').title = `Тип графика: ${type.label}`;
 }
