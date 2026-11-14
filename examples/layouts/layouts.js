@@ -92,7 +92,7 @@ function mount(section, { layout, parts, title }) {
       parts,
       title: `${instrument.id} · Демо`,
       demo: true,
-      demoLabel: 'синтетические данные, не котировки',
+      demoLabel: 'синтетические данные',
       theme: document.documentElement.dataset.theme,
       chartType: mode,
       onChartType(value) {

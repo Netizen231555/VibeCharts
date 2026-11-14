@@ -2,6 +2,7 @@
 
 ## 0.1.0 — unreleased
 
+- The status line keeps its state text whole and, when narrower than 460px, shows only the DEMO tag (full wording in the tooltip).
 - The keyboard focus ring of the chart host is drawn inside the container (negative outline offset) instead of spilling onto neighbouring panels.
 - Alert level lines show their status in the chart language (`alerts.status.*`) instead of the raw engine token.
 - Time-axis labels reserve space for the UTC indicator and skip labels that would overlap or extend beyond the plot.

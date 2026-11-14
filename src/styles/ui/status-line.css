@@ -1,5 +1,6 @@
 /* One-line status: long text is truncated visually, the full text stays in the DOM and in `title`. */
 .chart-ui-status-line {
+  container-type: inline-size;
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
@@ -66,3 +67,12 @@
 /* Stale data is also set in italics; the state text itself already says it is not fresh. */
 .chart-ui-status-line[data-stale="true"] .chart-ui-status-state,
 .chart-ui-status-line[data-stale="true"] .chart-ui-status-error { font-style: italic; }
+
+/* The state ("Data available") is short and must stay whole; the message and the demo label give way first. */
+.chart-ui-status-state { flex: none; }
+
+/* On a narrow line only the DEMO tag stays; the full wording is in the tooltip. */
+@container (max-width: 460px) {
+  .chart-ui-status-demo-label { display: none; }
+  .chart-ui-status-demo { min-width: 0; }
+}

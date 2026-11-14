@@ -13,10 +13,10 @@ section h2 { margin: 0 0 6px; font-size: 16px; }
 section > p { margin: 0 0 14px; color: var(--muted); max-width: 70ch; }
 section > p code { overflow-wrap: anywhere; }
 .example-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 320px); gap: 16px; align-items: start; }
-.example-grid > [data-host] { min-width: 0; border: 1px solid var(--line); }
-.example-chart { height: 380px; }
-.example-tile .example-chart { height: 200px; }
-.example-tile > [data-host] { max-width: 420px; }
+/* The host has a definite height: the chart fills what the bars leave, and a tall rail scrolls instead of stretching the host. */
+.example-grid > [data-host] { min-width: 0; height: 560px; border: 1px solid var(--line); }
+.example-chart { height: 100%; }
+.example-tile > [data-host] { max-width: 420px; height: 300px; }
 pre[data-code] { margin: 0; padding: 12px; overflow: auto; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px solid var(--line); color: var(--muted); }
 .example-error { margin: 0; padding: 10px; color: #b3261e; font-weight: 600; }
 .example-custom [data-host][data-chart-ui-shell] { --chart-ui-accent: #c58a2f; --chart-ui-focus: #c58a2f; --chart-ui-active: rgba(197, 138, 47, 0.24); }
