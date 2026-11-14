@@ -69,7 +69,8 @@
     "src",
     "types",
     "examples",
-    "CONTRACT.md",
+    "docs",
+    "NOTICE",
     "CHANGELOG.md",
     "LICENSE"
   ],

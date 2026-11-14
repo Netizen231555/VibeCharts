@@ -4,7 +4,7 @@
  * The interaction layer never imports core internals. It consumes the
  * documented public API (`timeline`, `indexScale()`, `priceScale()`,
  * `subscribe`, `drawings`) plus the small set of geometry and state hooks
- * listed in `CONTRACT.md`. Missing hooks fail loudly with the exact names,
+ * listed in `docs/contract.md`. Missing hooks fail loudly with the exact names,
  * because silently degraded input handling would hide a broken integration.
  */
 import { InteractionError } from './errors.js';

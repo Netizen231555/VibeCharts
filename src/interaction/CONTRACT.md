@@ -26,7 +26,7 @@ targets; a store attached later is picked up on the next pointer query.
 
 The adapter resolves the horizontal scale per pane, never globally:
 `chart._paneXContext(paneId)` yields `{ kind: 'source' | 'derived' | 'conflict', view, scale }`
-(see the root CONTRACT, "X axis per pane"). `adapter.indexScaleFor(paneId)`,
+(see `docs/contract.md`, "X axis per pane"). `adapter.indexScaleFor(paneId)`,
 `slotsFor(paneId)`, `paneKind(paneId)`, `sourceBarId(paneId, id)` and
 `derivedElementId(paneId, id)` serve navigation, crosshair, hit testing and
 drawings; a `null` pane id selects the source scale. Wheel, drag, keyboard,

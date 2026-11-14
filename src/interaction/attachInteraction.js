@@ -2,7 +2,7 @@
  * attachInteraction(chart, options) — pointer, wheel, touch, keyboard,
  * crosshair, context menu, pane layout and accessible-alternative wiring.
  *
- * Only the documented chart facade plus the hooks in CONTRACT.md are used.
+ * Only the documented chart facade plus the hooks in docs/contract.md are used.
  * The pure state machines live in their own modules and are exercised
  * directly by the tests; this file binds them to DOM events and to the
  * overlay elements it owns.
