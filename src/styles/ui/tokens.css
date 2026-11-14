@@ -1,0 +1,56 @@
+/* Design tokens of the chart UI. Override any `--chart-ui-*` property on the host (or an ancestor) to restyle. */
+[data-chart-ui-shell] {
+  --chart-ui-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --chart-ui-font-size: 13px;
+  --chart-ui-radius: 6px;
+  --chart-ui-gap: 4px;
+  --chart-ui-control-size: 32px;
+  --chart-ui-focus-width: 2px;
+  /* Distance of the on-chart groups from the price and time axes. */
+  --chart-ui-inset-x: 76px;
+  --chart-ui-inset-y: 40px;
+
+  --chart-ui-bg: #ffffff;
+  --chart-ui-surface: #f5f7f8;
+  --chart-ui-border: #d3dae0;
+  /* Boundary of a control: at least 3:1 against the background. */
+  --chart-ui-control-border: #7a8793;
+  --chart-ui-text: #1d2630;
+  --chart-ui-muted: #56626e;
+  --chart-ui-hover: #e9edf0;
+  --chart-ui-accent: #1b6f99;
+  --chart-ui-accent-contrast: #ffffff;
+  --chart-ui-active: #d7e8f1;
+  --chart-ui-focus: #1b6f99;
+  --chart-ui-danger: #b3261e;
+  --chart-ui-warning: #8a5a00;
+  --chart-ui-menu-bg: #ffffff;
+  --chart-ui-shadow: 0 6px 20px rgba(16, 22, 28, 0.18);
+  --chart-ui-backdrop: rgba(16, 22, 28, 0.45);
+  /* Floating chrome over the plot: translucent so the chart shows through. */
+  --chart-ui-overlay-bg: rgba(255, 255, 255, 0.82);
+
+  color-scheme: light;
+}
+
+[data-chart-ui-shell][data-theme="dark"] {
+  --chart-ui-bg: #10161c;
+  --chart-ui-surface: #18202a;
+  --chart-ui-border: #2b3540;
+  --chart-ui-control-border: #6b7a88;
+  --chart-ui-text: #cdd5dd;
+  --chart-ui-muted: #94a1ae;
+  --chart-ui-hover: #222c37;
+  --chart-ui-accent: #5db0de;
+  --chart-ui-accent-contrast: #0b1218;
+  --chart-ui-active: #1d3a4b;
+  --chart-ui-focus: #7cc4ea;
+  --chart-ui-danger: #f0877e;
+  --chart-ui-warning: #e0b05a;
+  --chart-ui-menu-bg: #18202a;
+  --chart-ui-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  --chart-ui-backdrop: rgba(0, 0, 0, 0.6);
+  --chart-ui-overlay-bg: rgba(24, 32, 42, 0.82);
+
+  color-scheme: dark;
+}

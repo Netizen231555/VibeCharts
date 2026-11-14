@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Терминал — демонстрация VibeCharts (синтетические данные)</title>
+<!-- Resolves the package name to local sources for this repository checkout.
+     An application that installed the archive uses its bundler instead. -->
+<script type="importmap">
+{ "imports": {
+  "vibecharts": "../../src/index.js",
+  "vibecharts/workspaces": "../../src/workspaces/index.js"
+} }
+</script>
+<link rel="stylesheet" href="../../src/styles/charting.css">
+<link rel="stylesheet" href="./terminal.css">
+</head>
+<body>
+<div class="terminal" id="terminal">
+  <header class="topbar" role="banner">
+    <div class="brand" aria-label="VibeCharts Terminal, демонстрация">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="brand-name">Терминал</span>
+    </div>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="symbol-badge" id="symbol-button" type="button" aria-label="Выбрать инструмент"><span class="logo" id="symbol-logo" aria-hidden="true"></span><span id="symbol-text">DEMO01</span></button>
+    <span class="sep" aria-hidden="true"></span>
+    <div class="group" id="intervals" role="group" aria-label="Интервал"></div>
+    <span class="sep" aria-hidden="true"></span>
+    <div class="menu-host"><button class="tool-btn" id="type-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Тип графика"></button></div>
+    <div class="menu-host"><button class="tool-btn wide" id="indicators-button" type="button" aria-haspopup="menu" aria-expanded="false"><span class="icon" data-icon="indicators"></span><span>Индикаторы</span></button></div>
+    <span class="sep" aria-hidden="true"></span>
+    <button class="tool-btn" id="undo" type="button" aria-label="Отменить"><span class="icon" data-icon="undo"></span></button>
+    <button class="tool-btn" id="redo" type="button" aria-label="Повторить"><span class="icon" data-icon="redo"></span></button>
+    <span class="spacer"></span>
+    <button class="chip" id="live-toggle" type="button" aria-pressed="true"><span class="live-dot" aria-hidden="true"></span>Поток (демо)</button>
+    <span class="demo-badge" role="note" title="Все данные вымышлены и сгенерированы локально"><span class="full">ДЕМО · синтетические данные, не биржевые котировки</span><span class="short">ДЕМО</span></span>
+    <button class="tool-btn" id="theme" type="button" aria-label="Переключить тему"><span class="icon" data-icon="theme"></span></button>
+    <button class="tool-btn" id="snapshot" type="button" aria-label="Сохранить график в PNG"><span class="icon" data-icon="camera"></span></button>
+    <button class="tool-btn" id="fullscreen" type="button" aria-label="Полный экран"><span class="icon" data-icon="fullscreen"></span></button>
+    <button class="tool-btn narrow-only" id="side-toggle" type="button" aria-label="Список инструментов" aria-expanded="false"><span class="icon" data-icon="list"></span></button>
+  </header>
+
+  <nav class="drawbar" id="drawbar" aria-label="Инструменты рисования"></nav>
+
+  <main class="chart-column">
+    <div class="chart-wrap">
+      <div class="legend" id="legend" aria-hidden="true"></div>
+      <div class="chart-surface" id="chart"></div>
+      <button class="to-realtime" id="to-realtime" type="button" aria-label="К последнему бару" hidden><span class="icon" data-icon="forward"></span></button>
+      <div class="notice" id="notice" role="alert" hidden></div>
+    </div>
+    <div class="rangebar" role="toolbar" aria-label="Диапазон и шкала">
+      <div class="group" id="ranges" role="group" aria-label="Диапазон"></div>
+      <span class="spacer"></span>
+      <span class="clock" id="clock" title="Часовой пояс отображения"></span>
+      <button class="mini" id="log" type="button" aria-pressed="false">Лог</button>
+      <button class="mini" id="auto" type="button" aria-pressed="true">Авто</button>
+    </div>
+  </main>
+
+  <aside class="sidepanel" id="sidepanel" aria-label="Список инструментов">
+    <section class="watchlist">
+      <h2>Список <span class="muted">· демонстрация</span></h2>
+      <table>
+        <thead><tr><th scope="col">Тикер</th><th scope="col" class="num">Цена</th><th scope="col" class="num">Изм.</th><th scope="col" class="num">Изм.%</th></tr></thead>
+        <tbody id="watchlist"></tbody>
+      </table>
+    </section>
+    <section class="details" id="details" aria-live="polite"></section>
+    <p class="fineprint">Все данные вымышлены и сгенерированы локально. Нет подключения к бирже; значения не являются котировками или рекомендацией.</p>
+  </aside>
+</div>
+<div class="status-live" id="status" role="status" aria-live="polite"></div>
+<script type="module" src="./terminal.js"></script>
+</body>
+</html>

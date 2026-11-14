@@ -1,0 +1,37 @@
+/*
+ * Navigation cluster over the chart. Hidden only visually: it stays focusable,
+ * and focusing it shows it. The selectors repeat the region chain so they
+ * outrank the shell rule that gives every overlay part `pointer-events: auto`.
+ */
+.chart-ui-nav {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  /* Stays clear of the price axis (the shell sets the right inset) and never exceeds the plot width. */
+  max-width: calc(100% - var(--chart-ui-inset-x) - 8px);
+  padding: 2px;
+  border: 1px solid var(--chart-ui-border);
+  border-radius: var(--chart-ui-radius);
+  background: var(--chart-ui-overlay-bg);
+  box-shadow: var(--chart-ui-shadow);
+  transition: opacity 120ms ease-out;
+}
+
+[data-chart-ui-shell] > [data-region="overlay"] > .chart-ui-nav[data-chart-ui-part] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+[data-chart-ui-shell]:hover > [data-region="overlay"] > .chart-ui-nav[data-chart-ui-part],
+[data-chart-ui-shell]:focus-within > [data-region="overlay"] > .chart-ui-nav[data-chart-ui-part],
+[data-chart-ui-shell]:has(.chart-ui-settings > .chart-ui-btn[aria-expanded="true"]) > [data-region="overlay"] > .chart-ui-nav[data-chart-ui-part] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Touch and other coarse-pointer devices cannot depend on hover. */
+@media (hover: none), (pointer: coarse) {
+  [data-chart-ui-shell] > [data-region="overlay"] > .chart-ui-nav[data-chart-ui-part] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}

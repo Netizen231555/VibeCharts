@@ -1,0 +1,142 @@
+/*
+ * Optional styles for the DOM the package creates itself: context menu,
+ * hidden price label list, crosshair readout and status regions. Importing
+ * the JavaScript modules never loads this file; the host links it explicitly.
+ *
+ * Colours come from custom properties. The values below follow the package
+ * "dark" theme (the default); an ancestor with data-theme="light" switches to
+ * the "light" values, and any variable may be overridden by the host.
+ * No fonts, images or other resources are loaded.
+ */
+
+:root,
+[data-theme="dark"] {
+  --charting-surface: #151c25;
+  --charting-text: #d7dee8;
+  --charting-muted: #8b98a8;
+  --charting-border: #6b7a8c;
+  --charting-hover: #243040;
+  --charting-accent: #7dd3fc;
+  --charting-focus: #7dd3fc;
+  --charting-error: #ff8f8f;
+}
+
+[data-theme="light"] {
+  --charting-surface: #ffffff;
+  --charting-text: #1f2328;
+  --charting-muted: #5b6572;
+  --charting-border: #7d8793;
+  --charting-hover: #e9edf2;
+  --charting-accent: #0b63ce;
+  --charting-focus: #0b63ce;
+  --charting-error: #b42318;
+}
+
+.chart-context-menu {
+  box-sizing: border-box;
+  min-width: min(14rem, 100vw);
+  max-width: min(22rem, 100vw);
+  max-height: 100vh;
+  overflow: auto;
+  padding: 0.25rem 0;
+  background: var(--charting-surface);
+  color: var(--charting-text);
+  border: 1px solid var(--charting-border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  font: 13px/1.35 system-ui, sans-serif;
+}
+
+.chart-context-menu:focus-visible {
+  outline: 2px solid var(--charting-focus);
+  outline-offset: 2px;
+}
+
+.chart-context-menu [role^="menuitem"] {
+  padding: 0.5rem 0.875rem;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: background-color 0.12s;
+}
+
+.chart-context-menu [role^="menuitem"]:hover,
+.chart-context-menu [role^="menuitem"]:focus {
+  background: var(--charting-hover);
+  border-left-color: var(--charting-accent);
+}
+
+.chart-context-menu [role^="menuitem"]:focus-visible {
+  outline: 2px solid var(--charting-focus);
+  outline-offset: -2px;
+}
+
+.chart-context-menu [role^="menuitem"][aria-checked="true"]::before {
+  content: "\2713\00a0";
+}
+
+.chart-readout {
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font: 12px/1.4 system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-readout summary {
+  color: var(--charting-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.charting-label-overflow {
+  padding: 0.2rem 0.4rem;
+  background: var(--charting-surface);
+  color: var(--charting-text);
+  border: 1px solid var(--charting-border);
+  border-radius: 4px;
+  font: 11px/1.4 system-ui, sans-serif;
+}
+
+.charting-label-overflow summary {
+  cursor: pointer;
+}
+
+.charting-label-overflow ul {
+  margin: 0.3rem 0 0;
+  padding: 0 0 0 1.25rem;
+}
+
+.charting-label-overflow:focus-visible,
+.charting-label-overflow summary:focus-visible {
+  outline: 2px solid var(--charting-focus);
+  outline-offset: 2px;
+}
+
+.chart-status,
+.chart-alert,
+.chart-indicator-error {
+  margin: 0.25rem 0;
+  padding: 0.25rem 0.5rem;
+  border-left: 4px solid var(--charting-accent);
+  background: var(--charting-surface);
+  color: var(--charting-text);
+  font: 13px/1.4 system-ui, sans-serif;
+}
+
+.chart-status:empty,
+.chart-alert:empty,
+.chart-indicator-error:empty {
+  display: none;
+}
+
+/* An error is bold and double-bordered, so it does not rely on colour alone. */
+.chart-alert,
+.chart-indicator-error {
+  border-left: 4px double var(--charting-error);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-context-menu [role^="menuitem"] {
+    transition: none;
+  }
+}

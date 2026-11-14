@@ -1,0 +1,11 @@
+export { createWorkspace } from './workspace.js';
+export { createSyncController } from './sync.js';
+export { WorkspaceError, isWorkspaceError } from './errors.js';
+export { exportChartPng } from './png.js';
+export { STATE_KIND, STATE_VERSION } from './state.js';
+export { TEMPLATE_KINDS, TEMPLATE_VERSION } from './templates.js';
+export { TreeStore } from './tree.js';
+export { clusterMarkers, DEFAULT_CLUSTER_DISTANCE } from './markers.js';
+export { comparisonScale, computeComparison, readPrimaryComparison, computePrimaryComparison } from './comparison.js';
+export { MAX_GRID_DIMENSION, normalizeLayout } from './layout.js';
+export { anchorFromLogical, logicalFromAnchor, normalizeAnchor } from './anchors.js';

@@ -1,0 +1,56 @@
+/* topBar: arrangement only; the part is complete semantic HTML without this file. */
+/* Positioned so the hidden text of its controls stays inside the bar's scroll area instead of widening the page. */
+.chart-ui-topbar { position: relative; flex-wrap: nowrap; padding-block: 2px; --chart-ui-control-size: 24px; }
+.chart-ui-topbar > * { flex: none; }
+
+@media (hover: none), (pointer: coarse) {
+  .chart-ui-topbar { --chart-ui-control-size: 44px; }
+}
+
+/* Toolbar controls read as lightweight selectable blocks, not boxed fields. */
+.chart-ui-topbar .chart-ui-surface-btn,
+.chart-ui-topbar .chart-ui-select {
+  border-color: transparent;
+  background: transparent;
+}
+.chart-ui-topbar .chart-ui-surface-btn:hover:not(:disabled),
+.chart-ui-topbar .chart-ui-select:hover:not(:disabled) { background: var(--chart-ui-hover); }
+.chart-ui-topbar .chart-ui-topbar-trigger[aria-expanded="true"] {
+  background: var(--chart-ui-active);
+}
+
+.chart-ui-topbar-title {
+  max-width: 32ch;
+  padding: 0 8px;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-ui-topbar-menu-wrap { position: relative; display: inline-flex; flex: none; }
+
+.chart-ui-topbar-trigger { white-space: nowrap; }
+.chart-ui-topbar-icon { display: inline-flex; }
+.chart-ui-topbar-icon:empty { display: none; }
+
+/* Fixed positioning keeps the menu clear of the bar's own horizontal scrolling; the script sets left/top. */
+.chart-ui-menu.chart-ui-topbar-menu {
+  position: fixed;
+  overflow-y: auto;
+  min-width: 200px;
+  max-width: min(320px, 100vw);
+}
+.chart-ui-menu.chart-ui-topbar-menu[hidden] { display: none; }
+
+.chart-ui-topbar-menu .chart-ui-menu-item[aria-checked="true"] { font-weight: 600; }
+.chart-ui-topbar-menu .chart-ui-menu-item[aria-disabled="true"] { color: var(--chart-ui-muted); cursor: not-allowed; }
+.chart-ui-topbar-menu .chart-ui-menu-item[aria-disabled="true"]:hover { background: transparent; }
+
+/* The mark's slot keeps its width so entries do not shift when the selection changes. */
+.chart-ui-topbar-check { display: inline-flex; width: 16px; flex: none; }
+.chart-ui-topbar-check[hidden] { display: inline-flex; visibility: hidden; }
+.chart-ui-topbar-item-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+.chart-ui-topbar-field { display: inline-flex; }
+.chart-ui-topbar .chart-ui-select:disabled { color: var(--chart-ui-muted); cursor: not-allowed; }

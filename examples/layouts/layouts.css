@@ -1,0 +1,29 @@
+:root { color-scheme: dark; --page: #0c1015; --text: #cdd5dd; --muted: #94a1ae; --line: #2b3540; }
+[data-theme="light"] { color-scheme: light; --page: #f1f3f4; --text: #1d2630; --muted: #56626e; --line: #d3dae0; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--text); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.page-header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid var(--line); }
+.page-header h1 { margin: 0; font-size: 18px; }
+.page-header button { min-height: 36px; padding: 0 14px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.page-header button:focus-visible { outline: 2px solid #5db0de; outline-offset: 2px; }
+main { max-width: 1200px; margin: 0 auto; padding: 0 24px 48px; }
+.data-notice { color: var(--muted); font-size: 12px; margin: 16px 0 0; border-left: 2px solid var(--line); padding-left: 10px; }
+section { padding: 28px 0; border-bottom: 1px solid var(--line); }
+section h2 { margin: 0 0 6px; font-size: 16px; }
+section > p { margin: 0 0 14px; color: var(--muted); max-width: 70ch; }
+section > p code { overflow-wrap: anywhere; }
+.example-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 320px); gap: 16px; align-items: start; }
+.example-grid > [data-host] { min-width: 0; border: 1px solid var(--line); }
+.example-chart { height: 380px; }
+.example-tile .example-chart { height: 200px; }
+.example-tile > [data-host] { max-width: 420px; }
+pre[data-code] { margin: 0; padding: 12px; overflow: auto; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; border: 1px solid var(--line); color: var(--muted); }
+.example-error { margin: 0; padding: 10px; color: #b3261e; font-weight: 600; }
+.example-custom [data-host][data-chart-ui-shell] { --chart-ui-accent: #c58a2f; --chart-ui-focus: #c58a2f; --chart-ui-active: rgba(197, 138, 47, 0.24); }
+.example-instrument { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; padding: 6px 12px; }
+.example-instrument span { font-size: 20px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.example-instrument small { color: var(--chart-ui-muted); }
+@media (max-width: 760px) {
+  main { padding: 0 12px 32px; }
+  .example-grid { grid-template-columns: minmax(0, 1fr); }
+}

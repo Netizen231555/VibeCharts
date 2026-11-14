@@ -1,0 +1,74 @@
+/* Settings menu: trigger, popup and modal dialog frame. Without this file the menu is a plain list shown only while open. */
+.chart-ui-settings { position: relative; display: inline-block; }
+
+.chart-ui-settings > .chart-ui-btn[aria-expanded="true"] {
+  background: var(--chart-ui-active);
+  border-color: var(--chart-ui-accent);
+}
+
+/* Floating settings stay keyboard reachable; top-region settings are always visible. */
+[data-chart-ui-shell] > [data-region="menu"] > .chart-ui-settings[data-chart-ui-part] {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+[data-chart-ui-shell]:hover > [data-region="menu"] > .chart-ui-settings[data-chart-ui-part],
+[data-chart-ui-shell]:focus-within > [data-region="menu"] > .chart-ui-settings[data-chart-ui-part],
+[data-chart-ui-shell] > [data-region="menu"] > .chart-ui-settings[data-chart-ui-part]:has(> .chart-ui-btn[aria-expanded="true"]) {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: none), (pointer: coarse) {
+  [data-chart-ui-shell] > [data-region="menu"] > .chart-ui-settings[data-chart-ui-part] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* Floating triggers are translucent like the nav cluster. */
+[data-region="menu"] > .chart-ui-settings > .chart-ui-btn:not([aria-expanded="true"]) { background: var(--chart-ui-overlay-bg); }
+
+/* Opens under the trigger, right edges aligned; the script flips it with these attributes when it would leave the viewport. */
+.chart-ui-settings-menu {
+  top: calc(100% + 4px);
+  right: 0;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 8px));
+  max-height: calc(100vh - 8px);
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.chart-ui-settings-menu[hidden] { display: none; }
+.chart-ui-settings-menu[data-align="start"] { left: 0; right: auto; }
+.chart-ui-settings-menu[data-placement="top"] { top: auto; bottom: calc(100% + 4px); }
+
+.chart-ui-settings-item { color: var(--chart-ui-text); font: inherit; }
+.chart-ui-settings-item:focus-visible { background: var(--chart-ui-hover); }
+.chart-ui-settings-item[aria-disabled="true"] { color: var(--chart-ui-muted); cursor: not-allowed; }
+.chart-ui-settings-item[aria-disabled="true"]:hover { background: transparent; }
+
+.chart-ui-settings-lead,
+.chart-ui-settings-check { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 20px; }
+/* The check keeps its slot when unchecked so labels stay aligned. */
+.chart-ui-settings-check[hidden] { display: inline-flex; visibility: hidden; }
+
+.chart-ui-settings-text { display: flex; flex-direction: column; min-width: 0; }
+.chart-ui-settings-label { overflow-wrap: anywhere; }
+.chart-ui-settings-reason { color: var(--chart-ui-muted); font-size: 0.85em; overflow-wrap: anywhere; }
+
+.chart-ui-settings-dialog { width: min(640px, calc(100vw - 16px)); box-sizing: border-box; }
+.chart-ui-settings-dialog-frame { display: flex; flex-direction: column; min-height: 0; }
+.chart-ui-settings-dialog-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--chart-ui-border);
+  background: var(--chart-ui-menu-bg);
+}
+.chart-ui-settings-dialog-title { margin: 0; font-size: 1.15em; font-weight: 600; overflow-wrap: anywhere; }
+.chart-ui-settings-dialog-body { padding: 12px; min-width: 0; }

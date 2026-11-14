@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Раскладки интерфейса графика</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../../src/styles/charting.css">
+  <link rel="stylesheet" href="../../src/styles/ui.css">
+  <link rel="stylesheet" href="./layouts.css">
+  <script type="module" src="./layouts.js"></script>
+</head>
+<body>
+  <header class="page-header">
+    <h1>Раскладки интерфейса графика</h1>
+    <button type="button" id="theme" aria-pressed="false">Светлая тема</button>
+  </header>
+  <main>
+    <p class="data-notice">Демонстрационные данные · синтетические цены и объёмы · не биржевые котировки</p>
+
+    <section data-layout-example="default" aria-labelledby="title-default">
+      <h2 id="title-default">1. Раскладка по умолчанию</h2>
+      <p>Верхняя полоса с типом графика и индикатором, колонка инструментов рисования, навигация в углу графика (появляется при наведении или фокусе), меню «⋯» и строка статуса. Тема, таблица данных, панели и форма координат — в меню.</p>
+      <div class="example-grid">
+        <div data-host></div>
+        <pre data-code aria-label="Описание раскладки"></pre>
+      </div>
+    </section>
+
+    <section data-layout-example="compact" aria-labelledby="title-compact">
+      <h2 id="title-compact">2. Пресет compact для плитки</h2>
+      <p>Только график, строка статуса и меню настроек. Остальные действия доступны с клавиатуры и жестами.</p>
+      <div class="example-grid example-tile">
+        <div data-host></div>
+        <pre data-code aria-label="Описание раскладки"></pre>
+      </div>
+    </section>
+
+    <section data-layout-example="custom" aria-labelledby="title-custom">
+      <h2 id="title-custom">3. Своя раскладка</h2>
+      <p>Верхняя область занята частью хоста, части типа графика и индикаторов сняты явно через <code>without</code>, акцент переопределён токеном <code>--chart-ui-accent</code>.</p>
+      <div class="example-grid example-custom">
+        <div data-host></div>
+        <pre data-code aria-label="Описание раскладки"></pre>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

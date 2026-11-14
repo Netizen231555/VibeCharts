@@ -1,0 +1,11 @@
+/* drawingRail: arrangement only; the part is complete semantic HTML without this file. */
+/* Positioned so the hidden text of its controls stays inside the rail's scroll area instead of widening the page. */
+.chart-ui-rail { position: relative; flex: none; }
+.chart-ui-rail > .chart-ui-btn { flex: none; }
+.chart-ui-rail-text { white-space: nowrap; }
+
+/* The tip is fixed so the rail's scroll container cannot clip it; the script sets left/top. */
+.chart-ui-tip.chart-ui-rail-tip { position: fixed; z-index: 7; max-width: min(320px, 100vw); white-space: normal; }
+.chart-ui-tip.chart-ui-rail-tip[hidden] { display: none; }
+
+.chart-ui-rail .chart-ui-btn[aria-disabled="true"]:hover { background: transparent; }

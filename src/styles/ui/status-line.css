@@ -1,0 +1,68 @@
+/* One-line status: long text is truncated visually, the full text stays in the DOM and in `title`. */
+.chart-ui-status-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 4px 12px;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: var(--chart-ui-font-size);
+  line-height: 1.4;
+  color: var(--chart-ui-text);
+}
+
+.chart-ui-status-line [hidden] { display: none !important; }
+
+.chart-ui-status-region,
+.chart-ui-status-alert {
+  display: flex;
+  align-items: baseline;
+  gap: 4px 12px;
+  min-width: 0;
+}
+.chart-ui-status-region { flex: 1 1 auto; }
+.chart-ui-status-alert { flex: 1 1 auto; }
+
+.chart-ui-status-state,
+.chart-ui-status-message,
+.chart-ui-status-source,
+.chart-ui-status-error,
+.chart-ui-status-demo-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-ui-status-message,
+.chart-ui-status-source { color: var(--chart-ui-muted); }
+
+.chart-ui-status-source { flex: 0 1 auto; }
+
+/* Errors differ from normal messages by weight and a bar, not by colour alone. */
+.chart-ui-status-error {
+  color: var(--chart-ui-danger);
+  font-weight: 600;
+  padding-left: 8px;
+  border-left: 3px solid var(--chart-ui-danger);
+}
+
+.chart-ui-status-demo {
+  display: inline-flex;
+  align-items: baseline;
+  /* Shrinks first: an error must stay readable on a narrow line. */
+  flex: 0 4 auto;
+  /* Wide enough for the DEMO tag so it never overlaps the neighbouring text. */
+  min-width: 6.5em;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 0 8px;
+  border: 1px solid var(--chart-ui-warning);
+  border-radius: var(--chart-ui-radius);
+  color: var(--chart-ui-warning);
+}
+.chart-ui-status-demo-tag { letter-spacing: 0.04em; flex: none; }
+
+/* Stale data is also set in italics; the state text itself already says it is not fresh. */
+.chart-ui-status-line[data-stale="true"] .chart-ui-status-state,
+.chart-ui-status-line[data-stale="true"] .chart-ui-status-error { font-style: italic; }

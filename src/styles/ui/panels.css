@@ -1,0 +1,93 @@
+/* Dialog panels: pane management and derived view. Arrangement only; the markup is complete without it. */
+.chart-ui-panel {
+  display: block;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 8px 12px 12px;
+  font-family: var(--chart-ui-font);
+  font-size: var(--chart-ui-font-size);
+  color: var(--chart-ui-text);
+}
+.chart-ui-panel + .chart-ui-panel { border-top: 1px solid var(--chart-ui-border); }
+
+.chart-ui-panel-title { margin: 4px 0 8px; font-size: 1.1em; font-weight: 600; }
+
+.chart-ui-panel-list { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+.chart-ui-panel-panes[data-panes-scroll="true"] .chart-ui-panel-list { max-height: 50vh; overflow-y: auto; }
+
+.chart-ui-panel-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--chart-ui-gap);
+  padding: 4px 6px;
+  border: 1px solid var(--chart-ui-border);
+  border-radius: var(--chart-ui-radius);
+  background: var(--chart-ui-surface);
+}
+.chart-ui-panel-name { flex: 1 1 6em; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+
+.chart-ui-panel-btn { white-space: normal; text-align: center; }
+
+/* Draggable bar between two visible panes; its hit area grows past the visible bar for fingers. */
+.chart-ui-panel-separator {
+  position: relative;
+  box-sizing: border-box;
+  flex: none;
+  height: 8px;
+  margin: 6px 12px;
+  border-radius: 4px;
+  background: var(--chart-ui-control-border);
+  cursor: row-resize;
+  touch-action: none;
+  user-select: none;
+}
+.chart-ui-panel-separator::before { content: ""; position: absolute; inset: -8px 0; }
+.chart-ui-panel-separator::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 2px;
+  transform: translate(-50%, -50%);
+  background: var(--chart-ui-bg);
+  border-radius: 1px;
+}
+.chart-ui-panel-separator:hover,
+.chart-ui-panel-separator:focus-visible { background: var(--chart-ui-accent); }
+.chart-ui-panel-separator:focus-visible { outline: var(--chart-ui-focus-width) solid var(--chart-ui-focus); outline-offset: 2px; }
+@media (hover: none), (pointer: coarse) {
+  .chart-ui-panel-separator { height: 12px; margin: 10px 12px; }
+}
+
+.chart-ui-panel-derived .chart-ui-panel-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.chart-ui-panel-params { margin: 0; color: var(--chart-ui-muted); }
+.chart-ui-panel-controls { flex-wrap: wrap; }
+.chart-ui-panel-inputs { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+.chart-ui-panel-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.chart-ui-panel-input {
+  box-sizing: border-box;
+  min-height: var(--chart-ui-control-size);
+  max-width: 100%;
+  padding: 0 8px;
+  border: 1px solid var(--chart-ui-control-border);
+  border-radius: var(--chart-ui-radius);
+  background: var(--chart-ui-surface);
+  color: var(--chart-ui-text);
+  font: inherit;
+}
+.chart-ui-panel-readout {
+  padding: 6px 8px;
+  border-left: 3px solid var(--chart-ui-accent);
+  background: var(--chart-ui-surface);
+  overflow-wrap: anywhere;
+}
+
+.chart-ui-panel input:focus-visible,
+.chart-ui-panel select:focus-visible,
+.chart-ui-panel button:focus-visible,
+.chart-ui-panel:focus-visible {
+  outline: var(--chart-ui-focus-width) solid var(--chart-ui-focus);
+  outline-offset: 1px;
+}

@@ -1,0 +1,47 @@
+.chart-ui-data-table-scroll {
+  max-height: 240px;
+  overflow: auto;
+  background: var(--chart-ui-bg);
+  color: var(--chart-ui-text);
+}
+
+.chart-ui-data-table-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--chart-ui-font-size);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-ui-data-table-grid caption {
+  padding: 4px 8px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--chart-ui-muted);
+}
+
+.chart-ui-data-table-grid th,
+.chart-ui-data-table-grid td {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--chart-ui-border);
+  text-align: right;
+  white-space: nowrap;
+}
+.chart-ui-data-table-grid th:first-child,
+.chart-ui-data-table-grid td:first-child { text-align: left; }
+
+/* Headers stay visible while a long table scrolls. */
+.chart-ui-data-table-grid thead th {
+  position: sticky;
+  top: 0;
+  background: var(--chart-ui-surface);
+  font-weight: 600;
+}
+
+.chart-ui-data-table-notice {
+  margin: 0;
+  padding: 6px 8px;
+  color: var(--chart-ui-muted);
+}
+.chart-ui-data-table-error { color: var(--chart-ui-danger); font-weight: 600; }
+
+.chart-ui-data-table [hidden] { display: none !important; }

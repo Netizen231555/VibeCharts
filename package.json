@@ -1,0 +1,92 @@
+{
+  "name": "vibecharts",
+  "version": "0.1.0",
+  "description": "VibeCharts — dependency-free index-timeline Canvas 2D charting library",
+  "type": "module",
+  "license": "Apache-2.0",
+  "sideEffects": [
+    "./src/styles/charting.css",
+    "./src/styles/ui.css",
+    "./src/styles/ui/*.css"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "types": "./types/index.d.ts",
+      "import": "./src/index.js"
+    },
+    "./theme": {
+      "types": "./types/theme.d.ts",
+      "import": "./src/render/theme.js"
+    },
+    "./interaction": {
+      "types": "./types/interaction.d.ts",
+      "import": "./src/interaction/index.js"
+    },
+    "./ui": {
+      "types": "./types/ui.d.ts",
+      "import": "./src/ui/index.js"
+    },
+    "./integration": {
+      "types": "./types/integration.d.ts",
+      "import": "./src/integration/index.js"
+    },
+    "./drawings": {
+      "types": "./types/drawings.d.ts",
+      "import": "./src/drawings/index.js"
+    },
+    "./indicators": {
+      "types": "./types/indicators.d.ts",
+      "import": "./src/indicators/engine.js"
+    },
+    "./package.json": "./package.json",
+    "./datafeed": {
+      "types": "./types/datafeed.d.ts",
+      "import": "./src/datafeed/index.js"
+    },
+    "./alerts": {
+      "types": "./types/alerts.d.ts",
+      "import": "./src/alerts/engine.js"
+    },
+    "./replay": {
+      "types": "./types/replay.d.ts",
+      "import": "./src/replay/session.js"
+    },
+    "./extensions": {
+      "types": "./types/extensions.d.ts",
+      "import": "./src/extensions/registry.js"
+    },
+    "./workspaces": {
+      "types": "./types/workspaces.d.ts",
+      "import": "./src/workspaces/index.js"
+    },
+    "./styles.css": "./src/styles/charting.css",
+    "./ui.css": "./src/styles/ui.css"
+  },
+  "files": [
+    "src",
+    "types",
+    "examples",
+    "CONTRACT.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "charts",
+    "charting",
+    "canvas",
+    "candles",
+    "ohlc",
+    "financial",
+    "trading",
+    "indicators",
+    "drawing-tools",
+    "no-dependencies"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/Netizen231555/VibeCharts.git"
+  }
+}

@@ -1,0 +1,31 @@
+/* Coordinate drawing form shown in the settings dialog. */
+.chart-drawings label { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; }
+.chart-drawings input,
+.chart-drawings textarea,
+.chart-drawings select {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 5px;
+  border: 1px solid var(--chart-ui-control-border);
+  border-radius: 4px;
+  background: var(--chart-ui-surface);
+  color: var(--chart-ui-text);
+  font: inherit;
+}
+.chart-drawings textarea { min-height: 64px; resize: vertical; }
+.chart-drawings button {
+  min-height: var(--chart-ui-control-size);
+  padding: 0 10px;
+  border: 1px solid var(--chart-ui-control-border);
+  border-radius: var(--chart-ui-radius);
+  background: var(--chart-ui-surface);
+  color: var(--chart-ui-text);
+  font: inherit;
+  cursor: pointer;
+}
+.chart-drawings button:disabled { color: var(--chart-ui-muted); cursor: not-allowed; }
+.chart-drawings {
+  padding: 8px 12px 12px;
+}

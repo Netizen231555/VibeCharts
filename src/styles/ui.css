@@ -1,0 +1,12 @@
+/* Optional stylesheet for the chart UI parts. Without it the parts stay usable semantic HTML. */
+@import "./ui/tokens.css";
+@import "./ui/shell.css";
+@import "./ui/controls.css";
+@import "./ui/top-bar.css";
+@import "./ui/drawing-rail.css";
+@import "./ui/nav-cluster.css";
+@import "./ui/settings-menu.css";
+@import "./ui/status-line.css";
+@import "./ui/data-table.css";
+@import "./ui/panels.css";
+@import "./ui/drawing-form.css";
