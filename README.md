@@ -4,7 +4,7 @@
 
 Zero-dependency Canvas 2D charting library for market data: candlesticks, bars, lines, areas and histograms, indicators, drawing tools, alerts and an accessible, composable interface.
 
-![Candlestick chart with volume, moving averages, RSI, volume delta and drawing tools](.github/images/hero.webp)
+![Candlestick chart with volume and exponential moving averages](.github/images/hero.webp)
 
 ## Features
 
@@ -81,6 +81,6 @@ Example data is synthetic.
 
 ## Status
 
-Version 0.1.0: the API may change incompatibly in minor versions. Most of the code was written with AI assistance and checked by the author in a browser; there is no automated test suite yet. Do not use it for trading decisions without your own verification. Changes: [CHANGELOG.md](CHANGELOG.md).
+Version 0.1.0: this is a vibe-coded project; most of the code was written with AI assistance and checked by the author in a browser. The API may change incompatibly in minor versions; there is no automated test suite yet. Do not use it for trading decisions without your own verification. Changes: [CHANGELOG.md](CHANGELOG.md).
 
 Licensed under Apache-2.0, see [LICENSE](LICENSE). Provided "as is", without warranty; not investment advice.
