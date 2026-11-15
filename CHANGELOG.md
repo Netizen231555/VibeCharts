@@ -2,6 +2,7 @@
 
 ## 0.1.0 — unreleased
 
+- Add runnable Vue examples with chart lifecycle and reactive theme changes.
 - Make the terminal instrument-list selector more compact.
 - Match the dark instrument panel background to the chart background, including custom settings.
 - Resize the terminal instrument panel by dragging its edge or using the keyboard; refresh its dark-theme colors.
