@@ -87,14 +87,14 @@ function drawTimePlate(ctx, { label, layout, binding, paneRect, frameLayout, the
   if (!axis || axis.height <= 0) return;
   if (label.unavailable !== undefined) return;
   const x = adapter.logicalToX(label.logical, binding);
-  if (x === null || x < 0 || x > frameLayout.plotWidth) return;
+  if (x === null || x < axis.x || x > axis.x + axis.width) return;
   const text = derived
     ? String(label.logical + 1)
     : timePlateText(label, binding, adapter, { timeFormatter, presentation, reportError, reported, timeTexts });
   if (text === null) return;
   const plateWidth = textWidth(text);
   if (plateWidth > axis.width) return;
-  const left = Math.max(axis.x, Math.min(axis.x + x - plateWidth / 2, axis.x + axis.width - plateWidth));
+  const left = Math.max(axis.x, Math.min(x - plateWidth / 2, axis.x + axis.width - plateWidth));
   const rect = { left, top: axis.y, width: plateWidth, height: 2 * half };
   const key = `time:${axis.y}:${Math.round(left)}:${text}`;
   if (seen.has(key)) return;

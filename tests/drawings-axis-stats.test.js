@@ -54,6 +54,15 @@ test('statistics and unavailable time values remain inspectable', () => {
   assert.ok(s.layout(measure).primitives.length);
 });
 
+test('derived panes expose ordinal labels without inventing bar times', () => {
+  const derivedGeometry = { ...geometry, paneKind: () => 'derived', getSlot: i => ({ barId: `b${i}` }) };
+  const s = createDrawingStore({ context: { instrumentId: 'T', interval: '1D', sourceId: 'src', view: 'main' }, geometry: derivedGeometry, historyLimit: 20 });
+  const id = s.add({ type: 'verticalLine', paneId: 'main', scaleId: 'right', anchors: [{ anchorBarId: 'b2', offset: 0 }], props: { axisLabels: { time: true } } }).id;
+  assert.deepEqual(s.layout(id).axisLabels, [{ axis: 'time', anchorIndex: 0, logical: 2 }]);
+  s.update(id, { anchors: [{ anchorBarId: 'b2', offset: 0.5 }] });
+  assert.equal(s.layout(id).axisLabels[0].unavailable, 'no-time');
+});
+
 function axisFixture() {
   const scale = { id: 'right', side: 'right', visible: true, overlay: false };
   const pane = { id: 'main', visible: true, priceScales: new Map([['right', scale]]) };
@@ -61,11 +70,23 @@ function axisFixture() {
   const painted = [];
   const ctx = { save() {}, restore() {}, fillRect() {}, strokeRect() {}, fillText(text, x, y) { painted.push({ text, x, y }); }, measureText(text) { return { width: text.length * 5 }; } };
   let formats = 0;
+
   const adapter = { priceToY: p => p, logicalToX: x => x, getSlot: () => ({ time: 3600000 }), formatPrice: p => { formats++; return p.toFixed(2); } };
   const layout = { paneId: 'main', scaleId: 'right', style: { color: '#123' }, axisLabels: [{ axis: 'price', price: 50 }, { axis: 'time', logical: 80 }] };
   const options = { entries: [{ layout, selected: false }], frameLayout, width: 300, theme: { lastValueBackground: '#000', lastValueText: '#fff' }, options: {}, adapter };
   return { ctx, options, painted, formats: () => formats };
 }
+
+test('time plates use absolute plot coordinates when a left axis is present', () => {
+  const f = axisFixture();
+  const scale = { id: 'right', side: 'left', visible: true, overlay: false };
+  f.options.frameLayout = computeLayout({ width: 300, height: 200, panes: [{ id: 'main', visible: true, priceScales: new Map([['right', scale]]) }] });
+  f.options.entries[0].layout.axisLabels = [{ axis: 'time', logical: 100 }];
+  f.options.timeFormatter = () => 'time';
+  drawAxisLabels(f.ctx, f.options);
+  assert.equal(f.painted.length, 1);
+  assert.equal(f.painted[0].x, 90);
+});
 
 test('axis plates cull, yield to last price, deduplicate and cache per frame', () => {
   const f = axisFixture();

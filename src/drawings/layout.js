@@ -699,7 +699,11 @@ function materialize(type, drawing, adapter) {
       }
       if (axisOptions.time && anchorSpec.x && anchor.anchorBarId !== undefined) {
         const entry = { axis: 'time', anchorIndex: index, logical: anchor.logical };
-        if (anchorTime(anchor, adapter, binding) === null) entry.unavailable = 'no-time';
+        const derivedSlot = adapter.paneKind?.(binding) === 'derived'
+          && anchor.offset === 0 && Number.isInteger(anchor.logical)
+          && adapter.indexOf(anchor.anchorBarId, binding) === anchor.logical
+          && adapter.getSlot(anchor.logical, binding);
+        if (!derivedSlot && anchorTime(anchor, adapter, binding) === null) entry.unavailable = 'no-time';
         axisLabels.push(entry);
       }
     });
