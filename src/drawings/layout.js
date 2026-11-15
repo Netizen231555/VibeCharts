@@ -5,6 +5,21 @@ import { anchorTime, computeRegression, computeVwap, measureAnchors } from './an
 import { buildStatsBadge } from './axis-stats.js';
 
 // Font-specific widths persist across frames; bound memory and discard stale metrics on font changes.
+// The label is right-aligned to the end of the analysed range so it cannot run past the pane edge, and its
+// baseline is clamped so a large upper multiplier or a zoomed range keeps it visible. When the range ends left
+// of the pane it is hidden rather than pinned to an unrelated place.
+function regressionLabel(correlation, x, y, rect) {
+  if (x < rect.x) return [];
+  const text = correlation.available ? `r = ${correlation.value.toFixed(2)}` : 'r —';
+  const estimatedWidth = text.length * 8;
+  return [{
+    x: Math.max(rect.x + estimatedWidth, Math.min(rect.x + rect.width - 4, x)),
+    y: Math.max(rect.y + 12, Math.min(rect.y + rect.height - 4, y - 4)),
+    align: 'right',
+    text,
+  }];
+}
+
 const labelWidthCaches = new WeakMap();
 const fontSetGenerations = new WeakMap();
 function fontGeneration(context) {
@@ -657,8 +672,7 @@ const BUILDERS = {
         ]), stroke: false },
         middle, upper, lower,
       ],
-      labels: drawing.props.showR ? [{ x: labelX, y: labelY - 4,
-        text: correlation.available ? `r = ${correlation.value.toFixed(2)}` : 'r —' }] : [],
+      labels: drawing.props.showR ? regressionLabel(correlation, labelX, labelY, rect) : [],
       regression,
       available: true,
     };

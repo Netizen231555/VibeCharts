@@ -45,3 +45,22 @@ test('regression prop validation names invalid fields', () => {
     assert.throws(() => normalizeProps('regressionChannel', { ...props, ...patch }), error => error.field === field);
   }
 });
+
+test('correlation label stays inside the pane', () => {
+  const labelFor = (props, rect = { x: 0, y: 0, width: 200, height: 200 }, last = 'b3', values = [10, 13, 14, 18]) => {
+    const store = createDrawingStore({ context: { instrumentId: 'T', interval: 'D', sourceId: 'src' }, historyLimit: 10,
+      geometry: { ...geometry, getVisibleRect: () => rect, getSeriesValues: () => series(values) } });
+    const drawing = store.add({ ...input, anchors: [input.anchors[0], { ...input.anchors[1], anchorBarId: last }], props: { ...input.props, ...props } });
+    return store.layout(drawing.id).labels[0];
+  };
+  // Band far above the pane: the baseline is clamped instead of leaving the label offscreen.
+  const high = labelFor({ upperK: 1000 });
+  assert.ok(high.y >= 12 && high.y <= 196);
+  // Range end at the pane edge: the text is right-aligned and its anchor stays inside.
+  const edge = labelFor({ extend: { left: true, right: false } }, { x: 0, y: 0, width: 100, height: 200 }, 'b9',
+    [10, 11, 13, 12, 15, 14, 16, 18, 17, 19]);
+  assert.equal(edge.align, 'right');
+  assert.ok(edge.x <= 96 && edge.x - edge.text.length * 8 >= 0);
+  // Range ends left of the visible pane: no label is pinned to an unrelated spot.
+  assert.equal(labelFor({}, { x: 100, y: 0, width: 100, height: 200 }), undefined);
+});
