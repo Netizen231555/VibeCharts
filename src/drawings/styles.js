@@ -1,4 +1,5 @@
 import { fail, isObject, isNumber } from './values.js';
+import { isPlainColor } from './color.js';
 
 export const STYLE_FAMILIES = Object.freeze({
   line: ['color', 'width', 'dash', 'opacity'],
@@ -8,10 +9,9 @@ export const STYLE_FAMILIES = Object.freeze({
 });
 
 const DASHES = ['solid', 'dashed', 'dotted'];
-const COLOR = /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,20}|(rgb|rgba|hsl|hsla)\([0-9.,%\s]+\))$/;
 
 function color(value, property) {
-  if (typeof value !== 'string' || !COLOR.test(value)) {
+  if (!isPlainColor(value)) {
     fail('invalid-style', `${property} must be a plain color string`, { property });
   }
   return value;

@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createDrawingStore } from '../src/drawings/store.js';
 import { normalizeProps } from '../src/drawings/tools.js';
+import { isPlainColor } from '../src/drawings/color.js';
+import { validateStyle } from '../src/drawings/styles.js';
 
 const geometry = {
   hasBinding: () => true, getVisibleRect: () => ({ x: 0, y: 0, width: 200, height: 200 }),
@@ -31,6 +33,25 @@ test('caption and text style support, defaults and field errors', () => {
     ['polyline', { label: { text: 'x' } }, 'props.label'],
     ['text', { text: 'x', textStyle: { align: 'left' } }, 'props.textStyle.align'],
   ]) assert.throws(() => normalizeProps(type, props), error => error.field === field);
+});
+
+test('plain colors are validated consistently without a browser', () => {
+  for (const color of ['#123', '#1234', '#123456', '#12345678', 'red', 'RebeccaPurple', 'transparent', 'rgb(1, 2, 3)', 'rgba(20%, 30%, 40%, .5)', 'hsl(120, 50%, 25%)', 'hsla(120, 50%, 25%, 50%)']) {
+    assert.equal(isPlainColor(color), true, color);
+    assert.equal(normalizeProps('segment', { label: { text: 'x', color } }).label.color, color);
+    assert.equal(validateStyle('line', { color }).color, color);
+  }
+  for (const color of ['#12345', '#1234567', 'notacolor', 'rgb(1,2)', 'rgb(1,2,3,4)', 'rgba(1,2,3,)', 'rgb(1%,2,3)', 'hsl(2,3,4)', 'rgba(1,2,3,1.2.3)', 'rgb(1.,2,3)']) {
+    assert.equal(isPlainColor(color), false, color);
+    const s = store();
+    assert.throws(() => s.add({ ...drawing, props: { label: { text: 'x', color } } }), error => error.field === 'props.label.color');
+    const id = s.add(drawing).id, before = s.export();
+    assert.throws(() => s.update(id, { props: { label: { text: 'x', color } } }), error => error.field === 'props.label.color');
+    const invalid = structuredClone(before); invalid.drawings[0].props.label.color = color;
+    assert.throws(() => s.import(invalid), error => error.field === 'props.label.color');
+    assert.deepEqual(s.export(), before);
+    assert.throws(() => validateStyle('line', { color }), /color/);
+  }
 });
 
 test('caption updates and document imports are atomic and undoable', () => {

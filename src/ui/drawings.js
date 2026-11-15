@@ -1,5 +1,6 @@
 import { createElement, append, clearElement, contains, focusElement } from '../interaction/dom.js';
 import { DRAWING_TOOLS } from '../drawings/tools.js';
+import { isPlainColor } from '../drawings/color.js';
 import { t as translate, localeOf } from './messages.js';
 
 const CAPTION_TYPES = new Set(['segment', 'ray', 'line', 'horizontalLevel', 'horizontalRay', 'verticalLine', 'arrow', 'parallelChannel', 'regressionChannel', 'rectangle', 'ellipse', 'triangle']);
@@ -123,7 +124,7 @@ export function createDrawingControls({ chart, doc, host, interaction, announce 
       }
       const sizeValue = Number(size.value);
       if (!size.value.trim() || !Number.isFinite(sizeValue) || sizeValue < 8 || sizeValue > 72) throw new Error(t('drawings.sizeLimit'));
-      if (color && color.value && !/^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,20}|(rgb|rgba|hsl|hsla)\([0-9.,%\s]+\))$/.test(color.value)) {
+      if (color && color.value && !isPlainColor(color.value)) {
         throw new Error(t('drawings.colorInvalid'));
       }
       const typography = { size: sizeValue, bold: bold.checked, italic: italic.checked, align: align.value };

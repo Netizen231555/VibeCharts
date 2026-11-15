@@ -1,5 +1,6 @@
 import { fail, isObject, isNumber, normalizeZero, requireString, requireBoolean } from './values.js';
 import { AXIS_LABEL_TOOLS, STATS_TOOLS, normalizeAxisLabels, normalizeStats } from './axis-stats.js';
+import { isPlainColor } from './color.js';
 
 const xy = (count = 2) => ({ count, x: true, price: true });
 
@@ -273,7 +274,7 @@ function normalizeTypography(value, field, label) {
     if (text.split('\n').length > 3) fail('invalid-props', `${field}.text must have at most 3 lines`, { field: `${field}.text` });
     result.text = text;
     if (value.color !== undefined) {
-      if (typeof value.color !== 'string' || !/^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,20}|(rgb|rgba|hsl|hsla)\([0-9.,%\s]+\))$/.test(value.color)) {
+      if (!isPlainColor(value.color)) {
         fail('invalid-props', `${field}.color must be a plain color string`, { field: `${field}.color` });
       }
       result.color = value.color;
