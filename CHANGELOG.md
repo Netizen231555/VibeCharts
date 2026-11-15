@@ -2,6 +2,7 @@
 
 ## 0.1.0 — unreleased
 
+- Give the terminal instrument panel a blue-tinted dark theme.
 - Resize the terminal instrument panel by dragging its edge or using the keyboard; refresh its dark-theme colors.
 - Use the same custom dropdown for the terminal watchlist selector.
 - Show directional resize cursors over the price and time scales.
