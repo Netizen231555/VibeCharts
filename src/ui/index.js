@@ -6,3 +6,7 @@ export { createIcon, hasIcon, ICON_NAMES } from './icons.js';
 export { createToolbarModel, activateControl, findControl, CHART_TYPES, INDICATORS, DRAWING_TOOLS } from './controls.js';
 export { computeResponsiveLayout, NARROW_WIDTH } from './layout.js';
 export { createTheme, directionLabel, valueWithDirection, THEMES, THEME_NAMES } from './theme.js';
+export {
+  DRAWING_SETTINGS_TABS, listDrawingSettingsFields, describeDrawingSettings, applyDrawingSettings,
+  applySavedDrawingStyle, saveDrawingStyle, planDrawingStyle,
+} from './drawing-settings/index.js';

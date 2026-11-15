@@ -31,4 +31,5 @@ export { DRAWING_SETTINGS_TABS };
 export const listDrawingSettingsFields = () => registry.list();
 export const describeDrawingSettings = (input) => describeWith(registry, input);
 export const applyDrawingSettings = (store, input) => applyWith(registry, store, input);
+export { applySavedDrawingStyle, saveDrawingStyle, planDrawingStyle } from './styles.js';
 export { createFieldRegistry } from './registry.js';
