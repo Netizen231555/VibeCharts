@@ -1,5 +1,6 @@
 import { DRAWING_TOOLS } from '../drawings/tools.js';
 import { drawLayout } from '../drawings/render.js';
+import { STYLE_FAMILIES } from '../drawings/styles.js';
 import { translate, resolveLocale } from './messages.js';
 
 // Two-point line-family tools that Shift pins to the first anchor's price.
@@ -80,7 +81,7 @@ export function drawingAnchor(chart, point, binding, spec, snap = {}, announce =
   return { ...(horizontal || {}), ...(spec.price ? { price } : {}) };
 }
 
-export function createDrawingTool(chart, id, { binding, props = {}, getSnap = () => ({}), announce = () => {}, complete = () => {}, locale } = {}) {
+export function createDrawingTool(chart, id, { binding, props = {}, getSnap = () => ({}), getStyle = () => ({}), announce = () => {}, complete = () => {}, locale } = {}) {
   // Resolved per message: `locale` may be a function that tracks the chart locale.
   const t = (key, params) => translate(resolveLocale(locale), key, params);
   const type = id;
@@ -96,6 +97,12 @@ export function createDrawingTool(chart, id, { binding, props = {}, getSnap = ()
   let down = null;
   let cursor = null;
   let lastPreviewError = null;
+  // The host's default style applies only to the properties this drawing's family has (a text note has no width);
+  // the preview and the committed drawing read it the same way.
+  function styleOption() {
+    const style = Object.fromEntries(Object.entries(getStyle()).filter(([key]) => STYLE_FAMILIES[spec.family].includes(key)));
+    return Object.keys(style).length > 0 ? { style } : {};
+  }
   function show(point, mods = {}) {
     const shift = mods.shiftKey === true;
     const snap = effectiveSnap(chart, binding, getSnap(), mods);
@@ -123,7 +130,7 @@ export function createDrawingTool(chart, id, { binding, props = {}, getSnap = ()
       }
       const required = spec.anchors.count ?? spec.anchors.min;
       while (pending.length < required) pending.push(pending[pending.length - 1]);
-      const layout = chart.drawings.previewLayout({ type, ...binding, anchors: pending, props });
+      const layout = chart.drawings.previewLayout({ type, ...binding, anchors: pending, props, ...styleOption() });
       if (!layout.resolved) throw new Error(layout.error?.message || layout.reason || t('drawing.geometryUnavailable'));
       drawLayout(ctx, layout, chart.surface.getVisibleRect(binding), true);
       lastPreviewError = null;
@@ -139,7 +146,7 @@ export function createDrawingTool(chart, id, { binding, props = {}, getSnap = ()
   }
   function finish() {
     if (anchors.length < (spec.anchors.min ?? spec.anchors.count)) throw new Error(t('drawing.minAnchors', { count: spec.anchors.min ?? spec.anchors.count }));
-    chart.drawings.add({ type, ...binding, anchors, props });
+    chart.drawings.add({ type, ...binding, anchors, props, ...styleOption() });
     clear(); announce(t('drawing.added'));
     if (!chart.drawings.getRepeatMode()) { preview.remove(); complete(); }
   }

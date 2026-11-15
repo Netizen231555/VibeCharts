@@ -6,6 +6,8 @@ import { sourceKey } from 'vibecharts/alerts';
 import { INSTRUMENTS, INTERVALS, generateSeries, decimalsOf, createTicker } from './data.js';
 import { createToolbarModel, createUiController, createIcon } from 'vibecharts/ui';
 import { captureWindow, windowRange } from './window.js';
+import { createSettings } from './settings-model.js';
+import { createSettingsPanel } from './settings-panel.js';
 import { createI18n, mountLanguageSwitch } from '../shared/i18n.js';
 import { en, ru } from './strings.js';
 
@@ -19,25 +21,30 @@ const labelOf = (interval) => interval.labels[i18n.lang];
 
 const TZ = 'Europe/Moscow';
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-// Candle and volume colours of the chosen palette; reassigned by applyPalette, which also repaints the live chart.
-const PALETTES = {
-  classic: { up: '#3fa77f', down: '#d9645a', upVolume: 'rgba(8, 153, 129, 0.55)', downVolume: 'rgba(242, 54, 69, 0.55)' },
-  safe: { up: '#4a9fd0', down: '#e0a84a', upVolume: 'rgba(74, 159, 208, 0.55)', downVolume: 'rgba(224, 168, 74, 0.55)' },
-  mono: { up: '#d0d7de', down: '#6b7785', upVolume: 'rgba(208, 215, 222, 0.5)', downVolume: 'rgba(107, 119, 133, 0.55)' },
+// Settings (colours, series looks, the default style of new drawings) are kept in localStorage.
+const settings = createSettings();
+// What the series, the legend and the side panel read; refreshColors() reassigns it from the current theme's settings.
+let VALUES;
+let UP;
+let DOWN;
+let UP_VOLUME;
+let DOWN_VOLUME;
+let LINE_COLOR;
+const withAlpha = (hex, alpha) => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
 };
-let { up: UP, down: DOWN, upVolume: UP_VOLUME, downVolume: DOWN_VOLUME } = PALETTES.classic;
-const BLUE = '#4a9fd0';
-const ORANGE = '#e0a84a';
-const PURPLE = '#9a7fd1';
+function refreshColors() {
+  VALUES = settings.values(state.theme);
+  UP = VALUES['candle.up'];
+  DOWN = VALUES['candle.down'];
+  UP_VOLUME = withAlpha(VALUES['volume.up'], VALUES['volume.opacity']);
+  DOWN_VOLUME = withAlpha(VALUES['volume.down'], VALUES['volume.opacity']);
+  LINE_COLOR = VALUES['line.color'];
+  document.documentElement.style.setProperty('--up', UP);
+  document.documentElement.style.setProperty('--down', DOWN);
+}
 
-const THEMES = {
-  dark: { theme: 'dark', layout: { background: '#10161c', textColor: '#aeb8c3', fontSize: 12, fontFamily: FONT }, grid: { visible: true, color: '#1b232b' },
-    crosshair: { visible: true, color: '#7d8d9c', labelBackground: '#303b47', labelTextColor: '#ffffff' }, priceScale: { borderColor: '#2b3540', textColor: '#aeb8c3' },
-    timeScale: { borderColor: '#2b3540', textColor: '#aeb8c3' } },
-  light: { theme: 'light', layout: { background: '#ffffff', textColor: '#1d2630', fontSize: 12, fontFamily: FONT }, grid: { visible: true, color: '#ebeff2' },
-    crosshair: { visible: true, color: '#8a97a4', labelBackground: '#d8dee4', labelTextColor: '#1d2630' }, priceScale: { borderColor: '#d8dee4', textColor: '#1d2630' },
-    timeScale: { borderColor: '#d8dee4', textColor: '#1d2630' } },
-};
 
 const ICONS = {
   cursor: '<path d="M6 4l11 8-5 1.2 3 5.8-2.2 1.1-3-5.8L6 17z"/>',
@@ -97,7 +104,6 @@ const LISTS = [
 
 const state = {
   instrument: INSTRUMENTS[0], interval: INTERVALS[3], chartType: 'candles', theme: 'dark',
-  appearance: { palette: 'classic', grid: true, crosshair: true, priceLine: true },
   indicators: new Set(['volume', 'sma']), live: true, tool: null, magnet: false,
   listId: 'all', alerts: new Map(), // alerts: instrument id -> [{ price, operation, engineId }]
 };
@@ -121,11 +127,11 @@ function closeMenu() {
   openMenu.button.focus();
   openMenu = null;
 }
-function showMenu(button, build, { placement = 'below', form = false } = {}) {
+function showMenu(button, build, { placement = 'below' } = {}) {
   if (openMenu) { const same = openMenu.button === button; closeMenu(); if (same) return; }
   const panel = document.createElement('div');
   panel.className = 'menu';
-  panel.setAttribute('role', form ? 'dialog' : 'menu');
+  panel.setAttribute('role', 'menu');
   build(panel, closeMenu);
   // The top bar scrolls horizontally, which would clip an absolutely positioned child; the panel lives on <body> instead.
   document.body.append(panel);
@@ -138,14 +144,14 @@ function showMenu(button, build, { placement = 'below', form = false } = {}) {
     panel.style.left = `${Math.round(Math.max(8, Math.min(anchor.left, window.innerWidth - panel.offsetWidth - 8)))}px`;
   }
   button.setAttribute('aria-expanded', 'true');
-  openMenu = { button, panel, form };
-  (panel.querySelector('input, button'))?.focus();
+  openMenu = { button, panel };
+  panel.querySelector('button')?.focus();
 }
 document.addEventListener('pointerdown', (event) => { if (openMenu && !openMenu.panel.contains(event.target) && !openMenu.button.contains(event.target)) { openMenu.panel.remove(); openMenu.button.setAttribute('aria-expanded', 'false'); openMenu = null; } });
 document.addEventListener('keydown', (event) => {
   if (!openMenu) return;
   if (event.key === 'Escape') { event.preventDefault(); closeMenu(); return; }
-  if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && !openMenu.form) {
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     event.preventDefault();
     const items = [...openMenu.panel.querySelectorAll('button')];
     const index = items.indexOf(document.activeElement);
@@ -189,11 +195,37 @@ function announce(message) { els.status.textContent = ''; els.status.textContent
 function showNotice(message, kind = 'error') { els.notice.textContent = message; els.notice.dataset.kind = kind; els.notice.hidden = false; announce(message); }
 function clearNotice() { els.notice.hidden = true; els.notice.textContent = ''; delete els.notice.dataset.kind; }
 
-// The theme's colours with the user's appearance switches (grid, crosshair) applied on top.
+// The chart's colours and switches for the current theme, from the settings.
 function themeOptions() {
-  const theme = THEMES[state.theme];
-  return { ...theme, grid: { ...theme.grid, visible: state.appearance.grid }, crosshair: { ...theme.crosshair, visible: state.appearance.crosshair } };
+  const v = VALUES;
+  return {
+    theme: state.theme,
+    layout: { background: v['chart.background'], textColor: v['chart.text'], fontSize: v['chart.fontSize'], fontFamily: FONT },
+    grid: { visible: v['grid.visible'], color: v['grid.color'] },
+    crosshair: { visible: v['crosshair.visible'], color: v['crosshair.color'], labelBackground: v['crosshair.plate'], labelTextColor: v['crosshair.plateText'] },
+    priceScale: { borderColor: v['axis.border'], textColor: v['axis.text'] },
+    timeScale: { borderColor: v['axis.border'], textColor: v['axis.text'] },
+  };
 }
+// Series options of the current chart type; the same function serves the first build and a live change.
+function priceSeriesOptions() {
+  const v = VALUES;
+  switch (state.chartType) {
+    case 'candles': {
+      const linked = v['candle.linked'];
+      return {
+        upColor: v['candle.up'], downColor: v['candle.down'], equalColor: v['candle.equal'],
+        borderUpColor: linked ? v['candle.up'] : v['candle.borderUp'], borderDownColor: linked ? v['candle.down'] : v['candle.borderDown'],
+        wickUpColor: linked ? v['candle.up'] : v['candle.wickUp'], wickDownColor: linked ? v['candle.down'] : v['candle.wickDown'],
+        borderVisible: v['candle.borderVisible'], wickVisible: v['candle.wickVisible'],
+      };
+    }
+    case 'bars': return { upColor: v['candle.up'], downColor: v['candle.down'] };
+    case 'line': return { color: LINE_COLOR, lineWidth: 2 };
+    default: return { lineColor: LINE_COLOR, lineWidth: 2, fillColor: withAlpha(LINE_COLOR, v['area.opacity']) };
+  }
+}
+const priceLineOptions = () => ({ visible: VALUES['priceLine.visible'], style: VALUES['priceLine.style'] });
 
 function chartOptions(step) {
   const theme = themeOptions();
@@ -217,17 +249,12 @@ function pointsFor(type, bars) {
 function addPrice(s) {
   const { bars, step } = s.data;
   const metadata = { instrumentId: `DEMO:${state.instrument.id}`, interval: state.interval.id, sourceId: 'synthetic-demo', board: 'DEMO', priceStep: step };
-  const common = { id: 'price', lastValueVisible: true, priceLine: { style: 'dashed', visible: state.appearance.priceLine }, lastValueColorMode: 'direction' };
+  const common = { id: 'price', lastValueVisible: true, priceLine: priceLineOptions(), lastValueColorMode: 'direction' };
   const type = state.chartType;
-  if (type === 'candles') {
-    s.price = chart.addSeries('candlestick', { ...common, upColor: UP, downColor: DOWN, borderUpColor: UP, borderDownColor: DOWN, wickUpColor: UP, wickDownColor: DOWN, equalColor: '#8793a0' }, 'main');
-  } else if (type === 'bars') {
-    s.price = chart.addSeries('bar', { ...common, upColor: UP, downColor: DOWN }, 'main');
-  } else if (type === 'line') {
-    s.price = chart.addSeries('line', { ...common, color: BLUE, lineWidth: 2 }, 'main');
-  } else {
-    s.price = chart.addSeries('area', { ...common, lineColor: BLUE, lineWidth: 2, fillColor: 'rgba(74, 159, 208, 0.14)', basePrice: Math.min(...bars.map((b) => b.low)) }, 'main');
-  }
+  if (type === 'candles') s.price = chart.addSeries('candlestick', { ...common, ...priceSeriesOptions() }, 'main');
+  else if (type === 'bars') s.price = chart.addSeries('bar', { ...common, ...priceSeriesOptions() }, 'main');
+  else if (type === 'line') s.price = chart.addSeries('line', { ...common, ...priceSeriesOptions() }, 'main');
+  else s.price = chart.addSeries('area', { ...common, ...priceSeriesOptions(), basePrice: Math.min(...bars.map((b) => b.low)) }, 'main');
   s.price.setData(pointsFor(type, bars), metadata);
 }
 // Magnet on: every anchor takes the nearest candle's time and its nearest O/H/L/C price; the source is the primary price series.
@@ -279,12 +306,18 @@ function removeVolume(s) {
 function indicatorSpec(id) {
   const field = state.chartType === 'line' || state.chartType === 'area' ? 'value' : 'close';
   switch (id) {
-    case 'sma': return { type: 'sma', parameters: { period: 20, sourceField: field }, colors: { value: BLUE }, label: 'SMA 20' };
-    case 'ema': return { type: 'ema', parameters: { period: 50, sourceField: field }, colors: { value: ORANGE }, label: 'EMA 50' };
-    case 'bollinger': return { type: 'bollinger', parameters: { period: 20, k: 2, sourceField: field }, colors: { middle: ORANGE, upper: BLUE, lower: BLUE }, label: 'Bollinger 20 2' };
-    case 'rsi': return { type: 'rsi', parameters: { period: 14, sourceField: field }, colors: { value: PURPLE }, label: 'RSI 14', pane: true, height: 0.32 };
-    case 'macd': return { type: 'macd', parameters: { fast: 12, slow: 26, signal: 9, sourceField: field }, colors: { macd: BLUE, signal: ORANGE, histogram: UP }, label: 'MACD 12 26 9', pane: true, height: 0.38 };
+    case 'sma': return { type: 'sma', parameters: { period: 20, sourceField: field }, colors: { value: VALUES['ind.sma'] }, label: 'SMA 20' };
+    case 'ema': return { type: 'ema', parameters: { period: 50, sourceField: field }, colors: { value: VALUES['ind.ema'] }, label: 'EMA 50' };
+    case 'bollinger': return { type: 'bollinger', parameters: { period: 20, k: 2, sourceField: field }, colors: { middle: VALUES['ind.bollingerMiddle'], upper: VALUES['ind.bollingerBand'], lower: VALUES['ind.bollingerBand'] }, label: 'Bollinger 20 2' };
+    case 'rsi': return { type: 'rsi', parameters: { period: 14, sourceField: field }, colors: { value: VALUES['ind.rsi'] }, label: 'RSI 14', pane: true, height: 0.32 };
+    case 'macd': return { type: 'macd', parameters: { fast: 12, slow: 26, signal: 9, sourceField: field }, colors: { macd: VALUES['ind.macd'], signal: VALUES['ind.macdSignal'], histogram: VALUES['ind.macdHistogram'] }, label: 'MACD 12 26 9', pane: true, height: 0.38 };
     default: return null;
+  }
+}
+function paintOutputs(outputs, spec) {
+  for (const [name, color] of Object.entries(spec.colors)) {
+    const seriesId = outputs[name];
+    if (seriesId) chart.series(seriesId).setOptions({ color, ...(name === 'histogram' ? {} : { lineWidth: 1 }) });
   }
 }
 function addIndicator(s, id) {
@@ -293,10 +326,7 @@ function addIndicator(s, id) {
   const pane = spec.pane ? chart.addPane({ height: spec.height }) : 'main';
   const handle = chart.addIndicator({ type: spec.type, source: 'price', pane, parameters: spec.parameters });
   const outputs = handle.getState().outputSeries;
-  for (const [name, color] of Object.entries(spec.colors)) {
-    const seriesId = outputs[name];
-    if (seriesId) chart.series(seriesId).setOptions({ color, ...(name === 'histogram' ? {} : { lineWidth: 1 }) });
-  }
+  paintOutputs(outputs, spec);
   s.indicators.set(id, { handle, spec, pane: spec.pane ? pane : null, outputs });
 }
 function removeIndicator(s, id) {
@@ -580,6 +610,7 @@ function build() {
     if (state.indicators.has('volume')) addVolume(s);
     rebuildOverlays(s);
     chart.interaction.setDrawingSnap(magnetSnap());
+    chart.interaction.setDrawingStyle(settings.drawingValues());
     syncAlerts();
   } catch (error) {
     teardown();
@@ -613,7 +644,7 @@ function build() {
   }));
   s.unsubscribe.push(chart.subscribe('error', ({ operation, error }) => showNotice(`${operation}: ${error?.message ?? error}`)));
   s.unsubscribe.push(chart.alerts.subscribe(onAlertEvent));
-  s.unsubscribe.push(chart.drawings.subscribe(() => syncHistoryButtons()));
+  s.unsubscribe.push(chart.drawings.subscribe(() => { syncHistoryButtons(); settingsPanel.refreshSelection(); }));
   s.unsubscribe.push(chart.interaction.subscribe('toolChange', ({ toolId }) => { state.tool = toolId; syncToolButtons(); }));
   state.tool = null;
   syncToolButtons();
@@ -729,78 +760,39 @@ $('live-toggle').addEventListener('click', (event) => {
   startLive(); updateLegend(null);
   announce(t(state.live ? 'announce.liveOn' : 'announce.liveOff'));
 });
-function setTheme(name) {
-  state.theme = name;
-  document.documentElement.dataset.theme = name;
-  try { chart.applyOptions(themeOptions()); } catch (error) { showNotice(t('error.theme', { message: error.message })); }
-  updateLegend(null);
-}
-$('theme').addEventListener('click', () => setTheme(state.theme === 'dark' ? 'light' : 'dark'));
-
 // ----------------------------------------------------------------- settings
-// Palette colours reach the series that exist, the indicator histogram, the side panel and the legend without a rebuild,
-// so drawings and the view stay.
-function applyPalette() {
-  ({ up: UP, down: DOWN, upVolume: UP_VOLUME, downVolume: DOWN_VOLUME } = PALETTES[state.appearance.palette]);
-  document.documentElement.style.setProperty('--up', UP);
-  document.documentElement.style.setProperty('--down', DOWN);
+// A change reaches the chart that exists (chart options, price series, volume, indicators, the default style of new
+// drawings), the side panel and the legend without a rebuild, so drawings and the view stay.
+function applySettings() {
+  refreshColors();
+  document.documentElement.dataset.theme = state.theme;
   const s = session;
+  if (!s) return;
   try {
-    if (state.chartType === 'candles') chart.series(s.price.id).setOptions({ upColor: UP, downColor: DOWN, borderUpColor: UP, borderDownColor: DOWN, wickUpColor: UP, wickDownColor: DOWN });
-    else if (state.chartType === 'bars') chart.series(s.price.id).setOptions({ upColor: UP, downColor: DOWN });
+    chart.applyOptions(themeOptions());
+    chart.series(s.price.id).setOptions({ ...priceSeriesOptions(), priceLine: priceLineOptions() });
     if (s.volUp) {
       chart.series(s.volUp.id).setOptions({ color: UP_VOLUME });
       chart.series(s.volDown.id).setOptions({ color: DOWN_VOLUME });
       paintLiveVolume(s);
     }
-    const macd = s.indicators.get('macd');
-    if (macd?.outputs.histogram) chart.series(macd.outputs.histogram).setOptions({ color: UP });
-  } catch (error) { showNotice(t('error.colors', { message: error.message })); }
+    for (const [id, entry] of s.indicators) paintOutputs(entry.outputs, indicatorSpec(id));
+    chart.interaction.setDrawingStyle(settings.drawingValues());
+  } catch (error) { showNotice(t('error.settings', { message: error.message })); }
   updateLegend(s.hoverBarId ?? null);
   renderWatchlist();
   renderDetails();
 }
-function applyAppearance() {
-  try {
-    chart.applyOptions({ grid: { visible: state.appearance.grid }, crosshair: { visible: state.appearance.crosshair } });
-    chart.series(session.price.id).setOptions({ priceLine: { visible: state.appearance.priceLine, style: 'dashed' } });
-  } catch (error) { showNotice(t('error.appearance', { message: error.message })); }
+function setTheme(name) {
+  state.theme = name;
+  try { settings.setActiveTheme(name); } catch (error) { showNotice(t('settings.error.save', { message: error.message })); }
 }
-function settingsGroup(legendText) {
-  const group = document.createElement('fieldset');
-  const legend = document.createElement('legend');
-  legend.textContent = legendText;
-  group.append(legend);
-  return group;
-}
-function settingsInput(type, name, value, text, checked, onChange) {
-  const label = document.createElement('label');
-  const input = document.createElement('input');
-  input.type = type; input.name = name; input.value = value; input.checked = checked;
-  input.addEventListener('change', () => onChange(input));
-  label.append(input, document.createTextNode(text));
-  return label;
-}
-function openSettings(button) {
-  showMenu(button, (panel) => {
-    panel.classList.add('settings');
-    panel.setAttribute('aria-label', t('settings.title'));
-    const title = document.createElement('h3');
-    title.textContent = t('settings.title');
-    const theme = settingsGroup(t('settings.theme'));
-    for (const [id, text] of [['dark', t('settings.dark')], ['light', t('settings.light')]]) theme.append(settingsInput('radio', 'theme', id, text, state.theme === id, () => setTheme(id)));
-    const palette = settingsGroup(t('settings.palette'));
-    for (const [id, text] of [['classic', t('settings.paletteClassic')], ['safe', t('settings.paletteSafe')], ['mono', t('settings.paletteMono')]]) {
-      palette.append(settingsInput('radio', 'palette', id, text, state.appearance.palette === id, () => { state.appearance.palette = id; applyPalette(); }));
-    }
-    const look = settingsGroup(t('settings.look'));
-    for (const [id, text] of [['grid', t('settings.grid')], ['crosshair', t('settings.crosshair')], ['priceLine', t('settings.priceLine')]]) {
-      look.append(settingsInput('checkbox', id, id, text, state.appearance[id], (input) => { state.appearance[id] = input.checked; applyAppearance(); }));
-    }
-    panel.append(title, theme, palette, look);
-  }, { form: true });
-}
-$('settings').addEventListener('click', (event) => openSettings(event.currentTarget));
+$('theme').addEventListener('click', () => setTheme(state.theme === 'dark' ? 'light' : 'dark'));
+const settingsPanel = createSettingsPanel({
+  settings, t, getTheme: () => state.theme, setTheme, getChart: () => chart, button: $('settings'),
+  onError: (message) => showNotice(message), onAnnounce: announce,
+});
+settings.subscribe(applySettings);
 $('snapshot').addEventListener('click', async () => {
   try {
     const result = await exportChartPng(chart, { chartId: chart.id });
@@ -933,5 +925,12 @@ setInterval(() => { els.clock.textContent = clockText(); }, 1000);
 els.clock.textContent = clockText();
 
 syncSymbol(); syncIntervals(); syncType(); populateLists();
+// Settings are read after the UI exists so that a corrupt record can be reported; the defaults stay in place then.
+let loadError = null;
+try { settings.load(); } catch (error) { loadError = error; }
+state.theme = settings.activeTheme();
+document.documentElement.dataset.theme = state.theme;
+refreshColors();
 build();
+if (loadError) showNotice(t('settings.error.load', { message: loadError.message }));
 window.addEventListener('pagehide', teardown);

@@ -848,6 +848,16 @@ export interface DrawingSnapOptions {
   modifier?: 'alt' | 'ctrl' | 'meta' | Array<'alt' | 'ctrl' | 'meta'> | null;
 }
 
+/** Which properties a drawing has depends on its type: lines have colour, width, dash and opacity; filled shapes also fill and fillColor; text has colour and opacity; markers colour, width and opacity. */
+export interface DrawingStyle {
+  color: string;
+  width: number;
+  dash: 'solid' | 'dashed' | 'dotted';
+  fill: boolean;
+  fillColor: string;
+  opacity: number;
+}
+
 export interface DrawingToolHandle {
   readonly id: string;
   readonly active: boolean;
@@ -882,6 +892,9 @@ export interface InteractionHandle {
   };
   setDrawingSnap(options: DrawingSnapOptions): DrawingSnapOptions;
   getDrawingSnap(): DrawingSnapOptions;
+  /** The style every new drawing starts with (properties a type does not have are skipped); `null` clears it. */
+  setDrawingStyle(style: Partial<DrawingStyle> | null): Partial<DrawingStyle>;
+  getDrawingStyle(): Partial<DrawingStyle>;
   /** Linear <-> log on the primary price scale of the pane (active pane by default); a percent scale is left unchanged. */
   toggleLogScale(paneId?: string): { applied: boolean; mode?: 'linear' | 'log'; reason?: string; paneId?: string; scaleId?: string };
   /** Mode of the pane's primary price scale (active pane by default), or `null` without a scale. */
@@ -1237,7 +1250,8 @@ export interface DrawingStore {
   removeSelected(): void;
   saveStyle(style: Record<string, unknown>): Record<string, unknown>;
   listStyles(): Array<Record<string, unknown>>;
-  applyStyle(id: string, styleId: string): void;
+  /** `style` is a saved style id or a partial style; properties the drawing's type does not have are rejected. */
+  applyStyle(target: string | string[], style: string | Partial<DrawingStyle>): void;
   setFavorite(tool: string, favorite: boolean): void;
   isFavorite(tool: string): boolean;
   listFavorites(): string[];

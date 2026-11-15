@@ -23,6 +23,7 @@ import { translate, absentText } from './messages.js';
 import { createElement, append, clearElement, on, pointFromEvent, contains, focusElement, isConnected, setStyle, hide, show } from './dom.js';
 import { isFiniteNumber } from './geometry.js';
 import { createDrawingTool, drawingAnchor, effectiveSnap, modifierState, snapCursor, snapModifierHeld, SHIFT_HORIZONTAL_TYPES, SNAP_MODIFIERS } from './drawingTool.js';
+import { validateStyle } from '../drawings/styles.js';
 import { createModuleScope } from '../core/module-scope.js';
 import { formatPrice } from '../render/axes.js';
 
@@ -81,6 +82,7 @@ export function attachInteraction(chart, options = {}) {
   let toolPoint = null;
   const SNAP_MODIFIER_KEYS = { alt: 'Alt', ctrl: 'Control', meta: 'Meta' };
   let drawingSnap = { mode: 'free', threshold: 5, magnet: false, modifier: ['alt', 'meta'] };
+  let drawingStyle = {};
   let selection = null;
   let alertTouchCandidate = null;
   let activePaneId = null;
@@ -1750,12 +1752,19 @@ export function attachInteraction(chart, options = {}) {
       return { ...drawingSnap };
     },
     getDrawingSnap() { return { ...drawingSnap }; },
+    // The style every new drawing starts with; properties its type does not have are skipped. `null` clears it.
+    // Existing drawings are not touched (they are restyled through `drawings.applyStyle`).
+    setDrawingStyle(style) {
+      drawingStyle = style === null ? {} : validateStyle('filled', style);
+      return { ...drawingStyle };
+    },
+    getDrawingStyle() { return { ...drawingStyle }; },
     armDrawing(id, config = {}) {
       const pane = paneById(config.paneId || activePaneId);
       if (!pane) throw new Error(tr('pane.unavailable'));
       const binding = { paneId: pane.id, scaleId: config.scaleId || primaryScaleId(pane) };
       const tool = createDrawingTool(chart, id, {
-        binding, props: config.props || {}, getSnap: () => drawingSnap, locale: uiLocale,
+        binding, props: config.props || {}, getSnap: () => drawingSnap, getStyle: () => drawingStyle, locale: uiLocale,
         announce: text => announce(text),
         complete: () => interaction.setTool(null),
       });
