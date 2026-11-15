@@ -184,7 +184,7 @@ function textProp(props) {
 function assertKnownProps(type, props, allowed) {
   if (!isObject(props)) fail('invalid-props', 'props must be an object', { field: 'props' });
   for (const key of Object.keys(props)) {
-    if (!allowed.includes(key)) fail('invalid-props', `Unknown property ${key} for ${type}`, { field: 'props', property: key });
+    if (!allowed.includes(key)) fail('invalid-props', `Unknown property ${key} for ${type}`, { field: `props.${key}`, property: key });
   }
 }
 
@@ -251,6 +251,49 @@ const PROP_DEFINITIONS = {
   parallelChannel: withLineOptions('parallelChannel'),
   rectangle: withLineOptions('rectangle'),
 };
+
+const LABEL_TOOLS = ['segment', 'ray', 'line', 'horizontalLevel', 'horizontalRay', 'verticalLine', 'arrow', 'parallelChannel', 'regressionChannel', 'rectangle', 'ellipse', 'triangle'];
+const TEXT_STYLE_TOOLS = ['text', 'callout', 'flag', 'priceLabel'];
+
+function normalizeTypography(value, field, label) {
+  if (!isObject(value)) fail('invalid-props', `${field} must be an object`, { field });
+  const allowed = label ? ['text', 'color', 'size', 'bold', 'italic', 'align'] : ['size', 'bold', 'italic', 'align'];
+  for (const key of Object.keys(value)) {
+    if (!allowed.includes(key)) fail('invalid-props', `Unknown ${field}.${key}`, { field: `${field}.${key}` });
+  }
+  const size = value.size === undefined ? 12 : value.size;
+  if (!isNumber(size) || size < 8 || size > 72) fail('invalid-props', `${field}.size must be from 8 to 72`, { field: `${field}.size` });
+  const bold = value.bold === undefined ? false : requireBoolean(value.bold, `${field}.bold`);
+  const italic = value.italic === undefined ? false : requireBoolean(value.italic, `${field}.italic`);
+  const align = value.align === undefined ? (label ? 'center' : 'start') : value.align;
+  if (!['start', 'center', 'end'].includes(align)) fail('invalid-props', `${field}.align must be start, center or end`, { field: `${field}.align` });
+  const result = { size, bold, italic, align };
+  if (label) {
+    const text = requireString(value.text, `${field}.text`, { nonEmpty: false, max: 200 });
+    if (text.split('\n').length > 3) fail('invalid-props', `${field}.text must have at most 3 lines`, { field: `${field}.text` });
+    result.text = text;
+    if (value.color !== undefined) {
+      if (typeof value.color !== 'string' || !/^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,20}|(rgb|rgba|hsl|hsla)\([0-9.,%\s]+\))$/.test(value.color)) {
+        fail('invalid-props', `${field}.color must be a plain color string`, { field: `${field}.color` });
+      }
+      result.color = value.color;
+    }
+  }
+  return result;
+}
+
+for (const type of [...LABEL_TOOLS, ...TEXT_STYLE_TOOLS]) {
+  const base = PROP_DEFINITIONS[type] ?? { allowed: [], normalize: () => ({}) };
+  const key = LABEL_TOOLS.includes(type) ? 'label' : 'textStyle';
+  PROP_DEFINITIONS[type] = {
+    allowed: [...base.allowed, key],
+    normalize: props => ({
+      ...base.normalize(props),
+      ...(props[key] === undefined || (key === 'label' && props[key] === null)
+        ? {} : { [key]: normalizeTypography(props[key], `props.${key}`, key === 'label') }),
+    }),
+  };
+}
 
 export function normalizeProps(type, props = {}) {
   assertKnownProps(type, props, PROP_DEFINITIONS[type]?.allowed ?? []);
