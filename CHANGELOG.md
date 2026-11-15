@@ -2,6 +2,7 @@
 
 ## 0.1.0 — unreleased
 
+- Unify the terminal's chart and drawing settings dialogs across light and dark themes.
 - Load the drawing-dialog styles in the terminal and arrange saved-style controls for narrow screens.
 - The terminal's drawing settings tab shows only the shared style; edit an individual drawing through its settings dialog.
 - Drawings can be activated for editing: a double click on a drawing and Enter in the chart raise `drawingActivate`, and `interaction.activateDrawing(ids?)` raises it from code. Every drawing carries `ownStyle`, a marker that a style is an individual choice. The new headless settings model of `vibecharts/ui` (`listDrawingSettingsFields`, `describeDrawingSettings`, `applyDrawingSettings`, saved styles and the pure `planDrawingStyle`) describes and edits a selection's fields — core style plus everything the drawing changes contributed — as one undo step, and a module-load coverage check rejects a tool without settings fields. `createDrawingSettingsDialog` renders it as an accessible localized dialog (tabs, mixed values, per-field errors, coordinates, saved styles, return to the host's shared style); `createChartUI` mounts it by default (`drawingSettings: false` opts out, `{ sharedStyle }` feeds it). The terminal's drawing controls are now one shared style: a change reaches new drawings and every drawing without an individual style, preview and commit filter identically, the count is announced, and double-clicking a drawing edits its own style.

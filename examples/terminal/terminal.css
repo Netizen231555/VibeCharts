@@ -211,3 +211,66 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus)
   --chart-ui-shadow: 0 6px 20px rgba(0, 0, 0, .3);
 }
 .charting-label-overflow { z-index: 2; }
+
+/* Keep the chart settings and drawing settings visually consistent in the terminal. */
+.settings-dialog, .chart-drawing-settings {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, .24);
+}
+.chart-drawing-settings { width: min(520px, calc(100vw - 24px)); max-width: calc(100vw - 24px); }
+.chart-drawing-settings-frame { font: 14px/1.4 var(--font); }
+.settings-dialog header, .chart-drawing-settings-head { padding: 18px 20px 14px; border: 0; }
+.settings-dialog h2, .chart-drawing-settings-title { font-size: 18px; font-weight: 650; color: var(--text-strong); }
+.settings-close, .chart-drawing-settings-head .chart-ui-btn {
+  width: 34px; height: 34px; min-width: 34px; padding: 0;
+  border: 0; border-radius: 8px; background: transparent; color: var(--text); font-size: 22px;
+}
+.settings-themes { padding: 0 20px 12px; }
+.settings-tabs, .chart-drawing-settings-tabs {
+  flex-wrap: nowrap; gap: 12px; padding: 0 20px;
+  overflow-x: auto; border-bottom: 1px solid var(--border);
+}
+.settings-tabs button, .chart-drawing-settings-tab {
+  flex: none; min-height: 42px; height: auto; padding: 0 2px;
+  border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  background: transparent; color: var(--muted); font: inherit;
+}
+.settings-tabs button[aria-selected="true"], .chart-drawing-settings-tab[aria-selected="true"] {
+  border-bottom-color: var(--accent); background: transparent; color: var(--text-strong); font-weight: 600;
+}
+.settings-body, .chart-drawing-settings-panel { padding: 16px 20px; }
+.settings-section h3, .chart-drawing-settings-group > legend {
+  margin: 8px 0; padding: 0; color: var(--muted);
+  font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+}
+.settings-dialog .field { min-height: 44px; }
+.chart-drawing-settings-group { margin: 0 0 14px; padding: 0; border: 0; }
+.chart-drawing-settings-field { padding: 6px 0; }
+.chart-drawing-settings-field input[type="text"], .chart-drawing-settings-field input[type="number"],
+.chart-drawing-settings-field select, .chart-drawing-settings-field textarea,
+.chart-drawing-settings-saved > select, .chart-drawing-settings-saved > input[type="text"],
+.settings-dialog .field select {
+  min-height: 38px; padding: 6px 10px; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit;
+}
+.settings-dialog footer, .chart-drawing-settings-footer {
+  gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border);
+}
+.settings-dialog footer button, .chart-drawing-settings-footer .chart-ui-btn,
+.chart-drawing-settings-saved > button {
+  min-height: 38px; height: auto; padding: 7px 12px; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit;
+}
+.chart-drawing-settings-footer [data-settings-action="apply"] {
+  border-color: var(--accent); background: var(--accent); color: var(--panel);
+}
+@media (max-width: 520px) {
+  .settings-dialog header, .chart-drawing-settings-head { padding: 14px 16px 10px; }
+  .settings-tabs, .chart-drawing-settings-tabs { padding: 0 16px; }
+  .settings-body, .chart-drawing-settings-panel { padding: 12px 16px; }
+  .settings-dialog footer, .chart-drawing-settings-footer { padding: 12px 16px; }
+  .settings-dialog .field input[type="range"] { flex: 0 1 140px; min-width: 0; }
+}
