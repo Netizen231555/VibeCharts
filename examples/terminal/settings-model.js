@@ -57,7 +57,7 @@ export const DRAWING_FIELDS = Object.freeze([
   { key: 'dash', type: 'select', options: ['solid', 'dashed', 'dotted'], default: 'solid' },
   { key: 'opacity', type: 'number', min: 0.1, max: 1, step: 0.05, default: 1 },
   { key: 'fill', type: 'bool', default: false },
-  { key: 'fillColor', type: 'color', default: '#4a9fd0' },
+  { key: 'fillOpacity', type: 'number', min: 0, max: 1, step: 0.02, default: 0.18 },
 ]);
 
 const SHARED = {
