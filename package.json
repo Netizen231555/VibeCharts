@@ -89,5 +89,8 @@
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/Netizen231555/VibeCharts.git"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js"
   }
 }
