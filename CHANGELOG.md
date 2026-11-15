@@ -2,6 +2,7 @@
 
 ## 0.1.0 — unreleased
 
+- While a drawing tool is armed and snapping is on (the magnet, or the modifier held), the crosshair itself sits on the snapped position, the nearest bar and its nearest O/H/L/C price, as the pointer moves, so the anchor's landing point is visible before the click. Free mode and an unarmed chart keep the crosshair on the pointer.
 - Drawing snapping: the built-in magnet toggle now actually snaps (it switches to strong mode with the bar-centre magnet; before it set weak mode without a source and nothing snapped), a persistent snapping mode without `sourceId` resolves the pane's primary price series like the modifier does, and line and area series snap to their `value`. Pressing or releasing the snap modifier with a still pointer redraws the construction preview.
 - A resize of the chart container (and a change of device pixel ratio) redraws in the same frame instead of on the next one, which painted one blank frame per resize and showed up as a flash while a page settled.
 - New `chartUI.icons` option replaces built-in icons by name with SVG path data (`controller.icons` and `createIcon(doc, name, { icons })` for custom parts); an unknown name or invalid data fails with `INVALID_UI_OPTION`. New token `--chart-ui-rail-size` sets the drawing rail's button size.

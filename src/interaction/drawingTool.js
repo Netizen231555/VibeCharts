@@ -137,6 +137,25 @@ export function createDrawingTool(chart, id, { binding, props = {}, getSnap = ()
   return {
     id, active: true,
     finish,
+    // Where the next anchor lands under the effective snap, as a point in container pixels; `null` when nothing
+    // snaps (free mode, pointer outside the pane's plot, or the snap is unavailable). The crosshair is drawn there.
+    snapPoint(point, mods = {}) {
+      const snap = effectiveSnap(chart, binding, getSnap(), mods);
+      if (snap.mode === 'free' && snap.magnet !== true) return null;
+      const rect = chart.surface.getVisibleRect(binding);
+      if (!rect || point.x < rect.x || point.x > rect.x + rect.width || point.y < rect.y || point.y > rect.y + rect.height) return null;
+      let anchor;
+      try {
+        anchor = drawingAnchor(chart, point, binding, spec.anchors, snap, () => {}, resolveLocale(locale));
+      } catch (error) {
+        if (lastPreviewError !== error.message) announce(t('drawing.previewError', { message: error.message }));
+        lastPreviewError = error.message;
+        return null;
+      }
+      const x = anchor.anchorBarId === undefined ? point.x : chart.surface.anchorToX(anchor, { paneId: binding.paneId });
+      const y = anchor.price === undefined ? point.y : chart.surface.priceToY(anchor.price, binding);
+      return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
+    },
     get pending() { return anchors.length > 0 || down !== null; },
     begin(point) {
       const rect = chart.surface.getVisibleRect(binding);

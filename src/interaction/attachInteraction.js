@@ -1209,6 +1209,22 @@ export function attachInteraction(chart, options = {}) {
     }
   }
 
+  // While a drawing tool is armed the crosshair itself sits on the snapped position (nearest bar and price
+  // candidate), so the user sees where the anchor will land before clicking, not only after.
+  function cursorPoint(point, mods) {
+    return (toolState && typeof toolState.snapPoint === 'function' && toolState.snapPoint(point, mods)) || point;
+  }
+
+  function placeCrosshair(point, mods) {
+    const pane = paneAtPoint(point, layout());
+    if (pane) {
+      activePaneId = pane.id;
+      crosshair.pointerMove(cursorPoint(point, mods), pane);
+    } else {
+      crosshair.pointerLeave();
+    }
+  }
+
   function onPointerMove(event) {
     if (destroyed) return;
     const point = pointFromEvent(event, container);
@@ -1233,21 +1249,14 @@ export function attachInteraction(chart, options = {}) {
       if (typeof event.preventDefault === 'function') event.preventDefault();
       router.move(point, { event });
       const pane = paneAtPoint(point, layout());
-      if (pane) crosshair.pointerMove(point, pane);
+      if (pane) crosshair.pointerMove(cursorPoint(point, modifierState(event)), pane);
       else crosshair.pointerLeave();
       return;
     }
-    if (toolState && toolState.pending && typeof toolState.move === 'function') {
-      toolPoint = point;
-      toolState.move(point, modifierState(event));
-    }
-    const pane = paneAtPoint(point, layout());
-    if (pane) {
-      activePaneId = pane.id;
-      crosshair.pointerMove(point, pane);
-    } else {
-      crosshair.pointerLeave();
-    }
+    const mods = modifierState(event);
+    if (toolState) toolPoint = point;
+    if (toolState && toolState.pending && typeof toolState.move === 'function') toolState.move(point, mods);
+    placeCrosshair(point, mods);
   }
 
   function finishPointer(event) {
@@ -1293,7 +1302,7 @@ export function attachInteraction(chart, options = {}) {
   }
 
   function onPointerLeave() {
-    if (!router.active && gestures.pointerCount === 0) crosshair.pointerLeave();
+    if (!router.active && gestures.pointerCount === 0) { toolPoint = null; crosshair.pointerLeave(); }
   }
 
   function onWheel(event) {
@@ -1535,7 +1544,10 @@ export function attachInteraction(chart, options = {}) {
   // otherwise the snapped position only appears after the next mouse move.
   function onSnapModifierKey(event) {
     if (destroyed || drawingSnap.modifier === null || event.key !== SNAP_MODIFIER_KEYS[drawingSnap.modifier]) return;
-    if (toolPoint && toolState && toolState.pending && typeof toolState.move === 'function') toolState.move(toolPoint, modifierState(event));
+    if (!toolPoint || !toolState) return;
+    const mods = modifierState(event);
+    if (toolState.pending && typeof toolState.move === 'function') toolState.move(toolPoint, mods);
+    placeCrosshair(toolPoint, mods);
   }
   disposers.push(on(doc, 'keydown', onSnapModifierKey));
   disposers.push(on(doc, 'keyup', onSnapModifierKey));
