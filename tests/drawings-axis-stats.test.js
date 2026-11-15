@@ -104,13 +104,23 @@ test('price plates at pane edges are clipped rather than discarded', () => {
   }
 });
 
-test('selected coincident plates paint over unselected plates', () => {
+test('selected coincident plates paint once in the selected colour', () => {
   const f = axisFixture();
   const layout = f.options.entries[0].layout;
   layout.axisLabels = [{ axis: 'price', price: 50 }, { axis: 'time', logical: 80 }];
   f.options.entries.push({ layout: { ...layout, style: { color: '#f00' } }, selected: true });
   drawAxisLabels(f.ctx, f.options);
-  assert.deepEqual(f.strokes, ['#123', '#123', '#f00', '#f00']);
+  assert.deepEqual(f.strokes, ['#f00', '#f00']);
+});
+
+test('replacement keeps selected plates after other drawings', () => {
+  const f = axisFixture();
+  const layout = f.options.entries[0].layout;
+  layout.axisLabels = [{ axis: 'price', price: 50 }];
+  f.options.entries.push({ layout: { ...layout, style: { color: '#0f0' }, axisLabels: [{ axis: 'price', price: 80 }] }, selected: false });
+  f.options.entries.push({ layout: { ...layout, style: { color: '#f00' } }, selected: true });
+  drawAxisLabels(f.ctx, f.options);
+  assert.deepEqual(f.strokes, ['#0f0', '#f00']);
 });
 
 test('time plates use absolute plot coordinates when a left axis is present', () => {
