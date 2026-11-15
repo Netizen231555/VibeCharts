@@ -2,6 +2,7 @@
 
 ## 0.1.0 — unreleased
 
+- A click (not a drag) on empty plot clears the drawing selection, so the last selected drawing no longer stays highlighted. A `pointerleave` reported while the pointer is still over the chart (as releasing pointer capture can) no longer hides the crosshair until the next move; a real leave, including onto an overlay control, still does.
 - Dragging a drawing moves the drawing itself: it follows the pointer instead of a dashed ghost that jumped to the final place on release. The document and undo stack still change once, on release (`drawings.setDragPreview`).
 - The crosshair sits on the snapped position (nearest bar and its nearest O/H/L/C price) whenever snapping is effective, with or without a drawing tool armed, as the pointer moves and when a modifier is pressed or released. A drawing tool is given that same point from the first pointer-down on (`begin`, `move` and `end`), so an anchor is no longer placed at the raw pointer first and moved to the snapped spot afterwards.
 - The snap modifier accepts a list and defaults to `['alt', 'meta']`, so Cmd works on a Mac as well as Option.

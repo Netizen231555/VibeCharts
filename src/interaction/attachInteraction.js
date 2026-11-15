@@ -845,6 +845,8 @@ export function attachInteraction(chart, options = {}) {
         }
       },
       end() {
+        // A click on empty plot (no drag) leaves the selected drawing.
+        if (!moved) clearSelection();
         return { paneId, moved };
       },
       cancel() {},
@@ -1309,8 +1311,16 @@ export function attachInteraction(chart, options = {}) {
     releasePointer(event.pointerId);
   }
 
-  function onPointerLeave() {
-    if (!router.active && gestures.pointerCount === 0) { toolPoint = null; crosshair.pointerLeave(); }
+  function onPointerLeave(event) {
+    if (router.active || gestures.pointerCount > 0) return;
+    // Releasing pointer capture can report a leave while the pointer is still over the chart; that is not a leave,
+    // and acting on it would hide the crosshair after a click until the pointer moves again.
+    if (Number.isFinite(event?.clientX) && typeof doc.elementFromPoint === 'function') {
+      const under = doc.elementFromPoint(event.clientX, event.clientY);
+      if (under && container.contains(under)) return;
+    }
+    toolPoint = null;
+    crosshair.pointerLeave();
   }
 
   function onWheel(event) {
