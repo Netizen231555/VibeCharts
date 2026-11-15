@@ -192,6 +192,20 @@ function formatIntervals(delta) {
   return signed(delta, String(Number(delta.toFixed(2))));
 }
 
+// Elapsed time of a measurement: the two largest non-zero units of days, hours, minutes, seconds.
+function formatDuration(milliseconds) {
+  const total = Math.floor(Math.abs(milliseconds) / 1000);
+  const units = [['d', 86400], ['h', 3600], ['m', 60], ['s', 1]];
+  const parts = [];
+  let rest = total;
+  for (const [name, size] of units) {
+    const count = Math.floor(rest / size);
+    rest -= count * size;
+    if (count > 0) parts.push(`${count}${name}`);
+  }
+  return parts.length === 0 ? '0s' : parts.slice(0, 2).join(' ');
+}
+
 function labelText(level) {
   return level.label === undefined ? String(level.coefficient) : level.label;
 }
@@ -289,16 +303,35 @@ const BUILDERS = {
   text({ a, drawing }) {
     return { primitives: [{ kind: 'text', x: a.x, y: a.y, text: drawing.props.text }] };
   },
+  // A shaded box between the two anchors with a horizontal (time) and a vertical (price) arrow through it, and a
+  // badge with the price change, its percentage, the bar count and the elapsed time. The tone (rise or fall) is
+  // carried on the geometry and coloured by the renderer.
   measure({ a, b, adapter, binding }) {
     const measure = measureAnchors([a, b], adapter, binding);
-    const labels = [{ x: (a.x + b.x) / 2 + 6, y: (a.y + b.y) / 2 - 6, text: `price ${formatPriceDelta(adapter, measure.priceDelta, binding)}` }];
-    if (measure.relativeChange !== null) {
-      labels.push({ x: (a.x + b.x) / 2 + 6, y: (a.y + b.y) / 2 + 8, text: `change ${(measure.relativeChange * 100).toFixed(2)}%` });
-    }
+    const tone = measure.priceDelta >= 0 ? 'up' : 'down';
+    const left = Math.min(a.x, b.x);
+    const right = Math.max(a.x, b.x);
+    const top = Math.min(a.y, b.y);
+    const bottom = Math.max(a.y, b.y);
+    const midX = (a.x + b.x) / 2;
+    const midY = (a.y + b.y) / 2;
+    const horizontalTip = { x: b.x, y: midY };
+    const verticalTip = { x: midX, y: b.y };
+    const primitives = [
+      { kind: 'polygon', role: 'measure-area', tone, points: [{ x: left, y: top }, { x: right, y: top }, { x: right, y: bottom }, { x: left, y: bottom }] },
+      { kind: 'segment', role: 'measure', tone, x1: a.x, y1: midY, x2: b.x, y2: midY },
+      { kind: 'polygon', role: 'arrowhead', tone, fillTone: true, points: arrowHead(horizontalTip, { x: a.x, y: midY }) },
+      { kind: 'segment', role: 'measure', tone, x1: midX, y1: a.y, x2: midX, y2: b.y },
+      { kind: 'polygon', role: 'arrowhead', tone, fillTone: true, points: arrowHead(verticalTip, { x: midX, y: a.y }) },
+    ];
+    const change = measure.relativeChange === null ? '' : ` (${signed(measure.relativeChange * 100, (measure.relativeChange * 100).toFixed(2))}%)`;
+    const lines = [`${formatPriceDelta(adapter, measure.priceDelta, binding)}${change}`];
     if (measure.indexDelta !== null) {
-      labels.push({ x: (a.x + b.x) / 2 + 6, y: (a.y + b.y) / 2 + 22, text: `intervals ${formatIntervals(measure.indexDelta)}` });
+      const bars = `${Number(Math.abs(measure.indexDelta).toFixed(2))} bars`;
+      lines.push(measure.duration === null ? bars : `${bars}, ${formatDuration(measure.duration)}`);
     }
-    return { primitives: [{ kind: 'segment', role: 'measure', x1: a.x, y1: a.y, x2: b.x, y2: b.y }], labels, measure };
+    const labels = [{ x: midX, y: tone === 'up' ? top - 8 : bottom + 8, text: lines[0], lines, box: { tone }, placement: tone === 'up' ? 'above' : 'below' }];
+    return { primitives, labels, measure };
   },
   arrow({ a, b }) {
     return {

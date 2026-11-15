@@ -370,7 +370,8 @@ function renderWatchlist(liveClose) {
     button.setAttribute('aria-label', `${row.instrument.id}, ${row.instrument.name}`);
     const logo = document.createElement('span'); logo.className = 'logo'; logo.textContent = row.instrument.id.slice(-2); logo.setAttribute('aria-hidden', 'true');
     button.append(logo, document.createTextNode(row.instrument.id));
-    button.addEventListener('click', () => selectInstrument(row.instrument));
+    // The whole row is the target; a click on the button (keyboard Enter or Space) bubbles to the row.
+    tr.addEventListener('click', () => selectInstrument(row.instrument));
     th.append(button);
     const cell = (text, cls) => { const td = document.createElement('td'); const s = document.createElement('span'); s.className = `cell ${cls ?? ''}`; s.textContent = text; td.append(s); return td; };
     tr.append(th, cell(f.format(last)), cell(`${change > 0 ? '▲' : change < 0 ? '▼' : ''} ${sign(change)}${f.format(Math.abs(change))}`, color),
