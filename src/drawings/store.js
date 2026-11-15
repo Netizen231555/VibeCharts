@@ -1068,7 +1068,7 @@ export function createDrawingStore(options) {
           const values = isNumber(candidate)
             ? [{ price: candidate }]
             : isObject(candidate)
-              ? ['open', 'high', 'low', 'close'].filter(field => isNumber(candidate[field])).map(field => ({ price: candidate[field] }))
+              ? ['open', 'high', 'low', 'close', 'value'].filter(field => isNumber(candidate[field])).map(field => ({ price: candidate[field] }))
               : [];
           for (const value of values) {
             const y = adapter.priceToY(value.price, binding(paneId, scaleId));

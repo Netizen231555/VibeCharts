@@ -79,6 +79,8 @@ export function attachInteraction(chart, options = {}) {
   const previousOutlineOffset = container.style?.outlineOffset ?? '';
   let toolState = options.tool || null;
   const ownedTools = new WeakSet();
+  let toolPoint = null;
+  const SNAP_MODIFIER_KEYS = { alt: 'Alt', ctrl: 'Control', meta: 'Meta' };
   let drawingSnap = { mode: 'free', threshold: 5, magnet: false, modifier: 'alt' };
   let selection = null;
   let alertTouchCandidate = null;
@@ -625,7 +627,10 @@ export function attachInteraction(chart, options = {}) {
   function toolOwner(tool) {
     return {
       move(point, meta) {
-        if (typeof tool.move === 'function') tool.move(point, modifierState(meta?.event));
+        if (typeof tool.move === 'function') {
+          toolPoint = point;
+          tool.move(point, modifierState(meta?.event));
+        }
       },
       end(point, meta) {
         try { if (typeof tool.end === 'function') tool.end(point, modifierState(meta?.event)); }
@@ -1232,7 +1237,10 @@ export function attachInteraction(chart, options = {}) {
       else crosshair.pointerLeave();
       return;
     }
-    if (toolState && toolState.pending && typeof toolState.move === 'function') toolState.move(point, modifierState(event));
+    if (toolState && toolState.pending && typeof toolState.move === 'function') {
+      toolPoint = point;
+      toolState.move(point, modifierState(event));
+    }
     const pane = paneAtPoint(point, layout());
     if (pane) {
       activePaneId = pane.id;
@@ -1523,6 +1531,14 @@ export function attachInteraction(chart, options = {}) {
   disposers.push(on(container, 'keydown', onKeyDown));
   disposers.push(on(container, 'focus', () => setFocusVisible(true)));
   disposers.push(on(container, 'blur', () => setFocusVisible(false)));
+  // The preview reads the modifier from pointer events, so pressing or releasing it with a still pointer must redraw it,
+  // otherwise the snapped position only appears after the next mouse move.
+  function onSnapModifierKey(event) {
+    if (destroyed || drawingSnap.modifier === null || event.key !== SNAP_MODIFIER_KEYS[drawingSnap.modifier]) return;
+    if (toolPoint && toolState && toolState.pending && typeof toolState.move === 'function') toolState.move(toolPoint, modifierState(event));
+  }
+  disposers.push(on(doc, 'keydown', onSnapModifierKey));
+  disposers.push(on(doc, 'keyup', onSnapModifierKey));
   if (options.touch !== false && container.style) setStyle(container, { touchAction: 'none' });
 
   const unsubscribeData = adapter.subscribe('datachange', () => {

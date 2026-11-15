@@ -1,6 +1,6 @@
 /* drawingRail: arrangement only; the part is complete semantic HTML without this file. */
 /* Positioned so the hidden text of its controls stays inside the rail's scroll area instead of widening the page. */
-.chart-ui-rail { position: relative; flex: none; }
+.chart-ui-rail { position: relative; flex: none; --chart-ui-control-size: var(--chart-ui-rail-size); }
 .chart-ui-rail > .chart-ui-btn { flex: none; }
 .chart-ui-rail-text { white-space: nowrap; }
 

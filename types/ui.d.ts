@@ -22,7 +22,7 @@ export function validateLayout(
   input?: UiPresetName | UiLayout,
   context?: { parts?: Record<string, unknown>; access?: Array<{ id: string; keyboard: unknown; menu: unknown }> },
 ): { regions: Record<UiRegion, string[]>; parts: Map<string, unknown>; omitted: string[]; without: string[]; uncovered: string[] };
-export function createIcon(document: Document, name: string, options?: { size?: number }): SVGElement;
+export function createIcon(document: Document, name: string, options?: { size?: number; icons?: Readonly<Record<string, readonly string[]>> }): SVGElement;
 export function hasIcon(name: string): boolean;
 export interface UiToolbarCurrent {
   chartType?: string | null; indicator?: string | null; tool?: string | null; interval?: string;

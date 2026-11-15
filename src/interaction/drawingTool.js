@@ -12,21 +12,21 @@ export function modifierState(event) {
   return { shiftKey: event?.shiftKey === true, altKey: event?.altKey === true, ctrlKey: event?.ctrlKey === true, metaKey: event?.metaKey === true };
 }
 
-// Single source of truth for hold-a-modifier snapping: while the configured modifier is held the
-// snap is strong with the centre-of-bar magnet, whatever the persistent mode is; otherwise the
-// persistent snap applies unchanged. Without a configured sourceId the pane's primary
-// (first visible candlestick/bar) series is used; if none exists the snap stays source-less and
-// snapPrice reports 'snap-unavailable' through the announce path instead of silently doing nothing.
+// Single source of truth for snapping. While the configured modifier is held the snap is strong with the
+// centre-of-bar magnet, whatever the persistent mode is; otherwise the persistent snap applies unchanged.
+// In either case a missing sourceId resolves to the pane's primary price series (first visible candlestick,
+// bar, line or area), so a persistent mode set without a source still snaps; if there is none the snap stays
+// source-less and snapPrice reports 'snap-unavailable' through the announce path instead of silently doing nothing.
+const PRICE_SERIES = ['candlestick', 'bar', 'line', 'area'];
+
 export function effectiveSnap(chart, binding, snap = {}, mods = {}) {
   const modifier = snap.modifier;
-  if (!modifier || mods[`${modifier}Key`] !== true) return snap;
-  const effective = { ...snap, mode: 'strong', magnet: true };
-  if (effective.sourceId === undefined) {
-    const primary = chart.series?.list?.().find(series => series.visible && (series.type === 'candlestick' || series.type === 'bar') &&
-      series.paneId === binding.paneId && (binding.scaleId === undefined || series.priceScaleId === binding.scaleId));
-    if (primary) effective.sourceId = primary.id;
-  }
-  return effective;
+  const held = Boolean(modifier) && mods[`${modifier}Key`] === true;
+  const effective = held ? { ...snap, mode: 'strong', magnet: true } : snap;
+  if (effective.sourceId !== undefined || (effective.mode === 'free' && effective.magnet !== true)) return effective;
+  const primary = chart.series?.list?.().find(series => series.visible && PRICE_SERIES.includes(series.type) &&
+    series.paneId === binding.paneId && (binding.scaleId === undefined || series.priceScaleId === binding.scaleId));
+  return primary ? { ...effective, sourceId: primary.id } : effective;
 }
 
 export function drawingAnchor(chart, point, binding, spec, snap = {}, announce = () => {}, locale) {

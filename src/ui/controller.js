@@ -14,6 +14,7 @@ import { createToolbarModel, activateControl } from './controls.js';
 import { createTheme } from './theme.js';
 import { describeActionAccess } from './access.js';
 import { t, localeOf } from './messages.js';
+import { resolveIcons } from './icons.js';
 
 const DEFAULT_OPTIONS = Object.freeze({
   accessibleActions: false,
@@ -35,6 +36,7 @@ export function createUiController(chart, options = {}) {
     throw new InteractionError('accessibleActions must be a boolean', { code: 'INVALID_UI_OPTION', field: 'accessibleActions' });
   }
   const interaction = opts.interaction || null;
+  const icons = resolveIcons(opts.icons);
   const listeners = new Map();
   const disposers = [];
   let destroyed = false;
@@ -375,9 +377,10 @@ export function createUiController(chart, options = {}) {
         return { ok: true, mode: result.mode };
       }
       case 'drawingSnap': {
-        // Only the persistent mode flips; the source stays the series-default of the interaction.
-        const mode = interaction.getDrawingSnap().mode === 'free' ? 'weak' : 'free';
-        interaction.setDrawingSnap({ mode });
+        // On means the nearest candle and its nearest O/H/L/C price; the source is the interaction's primary price series.
+        const on = interaction.getDrawingSnap().mode === 'free';
+        const mode = on ? 'strong' : 'free';
+        interaction.setDrawingSnap({ mode, magnet: on });
         return { ok: true, mode };
       }
       case 'theme':
@@ -568,6 +571,8 @@ export function createUiController(chart, options = {}) {
     /** Translates a UI string for the chart locale at the moment of the call. */
     t: tr,
     locale,
+    /** The host's icon replacements (`icons` option); pass as `createIcon(doc, name, { icons: controller.icons })`. */
+    icons,
     get destroyed() { return destroyed; },
     get(key) { assertAlive(); return read(key); },
     snapshot,

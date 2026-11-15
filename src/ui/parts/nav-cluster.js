@@ -51,7 +51,7 @@ export function createNavCluster(controller, context) {
     const button = createElement(doc, 'button', { type: 'button', class: 'chart-ui-btn chart-ui-surface-btn', 'data-control': spec.id });
     const reasonId = `${prefix}-${spec.id}-reason`;
     const reason = createElement(doc, 'span', { class: 'chart-ui-sr', id: reasonId });
-    append(button, createIcon(doc, spec.icon), reason);
+    append(button, createIcon(doc, spec.icon, { icons: controller.icons }), reason);
     append(element, button);
     entries.push({ spec, button, reason, reasonId });
     disposers.push(on(button, 'click', () => controller.run(spec.id)));

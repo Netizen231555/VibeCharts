@@ -2,6 +2,10 @@
 
 ## 0.1.0 — unreleased
 
+- Drawing snapping: the built-in magnet toggle now actually snaps (it switches to strong mode with the bar-centre magnet; before it set weak mode without a source and nothing snapped), a persistent snapping mode without `sourceId` resolves the pane's primary price series like the modifier does, and line and area series snap to their `value`. Pressing or releasing the snap modifier with a still pointer redraws the construction preview.
+- A resize of the chart container (and a change of device pixel ratio) redraws in the same frame instead of on the next one, which painted one blank frame per resize and showed up as a flash while a page settled.
+- New `chartUI.icons` option replaces built-in icons by name with SVG path data (`controller.icons` and `createIcon(doc, name, { icons })` for custom parts); an unknown name or invalid data fails with `INVALID_UI_OPTION`. New token `--chart-ui-rail-size` sets the drawing rail's button size.
+- New `examples/history/`: older history in pages (`datafeed.loadMore()` called from `visibleRangeChange` near the left edge) and a time window kept when the instrument or interval changes; the terminal example keeps the window across instruments and intervals too, and sets its working window before the first frame instead of two frames later (which painted every bar squeezed first).
 - A drawing rail along the top or bottom uses full-size buttons; the compact two-column button size applies only to the vertical grid.
 - New `examples/parts/` with two copyable parts built only on the public controller, a popup holding all drawing tools and a native `<select>`, a runnable page that switches between them and the built-in rail, and the guide `docs/parts.md`.
 - Tool controls in the model carry `groupLabel`, the localized name of their group (`toolGroup.*` messages in English and Russian), so custom markup can label groups without its own text.

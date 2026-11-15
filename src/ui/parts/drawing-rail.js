@@ -45,7 +45,7 @@ export function createDrawingRail(controller, context) {
       'data-control': controlId || 'cursor',
     });
     // Without an icon the label is shown as text: the control is never nameless and an unknown tool never throws.
-    if (hasIcon(iconName)) append(button, createIcon(doc, iconName, { size: 20 }), createElement(doc, 'span', { class: 'chart-ui-sr' }, label));
+    if (hasIcon(iconName)) append(button, createIcon(doc, iconName, { size: 20, icons: controller.icons }), createElement(doc, 'span', { class: 'chart-ui-sr' }, label));
     else append(button, createElement(doc, 'span', { class: 'chart-ui-rail-text' }, label));
     const reason = createElement(doc, 'span', { class: 'chart-ui-sr' });
     append(button, reason);

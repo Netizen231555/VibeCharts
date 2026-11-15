@@ -33,9 +33,9 @@ function controlIconName(control) {
 }
 
 /** Icon node for a control, or `null` when the set has no such icon (the text label still names the control). */
-function iconFor(doc, control, size) {
+function iconFor(doc, control, size, icons) {
   const name = controlIconName(control);
-  return hasIcon(name) ? createIcon(doc, name, { size }) : null;
+  return hasIcon(name) ? createIcon(doc, name, { size, icons }) : null;
 }
 
 /**
@@ -64,7 +64,7 @@ function reasonSpan(doc) {
  * A button that opens a small menu of toggle controls.
  * @returns {{ element: HTMLElement, trigger: HTMLElement, menu: HTMLElement, items: Map<string, object>, close: Function, open: Function, isOpen: Function }}
  */
-function createMenuButton(doc, { id, groupLabel, itemRole, controls, onSelect, onOpen, disposers }) {
+function createMenuButton(doc, { id, groupLabel, itemRole, controls, icons, onSelect, onOpen, disposers }) {
   const menuId = `${id}-menu`;
   const wrapper = createElement(doc, 'div', { class: 'chart-ui-topbar-menu-wrap' });
   const trigger = createElement(doc, 'button', {
@@ -78,7 +78,7 @@ function createMenuButton(doc, { id, groupLabel, itemRole, controls, onSelect, o
   const prefix = createElement(doc, 'span', { class: 'chart-ui-sr' }, `${groupLabel}: `);
   const value = createElement(doc, 'span', { class: 'chart-ui-topbar-value' });
   const triggerReason = reasonSpan(doc);
-  append(trigger, triggerIcon, prefix, value, createIcon(doc, 'chevronDown', { size: 16 }), triggerReason);
+  append(trigger, triggerIcon, prefix, value, createIcon(doc, 'chevronDown', { size: 16, icons }), triggerReason);
 
   const menu = createElement(doc, 'div', {
     id: menuId,
@@ -99,8 +99,8 @@ function createMenuButton(doc, { id, groupLabel, itemRole, controls, onSelect, o
     });
     // The check mark is a shape, so the chosen entry is not told apart by colour alone.
     const check = createElement(doc, 'span', { class: 'chart-ui-topbar-check', hidden: true });
-    append(check, createIcon(doc, 'check', { size: 16 }));
-    const icon = iconFor(doc, control, 18);
+    append(check, createIcon(doc, 'check', { size: 16, icons }));
+    const icon = iconFor(doc, control, 18, icons);
     const text = createElement(doc, 'span', { class: 'chart-ui-topbar-item-text' }, control.label);
     const reason = reasonSpan(doc);
     append(button, check, icon, text, reason);
@@ -236,6 +236,7 @@ export function createTopBar(controller, context) {
       id: `${uid}-${key}`,
       groupLabel: label,
       itemRole,
+      icons: controller.icons,
       controls,
       disposers,
       onOpen: () => { if (openMenu && openMenu !== menu) openMenu.close({ restoreFocus: false }); openMenu = menu; },
@@ -260,7 +261,7 @@ export function createTopBar(controller, context) {
     const button = createElement(doc, 'button', { type: 'button', class: 'chart-ui-btn', 'data-control': id });
     const text = createElement(doc, 'span', { class: 'chart-ui-sr' }, control.label);
     const reason = reasonSpan(doc);
-    append(button, createIcon(doc, icon, { size: 20 }), text, reason);
+    append(button, createIcon(doc, icon, { size: 20, icons: controller.icons }), text, reason);
     disposers.push(on(button, 'click', () => { controller.run(id); }));
     // Natively disable only after focus has left: a control that disables itself under the keyboard would lose it.
     disposers.push(on(button, 'blur', () => { if (button.getAttribute('aria-disabled') === 'true') button.disabled = true; }));
@@ -278,7 +279,7 @@ export function createTopBar(controller, context) {
     if (iconName !== menu.iconName) {
       menu.iconName = iconName;
       while (menu.triggerIcon.firstChild) menu.triggerIcon.removeChild(menu.triggerIcon.firstChild);
-      if (iconName) append(menu.triggerIcon, createIcon(doc, iconName, { size: 18 }));
+      if (iconName) append(menu.triggerIcon, createIcon(doc, iconName, { size: 18, icons: controller.icons }));
     }
     for (const control of controls) {
       const entry = menu.items.get(control.id);

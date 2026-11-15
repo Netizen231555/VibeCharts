@@ -987,6 +987,8 @@ export interface UiController {
   /** Translates a UI string for the chart locale at the moment of the call. */
   t(key: string, params?: Record<string, string | number>): string;
   locale(): string;
+  /** The host's icon replacements from the `icons` option (validated, frozen); pass to `createIcon(doc, name, { icons: controller.icons })`. */
+  readonly icons: Readonly<Record<string, readonly string[]>>;
   /** Throws `UI_DESTROYED` after `destroy()`. */
   get(key: UiReadKey): unknown;
   snapshot(): Record<string, unknown>;
@@ -1044,6 +1046,11 @@ export interface ChartUIOptions {
   demoLabel?: string;
   /** Also list the keyboard-equivalent navigation actions (pan, price zoom, bar step, keyboard crosshair) in the settings menu; default `false`. */
   accessibleActions?: boolean;
+  /**
+   * Replace built-in icons: icon name (`ICON_NAMES`) to SVG path data on the 24×24 grid, one string or several.
+   * An unknown name or empty data fails with `INVALID_UI_OPTION`. Stroke, width and colour stay with the stylesheet.
+   */
+  icons?: Record<string, string | readonly string[]>;
   theme?: 'light' | 'dark';
   [key: string]: unknown;
 }

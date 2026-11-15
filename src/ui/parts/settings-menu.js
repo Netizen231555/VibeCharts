@@ -62,7 +62,7 @@ export function createSettingsMenu(controller, context) {
     'aria-expanded': 'false',
     'aria-controls': `${prefix}-menu`,
   });
-  append(trigger, createIcon(doc, 'settings'));
+  append(trigger, createIcon(doc, 'settings', { icons: controller.icons }));
   const menu = createElement(doc, 'div', {
     id: `${prefix}-menu`,
     class: 'chart-ui-menu chart-ui-settings-menu',
@@ -88,10 +88,10 @@ export function createSettingsMenu(controller, context) {
     let check = null;
     if (withCheck) {
       check = createElement(doc, 'span', { class: 'chart-ui-settings-check' });
-      append(check, createIcon(doc, 'check', { size: 16 }));
+      append(check, createIcon(doc, 'check', { size: 16, icons: controller.icons }));
       append(lead, check);
     } else if (icon !== null && hasIcon(icon)) {
-      append(lead, createIcon(doc, icon, { size: 16 }));
+      append(lead, createIcon(doc, icon, { size: 16, icons: controller.icons }));
     }
     const text = createElement(doc, 'span', { class: 'chart-ui-settings-text' });
     const labelNode = createElement(doc, 'span', { class: 'chart-ui-settings-label' }, label);
@@ -352,7 +352,7 @@ export function createSettingsMenu(controller, context) {
     const head = createElement(doc, 'div', { class: 'chart-ui-settings-dialog-head' });
     titleNode = createElement(doc, 'h2', { id: `${prefix}-dialog-title`, class: 'chart-ui-settings-dialog-title' });
     const closeButton = createElement(doc, 'button', { type: 'button', class: 'chart-ui-btn chart-ui-surface-btn chart-ui-settings-dialog-close' });
-    append(closeButton, createIcon(doc, 'close', { size: 16 }), createElement(doc, 'span', {}, controller.t('settings.close')));
+    append(closeButton, createIcon(doc, 'close', { size: 16, icons: controller.icons }), createElement(doc, 'span', {}, controller.t('settings.close')));
     append(head, titleNode, closeButton);
     bodyNode = createElement(doc, 'div', { class: 'chart-ui-settings-dialog-body' });
     append(frame, head, bodyNode);

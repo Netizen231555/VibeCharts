@@ -14,7 +14,7 @@ function myPart(controller, { document, region, id, host, chartContainer, layout
 }
 ```
 
-- `controller` is the headless interface layer: `controller.model()` (controls, labels, pressed state, refusal reasons), `controller.get(key)`, `controller.subscribe(keys, listener)`, `controller.run(controlId)`, `controller.announce(text)`, `controller.t(key)`.
+- `controller` is the headless interface layer: `controller.model()` (controls, labels, pressed state, refusal reasons), `controller.get(key)`, `controller.subscribe(keys, listener)`, `controller.run(controlId)`, `controller.announce(text)`, `controller.t(key)`, and `controller.icons`, the host's icon replacements from `chartUI.icons` (draw with `createIcon(doc, name, { icons: controller.icons })` from `vibecharts/ui` so a part follows them).
 - `region` says where the part stands (`top`, `start`, `end`, `overlay`, `bottom`, `menu`); adapt to it if the markup depends on direction.
 - `element` is inserted into the region for you. `destroy` runs when the UI is destroyed, the layout is swapped, or the part is replaced.
 

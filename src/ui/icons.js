@@ -84,12 +84,36 @@ export function hasIcon(name) {
 }
 
 /**
+ * Validates host icon replacements: `{ [name]: pathData | pathData[] }` on the same 24×24 grid. A name must
+ * be one the set already has (a typo would silently draw the default), and the data is only ever written to a
+ * `d` attribute, never parsed as markup.
+ * @param {unknown} input
+ * @returns {Readonly<Record<string, readonly string[]>>}
+ */
+export function resolveIcons(input) {
+  const fail = (message) => new InteractionError(message, { code: 'INVALID_UI_OPTION', field: 'icons' });
+  if (input === undefined) return Object.freeze({});
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) throw fail('icons must be an object of icon name to path data');
+  const out = {};
+  for (const [name, value] of Object.entries(input)) {
+    if (!hasIcon(name)) throw fail(`icons: unknown icon "${name}"`);
+    const paths = typeof value === 'string' ? [value] : value;
+    if (!Array.isArray(paths) || paths.length === 0 || paths.some((data) => typeof data !== 'string' || data.trim() === '')) {
+      throw fail(`icons.${name} must be a non-empty path data string or an array of them`);
+    }
+    out[name] = Object.freeze([...paths]);
+  }
+  return Object.freeze(out);
+}
+
+/**
  * @param {Document} doc
  * @param {string} name
- * @param {{ size?: number }} [options] size in CSS px, 20 by default
+ * @param {{ size?: number, icons?: Readonly<Record<string, readonly string[]>> }} [options] size in CSS px, 20 by
+ *   default; `icons` is the host's replacement map (`controller.icons`)
  * @returns {SVGElement}
  */
-export function createIcon(doc, name, { size = 20 } = {}) {
+export function createIcon(doc, name, { size = 20, icons } = {}) {
   if (!hasIcon(name)) {
     throw new InteractionError(`Unknown icon "${String(name)}"`, { code: 'UNKNOWN_ICON', field: 'icon' });
   }
@@ -112,7 +136,7 @@ export function createIcon(doc, name, { size = 20 } = {}) {
     'data-icon': name,
   };
   for (const [key, value] of Object.entries(attributes)) svg.setAttribute(key, value);
-  for (const data of ICONS[name]) {
+  for (const data of icons?.[name] ?? ICONS[name]) {
     const path = doc.createElementNS(SVG_NS, 'path');
     path.setAttribute('d', data);
     svg.appendChild(path);

@@ -368,10 +368,19 @@ export function createDomHost(container, options = {}) {
     return () => element.remove();
   }
 
+  // Assigning canvas.width clears the bitmap; drawing on the next frame would paint one blank frame per resize
+  // (a flash while the container settles or the window is dragged), so the host-driven resize redraws at once.
+  function resizeAndDraw(nextWidth, nextHeight) {
+    chart.resize(nextWidth, nextHeight);
+    if (destroyed) return;
+    cancelFrame();
+    chart._draw();
+  }
+
   function resizeFromContainer() {
     if (!chart || destroyed || !autoSize) return;
     const next = measure();
-    if (next.width !== width || next.height !== height) chart.resize(next.width, next.height);
+    if (next.width !== width || next.height !== height) resizeAndDraw(next.width, next.height);
   }
 
   function startAutoSize() {
@@ -405,7 +414,7 @@ export function createDomHost(container, options = {}) {
     const listener = () => {
       if (destroyed || !chart || dprQuery !== query) return;
       unwatchDpr();
-      chart.resize(width, height);
+      resizeAndDraw(width, height);
       watchDpr();
     };
     if (typeof query.addEventListener === 'function') query.addEventListener('change', listener);
@@ -421,7 +430,7 @@ export function createDomHost(container, options = {}) {
     if (destroyed) return;
     const currentDpr = Number.isFinite(win.devicePixelRatio) && win.devicePixelRatio > 0 ? win.devicePixelRatio : 1;
     if (currentDpr !== dpr) {
-      chart.resize(width, height);
+      resizeAndDraw(width, height);
       watchDpr();
     }
   }
