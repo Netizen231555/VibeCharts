@@ -4,7 +4,7 @@ import { createChart, attachChartFeatures } from 'vibecharts';
 import { exportChartPng } from 'vibecharts/workspaces';
 import { sourceKey } from 'vibecharts/alerts';
 import { INSTRUMENTS, INTERVALS, generateSeries, decimalsOf, createTicker } from './data.js';
-import { createToolbarModel, createUiController, createIcon } from 'vibecharts/ui';
+import { createToolbarModel, createUiController, createIcon, createDrawingSettingsDialog } from 'vibecharts/ui';
 import { captureWindow, windowRange } from './window.js';
 import { createSettings } from './settings-model.js';
 import { createSettingsPanel } from './settings-panel.js';
@@ -614,6 +614,17 @@ function build() {
     chart.interaction.setDrawingSnap(magnetSnap());
     chart.interaction.setDrawingStyle(settings.drawingValues());
     syncAlerts();
+    // The library dialog for a drawing's own settings, opened by activation (double click, Enter); the terminal's
+    // shared style feeds its "return to shared" action. Last in the build: its own errors surface as build errors.
+    s.dialog = createDrawingSettingsDialog({
+      chart,
+      doc: document,
+      host: els.chart,
+      interaction: chart.interaction,
+      announce: (text, dialogOptions) => { if (dialogOptions?.error) showNotice(text); else announce(text); },
+      sharedStyle: () => settings.drawingValues(),
+    });
+    s.unsubscribe.push(() => s.dialog.destroy());
   } catch (error) {
     teardown();
     showNotice(t('error.build', { message: error.message }));

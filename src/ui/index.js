@@ -10,3 +10,4 @@ export {
   DRAWING_SETTINGS_TABS, listDrawingSettingsFields, describeDrawingSettings, applyDrawingSettings,
   applySavedDrawingStyle, saveDrawingStyle, planDrawingStyle,
 } from './drawing-settings/index.js';
+export { createDrawingSettingsDialog } from './settings-dialog.js';

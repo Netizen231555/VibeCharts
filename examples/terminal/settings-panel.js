@@ -4,6 +4,7 @@
 // selection), never while a colour is being dragged. It is not modal: the chart behind it stays usable, so a drawing
 // can be selected and restyled while the dialog is open.
 import { TABS, FIELDS, DRAWING_FIELDS } from './settings-model.js';
+import { planDrawingStyle } from 'vibecharts/ui';
 
 const PRESETS = {
   classic: { up: '#3fa77f', down: '#d9645a', volumeUp: '#089981', volumeDown: '#f23645' },
@@ -120,6 +121,11 @@ export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart,
   }
 
   /* ------------------------------ drawings ------------------------------- */
+  // One planner feeds the live preview and the commit, so what the pointer shows is what the release writes.
+  function planFor(chart, drawings, key, value, options) {
+    return planDrawingStyle(drawings, { [key]: value }, { keys: [key], groups: chart.drawings.listGroups(), ...options });
+  }
+
   function selectionSection() {
     const chart = getChart();
     const container = element('div', { class: 'settings-selection' });
@@ -129,18 +135,24 @@ export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart,
       container.append(element('p', { class: 'settings-hint' }, t('settings.drawings.selectHint')));
       return container;
     }
+    // A style chosen here is an individual choice: it is written with ownStyle, so shared edits leave it alone.
+    const individual = { includeOwn: true, ownStyle: true };
     const keys = DRAWING_FIELDS.map((field) => field.key).filter((key) => drawings.every((drawing) => key in drawing.style));
     for (const field of DRAWING_FIELDS.filter((entry) => keys.includes(entry.key))) {
       const first = drawings[0].style[field.key];
       container.append(control(field, t(`settings.d.${field.key}`), first, {
         // A live preview while dragging; one undoable change when the control is released.
         onInput: (value) => {
-          chart.drawings.setDragPreview(drawings.map((drawing) => ({ id: drawing.id, patch: { style: { ...drawing.style, [field.key]: value } } })));
+          chart.drawings.setDragPreview(planFor(chart, drawings, field.key, value, individual).updates);
           chart.requestRender();
         },
         onChange: (value) => {
           chart.drawings.setDragPreview(null);
-          try { chart.drawings.applyStyle(ids, { [field.key]: value }); } catch (error) { fail('settings.error.save')(error); }
+          try {
+            const plan = planFor(chart, drawings, field.key, value, individual);
+            if (plan.skippedLocked.length > 0) throw new Error(t('settings.drawings.lockedSelection'));
+            if (plan.updates.length > 0) chart.drawings.updateBatch(plan.updates);
+          } catch (error) { fail('settings.error.save')(error); }
           chart.requestRender();
         },
       }));
@@ -148,15 +160,39 @@ export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart,
     return container;
   }
 
+  // A shared control edit reaches the default of new drawings and every existing drawing that has no individual
+  // style and is not locked, as one undo step; the preview and the commit filter exactly the same way.
+  function sharedPreview(key, value) {
+    const chart = getChart();
+    if (!chart) return;
+    chart.drawings.setDragPreview(planFor(chart, chart.drawings.list(), key, value).updates);
+    chart.requestRender();
+  }
+  function sharedCommit(key, value) {
+    writeDrawing(key, value);
+    const chart = getChart();
+    if (!chart) return;
+    chart.drawings.setDragPreview(null);
+    try {
+      // Recomputed now: drawings may have been locked, deleted or restyled since the preview.
+      const plan = planFor(chart, chart.drawings.list(), key, value);
+      if (plan.updates.length > 0) {
+        chart.drawings.updateBatch(plan.updates);
+        onAnnounce(t('settings.drawings.sharedApplied', { count: plan.updates.length }));
+      }
+    } catch (error) { fail('settings.error.save')(error); }
+    chart.requestRender();
+  }
+
   function renderDrawingsTab() {
     const values = settings.drawingValues();
     const defaults = DRAWING_FIELDS.map((field) => control(field, t(`settings.d.${field.key}`), values[field.key], {
-      onInput: field.type === 'color' ? (value) => writeDrawing(field.key, value) : undefined,
-      onChange: (value) => writeDrawing(field.key, value),
+      onInput: field.type === 'color' ? (value) => { writeDrawing(field.key, value); sharedPreview(field.key, value); } : (value) => sharedPreview(field.key, value),
+      onChange: (value) => sharedCommit(field.key, value),
     }));
     body.replaceChildren(
       section(t('settings.drawings.selected'), selectionSection()),
-      section(t('settings.drawings.new'), ...defaults),
+      section(t('settings.drawings.new'), element('p', { class: 'settings-hint' }, t('settings.drawings.sharedHint')), ...defaults),
     );
   }
   function writeDrawing(key, value) {
