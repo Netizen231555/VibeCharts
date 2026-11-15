@@ -1,4 +1,4 @@
-import { DRAWING_TOOLS, anchorCountCheck, normalizeAnchor, normalizeProps, PITCHFORK_VARIANTS } from './tools.js';
+import { DRAWING_TOOLS, LINE_OPTIONS, anchorCountCheck, normalizeAnchor, normalizeProps, PITCHFORK_VARIANTS } from './tools.js';
 import { completeStyle, validateStyle } from './styles.js';
 import { buildLayout, resolveAnchor, validateDrawingGeometry } from './layout.js';
 import { measureAnchors } from './analytics.js';
@@ -205,6 +205,15 @@ export function createDrawingStore(options) {
     if (source.drawingType !== expectedType || !['horizontal', 'segment', 'ray'].includes(expectedType)) {
       fail('alert-drawing-mismatch', `Drawing ${drawing.id} does not match its alert source`, { drawingId: drawing.id });
     }
+    // An alert evaluates its tool's geometry (a segment between its anchors, a ray beyond the first anchor
+    // on the anchor-to-anchor side), so a referenced drawing is pinned to the tool's default extension;
+    // otherwise the drawn line and the alert would silently disagree. Heads and the midpoint are ignored.
+    const options = LINE_OPTIONS[drawing.type];
+    if (options && !equal(drawing.props?.extend ?? options.extend, options.extend)) {
+      fail('alert-drawing-mismatch', `Drawing ${drawing.id} must keep props.extend at the ${drawing.type} default while an alert references it`, {
+        drawingId: drawing.id, field: 'props.extend',
+      });
+    }
     return expectedType === 'horizontal'
       ? { ...source, price: drawing.anchors[0].price }
       : { ...source, points: clone(drawing.anchors) };
@@ -218,7 +227,8 @@ export function createDrawingStore(options) {
     for (const [id, oldDrawing] of oldById) {
       const next = newById.get(id);
       if (!next || oldDrawing.type !== next.type || oldDrawing.paneId !== next.paneId ||
-          oldDrawing.scaleId !== next.scaleId || !equal(oldDrawing.anchors, next.anchors)) {
+          oldDrawing.scaleId !== next.scaleId || !equal(oldDrawing.anchors, next.anchors) ||
+          !equal(oldDrawing.props?.extend, next.props?.extend)) {
         changed.set(id, { oldDrawing, next });
       }
     }
