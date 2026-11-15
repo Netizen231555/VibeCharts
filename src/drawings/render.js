@@ -99,7 +99,10 @@ export function drawLayout(ctx, layout, rect, preview = false, selected = false)
       ctx.restore();
     }
     for (const primitive of layout.primitives) drawPrimitive(ctx, primitive, layout.style.fill === true, false, fillAlpha);
-    for (const label of layout.labels) drawLabel(ctx, label, rect);
+    for (const label of layout.labels) {
+      if (label.selectedOnly === true && !selected) continue;
+      drawLabel(ctx, label, rect);
+    }
     if (selected) {
       ctx.globalAlpha = 1;
       ctx.setLineDash([]);

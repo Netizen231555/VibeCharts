@@ -245,12 +245,30 @@ function arcPrimitive(center, radius, startAngle, endAngle) {
   return { kind: 'arc', cx: center.x, cy: center.y, r: radius, startAngle, endAngle };
 }
 
-function lineFamily({ a, b, drawing, rect }) {
+// The four two-point tools share one geometry: only the default of props.extend (and of arrows) tells
+// them apart, so a segment can run to infinity and a line can stop at its anchors. The optional statistics
+// badge is anchored on the anchors themselves (never on a clipped extension); with `always` false the label
+// is flagged `selectedOnly` and any renderer skips it while the drawing is not selected.
+function lineFamily({ a, b, drawing, rect, adapter, binding }) {
   const stroke = strokeFor(drawing.props.extend, a, b, rect);
   if (!stroke) return { primitives: [] };
   const primitives = [{ kind: stroke.kind, x1: stroke.x1, y1: stroke.y1, x2: stroke.x2, y2: stroke.y2 }];
   decorateLine(primitives, stroke, a, b, drawing.props.arrows, drawing.props.midpoint);
-  return { primitives };
+  const stats = drawing.props.stats;
+  let labels;
+  if (stats.priceRange || stats.percent || stats.bars || stats.time) {
+    const measure = measureAnchors([a, b], adapter, binding);
+    const tone = measure.priceDelta >= 0 ? 'up' : 'down';
+    const anchorPoint = stats.position === 'start' ? a
+      : stats.position === 'end' ? b
+        : { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    const label = buildStatsBadge({ measure, anchorPoint, tone, fields: stats, adapter, binding });
+    if (label) {
+      if (stats.always !== true) label.selectedOnly = true;
+      labels = [label];
+    }
+  }
+  return labels ? { primitives, labels } : { primitives };
 }
 
 // Grows one end of a VWAP piece along the direction of its edge segment, up to the plot edge; the appended

@@ -1539,6 +1539,29 @@ export function attachInteraction(chart, options = {}) {
     emitter.emit('panesChange', change);
   });
 
+
+  /* --------------------------- drawing stats --------------------------- */
+  // The canvas statistics badge is invisible to assistive technology, so a newly selected drawing's badge
+  // lines are announced in the polite live region. A drawing without a badge announces nothing.
+  if (chart.drawings && typeof chart.drawings.subscribe === 'function') {
+    let previousSelection = new Set(chart.drawings.getSelection?.() ?? []);
+    const releaseStats = chart.drawings.subscribe((event) => {
+      if (!event || event.type !== 'selection') return;
+      const next = new Set(event.ids ?? []);
+      for (const id of next) {
+        if (previousSelection.has(id)) continue;
+        let lines = null;
+        try {
+          const layout = chart.drawings.layout(id);
+          const badge = layout?.labels?.find(label => Array.isArray(label.lines) && label.box);
+          if (badge) lines = badge.lines.join(', ');
+        } catch { /* the drawing may be gone again already; nothing to announce */ }
+        if (lines !== null) announce(tr('drawing.stats.selected', { lines }));
+      }
+      previousSelection = next;
+    });
+    disposers.push(() => releaseStats());
+  }
   function registerPaneRestore(id, element) {
     paneRestoreElements.set(`pane-restore:${id}`, element);
   }
