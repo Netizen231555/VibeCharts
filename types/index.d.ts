@@ -894,7 +894,10 @@ export interface DrawingToolHandle {
 
 export type KeyboardAction = 'panLeft' | 'panRight' | 'zoomIn' | 'zoomOut' |
   'priceZoomIn' | 'priceZoomOut' | 'priceAuto' | 'cancel' | 'contextMenu' |
-  'toggleCrosshair' | 'crosshairPrev' | 'crosshairNext';
+  'toggleCrosshair' | 'crosshairPrev' | 'crosshairNext' |
+  'nudgeLeft' | 'nudgeRight' | 'nudgeUp' | 'nudgeDown' |
+  'nudgeLeftTen' | 'nudgeRightTen' | 'nudgeUpTen' | 'nudgeDownTen' |
+  'duplicateSelection' | 'toggleDrawingsVisible' | 'toggleDrawingsLocked';
 export type KeyboardBindings = Partial<Record<KeyboardAction, string | null>>;
 export type KeyboardButtonAction = 'panLeft' | 'panRight' | 'zoomIn' | 'zoomOut' |
   'priceZoomIn' | 'priceZoomOut' | 'crosshairPrev' | 'crosshairNext';
@@ -1242,7 +1245,19 @@ export interface DrawingStore {
   getGeometry(id: string): DrawingLayout;
   getMeasure(id: string): Record<string, unknown> | null;
   update(id: string, patch: Record<string, unknown>): Record<string, unknown>;
-  updateBatch(updates: Array<{ id: string; patch: Record<string, unknown> }>): boolean;
+  /** `coalesceKey` merges consecutive calls with the same key and targets into one undo step; a selection change, another command, undo or redo ends the run. */
+  updateBatch(updates: Array<{ id: string; patch: Record<string, unknown> }>, options?: { coalesceKey?: string }): boolean;
+  /** Copies the target drawings (ids, groups or both) as one undoable command; copies keep group, flags, style and props, are appended in z-order and become the selection. `options.updates` (`{ id, patch }` by source id) places the copies. Locked sources can be copied. */
+  duplicate(target: string | string[], options?: { updates?: Array<{ id: string; patch: Record<string, unknown> }> }): Array<Record<string, unknown>>;
+  /** Explicit flag state over every drawing and group; `null` when the document holds neither. */
+  summary(): { drawings: number; groups: number; visible: 'all' | 'none' | 'mixed' | null; locked: 'all' | 'none' | 'mixed' | null };
+  /** Sets the explicit `visible` flag of every drawing and group in one undo step, locked objects included; returns `false` when nothing changes. */
+  setAllVisible(visible: boolean): boolean;
+  /** Sets the explicit `locked` flag of every drawing and group in one undo step; returns `false` when nothing changes. */
+  setAllLocked(locked: boolean): boolean;
+  /** Transient ghost of the copies a clone drag would create (`[{ id, patch }]` by source id, or `null`). Not exported, selected or undoable. */
+  setClonePreview(updates: Array<{ id: string; patch: Record<string, unknown> }> | null): void;
+  clonePreview(): DrawingLayout[] | null;
   updateMany(ids: string[], patch: Record<string, unknown>): void;
   remove(id: string): void;
   clear(): void;

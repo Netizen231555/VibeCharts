@@ -72,7 +72,7 @@ function fitButton(controller, { document: doc }) {
 
 `controller.run` returns `{ ok: true, ... }` or `{ ok: false, reason }`. An unknown id throws `UNKNOWN_CONTROL`. After the chart or the UI is destroyed, controller calls throw `UI_DESTROYED`, so unsubscribe in `destroy`.
 
-Control ids: `tool:<name>` (29 drawing tools, with `group` and `groupLabel`), `chartType:<id>`, `indicator:<id>`, `interval`, and plain actions such as `undo`, `redo`, `clearDrawings`, `zoomIn`, `fitContent`, `follow`, `theme`. Print `controller.model()` once to see exactly what your chart offers.
+Control ids: `tool:<name>` (29 drawing tools, with `group` and `groupLabel`), `chartType:<id>`, `indicator:<id>`, `interval`, and plain actions such as `undo`, `redo`, `clearDrawings`, `zoomIn`, `fitContent`, `follow`, `theme`; `hideDrawings` and `lockDrawings` are toggles whose pressed state means every drawing is hidden or locked, disabled with a reason while there are no drawings (a custom layout without the built-in rail keeps them reachable through the `toggleDrawingsVisible` and `toggleDrawingsLocked` key bindings, or lists them in `without`). Print `controller.model()` once to see exactly what your chart offers.
 
 ## Clean up
 
