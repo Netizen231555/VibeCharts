@@ -1,7 +1,6 @@
 // The description of a selection: applicable fields, values, mixed and disabled states, localization.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDrawingStore } from '../src/drawings/store.js';
 import { describeDrawingSettings, DRAWING_SETTINGS_TABS } from '../src/ui/drawing-settings/index.js';
 import { createFieldRegistry } from '../src/ui/drawing-settings/registry.js';
 import { describeWith } from '../src/ui/drawing-settings/describe.js';
@@ -9,24 +8,7 @@ import { DRAWING_TOOLS } from '../src/drawings/tools.js';
 import { STYLE_FAMILIES } from '../src/drawings/styles.js';
 import { hasMessage } from '../src/ui/messages.js';
 
-const BARS = Array.from({ length: 30 }, (_, i) => ({ barId: `b${i}` }));
-const geometry = {
-  hasBinding: ({ paneId }) => paneId === 'main',
-  getVisibleRect: () => ({ x: 0, y: 0, width: 300, height: 200 }),
-  resolveX: anchor => {
-    const index = BARS.findIndex(bar => bar.barId === anchor.anchorBarId);
-    return index < 0 ? null : index + anchor.offset;
-  },
-  logicalToX: logical => logical * 10,
-  priceToY: price => 200 - price * 2,
-  getPriceScaleMode: () => 'linear',
-  yToPrice: y => (200 - y) / 2,
-  getIndexCount: () => BARS.length,
-  getSlot: index => BARS[index] ?? null,
-  indexOf: barId => BARS.findIndex(bar => bar.barId === barId),
-  getSeriesValues: () => null,
-};
-export const makeStore = () => createDrawingStore({ context: { instrumentId: 'T', interval: '1D', sourceId: 'src', view: 'main' }, geometry, historyLimit: 30 });
+import { makeStore } from './settings-fixtures.js';
 const two = (a = 2, b = 8) => [{ anchorBarId: `b${a}`, offset: 0, price: 40 }, { anchorBarId: `b${b}`, offset: 0, price: 60 }];
 const add = (store, type, extra = {}) => store.add({ type, paneId: 'main', scaleId: 'right', anchors: two(), ...extra });
 const fieldIds = description => description.tabs.flatMap(tab => tab.groups.flatMap(group => group.fields.map(field => field.id)));
