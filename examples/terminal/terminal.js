@@ -42,6 +42,7 @@ function refreshColors() {
   UP_VOLUME = withAlpha(VALUES['volume.up'], VALUES['volume.opacity']);
   DOWN_VOLUME = withAlpha(VALUES['volume.down'], VALUES['volume.opacity']);
   LINE_COLOR = VALUES['line.color'];
+  document.documentElement.style.setProperty('--chart-background', VALUES['chart.background']);
   document.documentElement.style.setProperty('--up', UP);
   document.documentElement.style.setProperty('--down', DOWN);
 }

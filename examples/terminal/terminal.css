@@ -139,9 +139,9 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus)
 .side-resize { position: absolute; z-index: 4; top: 0; bottom: 0; left: -5px; width: 10px; cursor: ew-resize; touch-action: none; }
 .side-resize:hover, .side-resize:focus-visible { background: var(--accent); opacity: .65; }
 [data-theme="dark"] .sidepanel {
-  --panel: #182737; --panel-2: #1e3043; --border: #3a5066;
+  --panel: #0b101a; --panel-2: var(--chart-background); --border: #293748;
   --text: #dce5ed; --text-strong: #f4f8fc; --muted: #a8bbca;
-  --hover: #30475d; --chip: #293e52; --active: rgba(107, 164, 202, .2);
+  --hover: #1f3042; --chip: #1a293a; --active: rgba(107, 164, 202, .16);
   --chart-ui-bg: var(--panel); --chart-ui-menu-bg: var(--panel);
   --chart-ui-border: var(--border); --chart-ui-text: var(--text); --chart-ui-hover: var(--hover);
 }
