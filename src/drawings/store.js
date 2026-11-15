@@ -45,6 +45,7 @@ export function createDrawingStore(options) {
   const redoStack = [];
   const listeners = new Set();
   let transaction = null;
+  let dragPreview = new Map();
   const counters = { drawing: 0, group: 0, style: 0 };
 
   function normalizeContext(raw) {
@@ -1118,9 +1119,20 @@ export function createDrawingStore(options) {
     return { anchorBarId: slot.barId, offset: normalizeZero(logical - index) };
   }
 
+  // Pending geometry of drawings being dragged (id -> patch). Never exported, never undoable, not notified: the
+  // caller requests a render; the drag's commit is the one real update.
+  function setDragPreview(updates) {
+    dragPreview = new Map((updates ?? []).map(({ id, patch }) => [id, patch]));
+  }
+
   function layout(target) {
     let drawing;
-    if (typeof target === 'string') drawing = requireDrawing(target);
+    if (typeof target === 'string') {
+      drawing = requireDrawing(target);
+      // A drag in progress shows the drawing at its pending position without touching the document or the undo stack.
+      const pending = dragPreview.get(target);
+      if (pending) drawing = normalizeDrawing({ ...drawing, ...pending });
+    }
     else if (isObject(target)) {
       if (!DRAWING_TOOLS[target.type]) fail('unknown-type', `Unknown drawing type: ${String(target.type)}`, { field: 'type' });
       drawing = target;
@@ -1532,6 +1544,7 @@ export function createDrawingStore(options) {
     subscribe,
     hitTest,
     layout,
+    setDragPreview,
     previewLayout,
     getGeometry,
     getMeasure,

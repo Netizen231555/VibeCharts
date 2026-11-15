@@ -22,8 +22,7 @@ import { buildAccessibleRows, buildTableModel, createAnnouncer, formatTimestamp 
 import { translate, absentText } from './messages.js';
 import { createElement, append, clearElement, on, pointFromEvent, contains, focusElement, isConnected, setStyle, hide, show } from './dom.js';
 import { isFiniteNumber } from './geometry.js';
-import { createDrawingTool, drawingAnchor, effectiveSnap, modifierState, SHIFT_HORIZONTAL_TYPES, SNAP_MODIFIERS } from './drawingTool.js';
-import { drawLayout } from '../drawings/render.js';
+import { createDrawingTool, drawingAnchor, effectiveSnap, modifierState, snapCursor, snapModifierHeld, SHIFT_HORIZONTAL_TYPES, SNAP_MODIFIERS } from './drawingTool.js';
 import { createModuleScope } from '../core/module-scope.js';
 import { formatPrice } from '../render/axes.js';
 
@@ -81,7 +80,7 @@ export function attachInteraction(chart, options = {}) {
   const ownedTools = new WeakSet();
   let toolPoint = null;
   const SNAP_MODIFIER_KEYS = { alt: 'Alt', ctrl: 'Control', meta: 'Meta' };
-  let drawingSnap = { mode: 'free', threshold: 5, magnet: false, modifier: 'alt' };
+  let drawingSnap = { mode: 'free', threshold: 5, magnet: false, modifier: ['alt', 'meta'] };
   let selection = null;
   let alertTouchCandidate = null;
   let activePaneId = null;
@@ -673,12 +672,13 @@ export function attachInteraction(chart, options = {}) {
       reportError(new Error(tr('drawing.moveUnavailable')), { action: 'drawing-update' });
       return null;
     }
-    let preview = null;
     let lastPreviewError = null;
+    // The drawing itself is drawn at its pending position (store.setDragPreview), so it follows the pointer instead
+    // of a dashed ghost that jumps on release; the document and the undo stack change only on commit.
     function clearPreview() {
-      if (preview && preview.parentNode) preview.parentNode.removeChild(preview);
-      preview = null;
+      store.setDragPreview(null);
       lastPreviewError = null;
+      chart.requestRender();
     }
     function updatesAt(point, notify, event) {
       const mods = modifierState(event);
@@ -701,32 +701,20 @@ export function attachInteraction(chart, options = {}) {
     }
     function previewMove(point, meta = {}) {
       try {
-        if (!preview) {
-          preview = createElement(doc, 'canvas', { 'aria-hidden': 'true', class: 'chart-drawing-drag-preview' });
-          setStyle(preview, { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', pointerEvents: 'none' });
-          append(overlay, preview);
-        }
-        const ctx = preview.getContext('2d');
-        if (!ctx) throw new Error(tr('drawing.movePreviewUnavailable'));
-        const bounds = container.getBoundingClientRect();
-        const dpr = doc.defaultView?.devicePixelRatio || 1;
-        const width = Math.round(bounds.width * dpr), height = Math.round(bounds.height * dpr);
-        if (preview.width !== width) preview.width = width;
-        if (preview.height !== height) preview.height = height;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, bounds.width, bounds.height);
         const updates = updatesAt(point, () => {}, meta.event);
-        for (let i = 0; i < entries.length; i += 1) {
-          const { drawing, binding } = entries[i];
-          const layout = store.previewLayout({ ...drawing, ...updates[i].patch });
+        store.setDragPreview(updates);
+        for (const { id } of updates) {
+          const layout = store.layout(id);
           if (!layout.resolved) throw new Error(layout.error?.message || layout.reason || tr('drawing.geometryUnavailable'));
-          drawLayout(ctx, layout, surface.getVisibleRect(binding), true);
         }
         lastPreviewError = null;
       } catch (error) {
+        // An unresolvable position is not shown: the drawing stays where it was until the pointer returns to a valid one.
+        store.setDragPreview(null);
         if (lastPreviewError !== error.message) reportError(error, { action: 'drawing-preview' });
         lastPreviewError = error.message;
       }
+      chart.requestRender();
     }
     return {
       move: previewMove,
@@ -1209,17 +1197,27 @@ export function attachInteraction(chart, options = {}) {
     }
   }
 
-  // While a drawing tool is armed the crosshair itself sits on the snapped position (nearest bar and price
-  // candidate), so the user sees where the anchor will land before clicking, not only after.
-  function cursorPoint(point, mods) {
-    return (toolState && typeof toolState.snapPoint === 'function' && toolState.snapPoint(point, mods)) || point;
+  // The crosshair itself sits on the snapped position (nearest bar and its nearest price candidate) whenever snapping
+  // is effective, with or without a drawing tool: the user sees where an anchor would land before clicking, and an
+  // anchor placed at the pointer resolves to the same spot.
+  let cursorError = null;
+  function cursorPoint(point, mods, pane) {
+    try {
+      const snapped = snapCursor(chart, { paneId: pane.id, scaleId: primaryScaleId(pane) }, point, drawingSnap, mods, uiLocale());
+      cursorError = null;
+      return snapped || point;
+    } catch (error) {
+      if (cursorError !== error.message) announce(tr('drawing.snapUnavailable', { reason: error.message }));
+      cursorError = error.message;
+      return point;
+    }
   }
 
   function placeCrosshair(point, mods) {
     const pane = paneAtPoint(point, layout());
     if (pane) {
       activePaneId = pane.id;
-      crosshair.pointerMove(cursorPoint(point, mods), pane);
+      crosshair.pointerMove(cursorPoint(point, mods, pane), pane);
     } else {
       crosshair.pointerLeave();
     }
@@ -1249,12 +1247,12 @@ export function attachInteraction(chart, options = {}) {
       if (typeof event.preventDefault === 'function') event.preventDefault();
       router.move(point, { event });
       const pane = paneAtPoint(point, layout());
-      if (pane) crosshair.pointerMove(cursorPoint(point, modifierState(event)), pane);
+      if (pane) crosshair.pointerMove(cursorPoint(point, modifierState(event), pane), pane);
       else crosshair.pointerLeave();
       return;
     }
     const mods = modifierState(event);
-    if (toolState) toolPoint = point;
+    toolPoint = point;
     if (toolState && toolState.pending && typeof toolState.move === 'function') toolState.move(point, mods);
     placeCrosshair(point, mods);
   }
@@ -1308,7 +1306,7 @@ export function attachInteraction(chart, options = {}) {
   function onWheel(event) {
     if (destroyed) return;
     if (isEditableTarget(event.target) || event.target?.closest?.('button, input, select, textarea, details, [contenteditable="true"], [role="button"]')) return;
-    if (snapModifierHeld(event)) {
+    if (snapGestureHeld(event)) {
       if (typeof event.preventDefault === 'function') event.preventDefault();
       return;
     }
@@ -1346,13 +1344,13 @@ export function attachInteraction(chart, options = {}) {
 
   // The snap modifier is also a platform gesture (Ctrl+click is a context menu on macOS, Alt+wheel
   // zooms price): while a drawing is armed or being dragged it must reach the drawing untouched.
-  function snapModifierHeld(event) {
-    return drawingSnap.modifier !== null && event[`${drawingSnap.modifier}Key`] === true &&
+  function snapGestureHeld(event) {
+    return snapModifierHeld(drawingSnap, event) &&
       (router.active || (toolState !== null && toolState.active === true));
   }
 
   function onContextMenu(event) {
-    if (snapModifierHeld(event)) {
+    if (snapGestureHeld(event)) {
       if (typeof event.preventDefault === 'function') event.preventDefault();
       return;
     }
@@ -1540,13 +1538,13 @@ export function attachInteraction(chart, options = {}) {
   disposers.push(on(container, 'keydown', onKeyDown));
   disposers.push(on(container, 'focus', () => setFocusVisible(true)));
   disposers.push(on(container, 'blur', () => setFocusVisible(false)));
-  // The preview reads the modifier from pointer events, so pressing or releasing it with a still pointer must redraw it,
-  // otherwise the snapped position only appears after the next mouse move.
+  // The cursor and the construction preview read the modifier from pointer events, so pressing or releasing it with a
+  // still pointer must redraw them, otherwise the snapped position only appears after the next mouse move.
   function onSnapModifierKey(event) {
-    if (destroyed || drawingSnap.modifier === null || event.key !== SNAP_MODIFIER_KEYS[drawingSnap.modifier]) return;
-    if (!toolPoint || !toolState) return;
+    if (destroyed || !toolPoint || drawingSnap.modifier === null) return;
+    if (![].concat(drawingSnap.modifier).some(name => event.key === SNAP_MODIFIER_KEYS[name])) return;
     const mods = modifierState(event);
-    if (toolState.pending && typeof toolState.move === 'function') toolState.move(toolPoint, mods);
+    if (toolState && toolState.pending && typeof toolState.move === 'function') toolState.move(toolPoint, mods);
     placeCrosshair(toolPoint, mods);
   }
   disposers.push(on(doc, 'keydown', onSnapModifierKey));
@@ -1723,7 +1721,8 @@ export function attachInteraction(chart, options = {}) {
       for (const key of ['magnet', 'rounding']) {
         if (next[key] !== undefined && typeof next[key] !== 'boolean') throw new Error(tr('snap.notBoolean', { key }));
       }
-      if (next.modifier !== null && !SNAP_MODIFIERS.includes(next.modifier)) {
+      const names = next.modifier === null ? [] : [].concat(next.modifier);
+      if (names.some(name => !SNAP_MODIFIERS.includes(name))) {
         throw Object.assign(new Error(tr('snap.badModifier')), { field: 'modifier' });
       }
       if (next.sourceId !== undefined && typeof next.sourceId !== 'string') throw new Error(tr('snap.sourceIdNotString'));

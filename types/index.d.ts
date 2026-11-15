@@ -844,8 +844,8 @@ export interface DrawingSnapOptions {
   rounding?: boolean;
   step?: number;
   sourceId?: string;
-  /** Hold-to-snap key: while held, snap is strong with the bar-centre magnet. Default 'alt'; shift is reserved for the horizontal constraint. */
-  modifier?: 'alt' | 'ctrl' | 'meta' | null;
+  /** Hold-to-snap key (one, or a list: any of them counts): while held, snap is strong with the bar-centre magnet. Default `['alt', 'meta']` (Option or Cmd on a Mac); shift is reserved for the horizontal constraint. */
+  modifier?: 'alt' | 'ctrl' | 'meta' | Array<'alt' | 'ctrl' | 'meta'> | null;
 }
 
 export interface DrawingToolHandle {
@@ -1223,6 +1223,8 @@ export interface DrawingStore {
   addToGroup(id: string, groupId: string): void;
   removeFromGroup(id: string, groupId: string): void;
   getGroup(id: string): Record<string, unknown> | null;
+  /** Shows drawings at pending geometry (`[{ id, patch }]`, or `null` to clear) while a drag is in progress. Not exported, not undoable, not notified; the caller requests a render. */
+  setDragPreview(updates: Array<{ id: string; patch: Record<string, unknown> }> | null): void;
   listGroups(): Array<Record<string, unknown>>;
   getGroupMembers(id: string): Array<Record<string, unknown>>;
   select(ids: string[]): void;

@@ -12,7 +12,13 @@ export function modifierState(event) {
   return { shiftKey: event?.shiftKey === true, altKey: event?.altKey === true, ctrlKey: event?.ctrlKey === true, metaKey: event?.metaKey === true };
 }
 
-// Single source of truth for snapping. While the configured modifier is held the snap is strong with the
+// `modifier` is one name, a list of names, or null/absent; any listed modifier counts as held.
+export function snapModifierHeld(snap, mods) {
+  const names = snap.modifier === undefined || snap.modifier === null ? [] : [].concat(snap.modifier);
+  return names.some(name => mods[`${name}Key`] === true);
+}
+
+// Single source of truth for snapping. While a configured modifier is held the snap is strong with the
 // centre-of-bar magnet, whatever the persistent mode is; otherwise the persistent snap applies unchanged.
 // In either case a missing sourceId resolves to the pane's primary price series (first visible candlestick,
 // bar, line or area), so a persistent mode set without a source still snaps; if there is none the snap stays
@@ -20,13 +26,26 @@ export function modifierState(event) {
 const PRICE_SERIES = ['candlestick', 'bar', 'line', 'area'];
 
 export function effectiveSnap(chart, binding, snap = {}, mods = {}) {
-  const modifier = snap.modifier;
-  const held = Boolean(modifier) && mods[`${modifier}Key`] === true;
-  const effective = held ? { ...snap, mode: 'strong', magnet: true } : snap;
+  const effective = snapModifierHeld(snap, mods) ? { ...snap, mode: 'strong', magnet: true } : snap;
   if (effective.sourceId !== undefined || (effective.mode === 'free' && effective.magnet !== true)) return effective;
   const primary = chart.series?.list?.().find(series => series.visible && PRICE_SERIES.includes(series.type) &&
     series.paneId === binding.paneId && (binding.scaleId === undefined || series.priceScaleId === binding.scaleId));
   return primary ? { ...effective, sourceId: primary.id } : effective;
+}
+
+// The cursor position under the effective snap, in container pixels: the nearest bar and its nearest price candidate.
+// `null` when nothing snaps (free mode, or the pointer is outside the pane's plot). The crosshair is drawn there,
+// whether or not a drawing tool is armed, and anchors placed at the pointer resolve to the same spot. Throws like
+// `drawingAnchor` when the pane cannot resolve a bar.
+export function snapCursor(chart, binding, point, snap = {}, mods = {}, locale) {
+  const effective = effectiveSnap(chart, binding, snap, mods);
+  if (effective.mode === 'free' && effective.magnet !== true) return null;
+  const rect = chart.surface.getVisibleRect(binding);
+  if (!rect || point.x < rect.x || point.x > rect.x + rect.width || point.y < rect.y || point.y > rect.y + rect.height) return null;
+  const anchor = drawingAnchor(chart, point, binding, { x: true, price: true }, effective, () => {}, locale);
+  const x = chart.surface.anchorToX(anchor, { paneId: binding.paneId });
+  const y = chart.surface.priceToY(anchor.price, binding);
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
 }
 
 export function drawingAnchor(chart, point, binding, spec, snap = {}, announce = () => {}, locale) {
@@ -137,25 +156,6 @@ export function createDrawingTool(chart, id, { binding, props = {}, getSnap = ()
   return {
     id, active: true,
     finish,
-    // Where the next anchor lands under the effective snap, as a point in container pixels; `null` when nothing
-    // snaps (free mode, pointer outside the pane's plot, or the snap is unavailable). The crosshair is drawn there.
-    snapPoint(point, mods = {}) {
-      const snap = effectiveSnap(chart, binding, getSnap(), mods);
-      if (snap.mode === 'free' && snap.magnet !== true) return null;
-      const rect = chart.surface.getVisibleRect(binding);
-      if (!rect || point.x < rect.x || point.x > rect.x + rect.width || point.y < rect.y || point.y > rect.y + rect.height) return null;
-      let anchor;
-      try {
-        anchor = drawingAnchor(chart, point, binding, spec.anchors, snap, () => {}, resolveLocale(locale));
-      } catch (error) {
-        if (lastPreviewError !== error.message) announce(t('drawing.previewError', { message: error.message }));
-        lastPreviewError = error.message;
-        return null;
-      }
-      const x = anchor.anchorBarId === undefined ? point.x : chart.surface.anchorToX(anchor, { paneId: binding.paneId });
-      const y = anchor.price === undefined ? point.y : chart.surface.priceToY(anchor.price, binding);
-      return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
-    },
     get pending() { return anchors.length > 0 || down !== null; },
     begin(point) {
       const rect = chart.surface.getVisibleRect(binding);
