@@ -1,4 +1,6 @@
 import type { ExtensionRegistry } from './extensions.js';
+import type { DrawingLayout } from './drawings.js';
+export type { DrawingAxisLabels, DrawingStats, DrawingAxisLabelEntry, DrawingLayoutLabel, DrawingLayout } from './drawings.js';
 
 export type UnixMilliseconds = number;
 export function timeFromUnixSeconds(seconds: number): UnixMilliseconds;
@@ -1235,7 +1237,10 @@ export interface DrawingStore {
   add(drawing: Record<string, unknown>): Record<string, unknown>;
   get(id: string): Record<string, unknown> | null;
   list(): Array<Record<string, unknown>>;
-  previewLayout(drawing: Record<string, unknown>): Record<string, unknown>;
+  previewLayout(drawing: Record<string, unknown>): DrawingLayout;
+  layout(id: string): DrawingLayout;
+  getGeometry(id: string): DrawingLayout;
+  getMeasure(id: string): Record<string, unknown> | null;
   update(id: string, patch: Record<string, unknown>): Record<string, unknown>;
   updateBatch(updates: Array<{ id: string; patch: Record<string, unknown> }>): boolean;
   updateMany(ids: string[], patch: Record<string, unknown>): void;
