@@ -123,6 +123,25 @@ test('replacement keeps selected plates after other drawings', () => {
   assert.deepEqual(f.strokes, ['#0f0', '#f00']);
 });
 
+test('last equally selected coincident price and time plates retain their drawing order', () => {
+  for (const selected of [false, true]) {
+    for (const axis of ['price', 'time']) {
+      const f = axisFixture();
+      f.options.timeFormatter = () => 't';
+      const layout = f.options.entries[0].layout;
+      const label = value => axis === 'price' ? { axis, price: value } : { axis, logical: value };
+      layout.axisLabels = [label(50)];
+      f.options.entries = [
+        { layout, selected },
+        { layout: { ...layout, style: { color: '#0f0' }, axisLabels: [label(55)] }, selected },
+        { layout: { ...layout, style: { color: '#f00' }, axisLabels: [label(50)] }, selected },
+      ];
+      drawAxisLabels(f.ctx, f.options);
+      assert.deepEqual(f.strokes, ['#0f0', '#f00']);
+    }
+  }
+});
+
 test('time plates use absolute plot coordinates when a left axis is present', () => {
   const f = axisFixture();
   const scale = { id: 'right', side: 'left', visible: true, overlay: false };

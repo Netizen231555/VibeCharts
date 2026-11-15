@@ -27,7 +27,7 @@ export function drawAxisLabels(ctx, {
   const enqueue = (key, selected, plate) => {
     const previous = seen.get(key);
     if (previous !== undefined) {
-      if (!selected || plates[previous].selected) return;
+      if (plates[previous].selected && !selected) return;
       plates[previous] = null;
     }
     seen.set(key, plates.length);
