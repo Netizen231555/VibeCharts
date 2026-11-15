@@ -2,6 +2,7 @@ import { createDrawingStore } from '../drawings/index.js';
 import { drawLayout, drawPrimitive } from '../drawings/render.js';
 import { DRAWING_RESTORE_HOOKS } from '../drawings/store.js';
 import { splitDuration } from '../drawings/axis-stats.js';
+import { drawAxisLabels } from './axis-labels.js';
 import { createModuleScope } from '../core/module-scope.js';
 import { translate } from './messages.js';
 import { formatPrice, numberFormatter, priceDecimals } from '../render/axes.js';
@@ -125,14 +126,32 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
         const removed = new Set(plan.removedBarIds);
         return { drawings: [...plan.drawings, ...store.list().filter(drawing => drawing.anchors.some(anchor => removed.has(anchor.anchorBarId))).map(drawing => ({ id: drawing.id }))] };
       },
-      onRender({ ctx }) {
+      onRender({ ctx, layout: frameLayout }) {
         const drawings = renderDrawings ??= store.list();
         const selected = new Set(store.getSelection());
+        const axisEntries = [];
         for (const drawing of drawings) {
           activeBinding = { paneId: drawing.paneId, scaleId: drawing.scaleId };
           const layout = store.layout(drawing.id);
+          // Hidden and unresolved drawings paint nothing on the axes either; the flags are one property read.
+          if (layout.visible && layout.resolved && layout.axisLabels) axisEntries.push({ layout, selected: selected.has(drawing.id) });
           if (!layout.visible || !layout.resolved) continue;
           drawLayout(ctx, layout, surface.getVisibleRect(activeBinding), false, selected.has(drawing.id));
+        }
+        if (axisEntries.length > 0 && frameLayout) {
+          // Drawing order with the selected drawings last; the pass culls and formats what survives.
+          drawAxisLabels(ctx, {
+            entries: [...axisEntries.filter(entry => !entry.selected), ...axisEntries.filter(entry => entry.selected)],
+            frameLayout,
+            width: frameLayout.width,
+            theme: chart._theme,
+            options: chart._options.layout,
+            adapter: geometry,
+            axisPlates: chart._axisPlates ?? [],
+            timeFormatter: chart._options.crosshair?.timeFormatter,
+            presentation: { locale: chart._options.locale, timeZone: chart._options.timeZone },
+            reportError: error => chart._reportError(error, 'crosshair.timeFormatter'),
+          });
         }
         const activeAlerts = overlays(drawings);
         if (alertRegion) {

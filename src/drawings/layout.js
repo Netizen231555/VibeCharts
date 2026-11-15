@@ -1,6 +1,6 @@
 import { DRAWING_TOOLS } from './tools.js';
 import { DrawingError, equal, isNumber, normalizeZero } from './values.js';
-import { computeRegression, computeVwap, measureAnchors } from './analytics.js';
+import { anchorTime, computeRegression, computeVwap, measureAnchors } from './analytics.js';
 import { buildStatsBadge } from './axis-stats.js';
 
 const EPS = 1e-9;
@@ -687,6 +687,23 @@ function materialize(type, drawing, adapter) {
   if (result.handles) layout.handles.push(...result.handles);
   for (const key of ['measure', 'regression', 'vwap', 'angleDegrees', 'available', 'reason', 'waiting', 'error', 'origin', 'direction', 'variant']) {
     if (result[key] !== undefined) layout[key] = result[key];
+  }
+  // Axis-label entries carry values and reasons, never text: the paint pass formats only plates that survive
+  const axisOptions = drawing.props.axisLabels;
+  if (axisOptions && (axisOptions.price || axisOptions.time)) {
+    const axisLabels = [];
+    const anchorSpec = spec.anchors;
+    anchors.forEach((anchor, index) => {
+      if (axisOptions.price && anchorSpec.price && anchor.price !== undefined) {
+        axisLabels.push({ axis: 'price', anchorIndex: index, price: anchor.price });
+      }
+      if (axisOptions.time && anchorSpec.x && anchor.anchorBarId !== undefined) {
+        const entry = { axis: 'time', anchorIndex: index, logical: anchor.logical };
+        if (anchorTime(anchor, adapter, binding) === null) entry.unavailable = 'no-time';
+        axisLabels.push(entry);
+      }
+    });
+    if (axisLabels.length > 0) layout.axisLabels = axisLabels;
   }
   layout.bounds = computeBounds(layout.primitives, layout.labels);
   return layout;

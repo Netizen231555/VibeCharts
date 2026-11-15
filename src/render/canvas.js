@@ -251,6 +251,7 @@ export function drawChart(ctx, chart, { width, height }, now = Date.now()) {
   ctx.fillRect(0, 0, width, height);
 
   if (width <= 0 || height <= 0) {
+    chart._axisPlates = [];
     ctx.restore();
     return;
   }
@@ -272,6 +273,9 @@ export function drawChart(ctx, chart, { width, height }, now = Date.now()) {
     : null;
   const overflow = [];
   const placedLabels = [];
+  // Placed last-price plate rectangles of this frame, published for the drawing axis-label pass (internal,
+  // replaced every frame, empty when none).
+  chart._axisPlates = placedLabels;
   for (const paneRect of layout.panes) {
     overflow.push(...drawPane(ctx, chart, layout, paneRect, theme, options, timeTicks, placedLabels));
   }

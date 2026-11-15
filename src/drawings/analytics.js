@@ -11,8 +11,8 @@ export function measureAnchors(anchors, adapter, binding) {
   if (indexDelta === null) {
     durationReason = 'unresolved-anchor';
   } else {
-    const first = slotTime(a, adapter, binding);
-    const second = slotTime(b, adapter, binding);
+    const first = anchorTime(a, adapter, binding);
+    const second = anchorTime(b, adapter, binding);
     if (first === null || second === null) {
       durationReason = 'missing-time';
     } else {
@@ -31,7 +31,10 @@ export function measureAnchors(anchors, adapter, binding) {
   };
 }
 
-function slotTime(anchor, adapter, binding) {
+// The time of the bar an anchor sits on, or null: the anchor must rest exactly on a slot (offset zero,
+// integer logical that still maps to the anchor's own bar) whose slot carries a time. The measure duration
+// and the axis time plates share the rule.
+export function anchorTime(anchor, adapter, binding) {
   if (anchor.logical === null || anchor.offset !== 0 || !Number.isInteger(anchor.logical)) return null;
   if (adapter.indexOf(anchor.anchorBarId, binding) !== anchor.logical) return null;
   const slot = adapter.getSlot(anchor.logical, binding);

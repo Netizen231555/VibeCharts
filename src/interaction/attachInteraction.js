@@ -19,6 +19,7 @@ import { createGestureRecognizer } from './gestures.js';
 import { hitTest, paneAtPoint, normalizeHitRadius } from './hittest.js';
 import { buildMenuItems, createContextMenu } from './menu.js';
 import { buildAccessibleRows, buildTableModel, createAnnouncer, formatTimestamp } from './a11y.js';
+import { axisTimeText, formatAxisTime as sharedFormatAxisTime } from '../render/axis-time.js';
 import { translate, absentText } from './messages.js';
 import { createElement, append, clearElement, on, pointFromEvent, contains, focusElement, isConnected, setStyle, hide, show } from './dom.js';
 import { isFiniteNumber } from './geometry.js';
@@ -381,19 +382,10 @@ export function attachInteraction(chart, options = {}) {
     },
     options,
   });
-  let axisTimeFormatter = null;
-  let axisTimeKey = null;
   function formatAxisTime(time, presentation) {
-    const key = `${presentation.locale || ''}|${presentation.timeZone || 'UTC'}`;
-    if (key !== axisTimeKey) {
-      axisTimeFormatter = new Intl.DateTimeFormat(presentation.locale, {
-        timeZone: presentation.timeZone || 'UTC', year: '2-digit', month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short',
-      });
-      axisTimeKey = key;
-    }
-    return axisTimeFormatter.format(new Date(time));
+    return sharedFormatAxisTime(time, presentation);
   }
+
 
 
   function renderCrosshair(payload) {
@@ -443,18 +435,11 @@ export function attachInteraction(chart, options = {}) {
     // The host formatter replaces the default plate text; a failure is reported and hides only the plate.
     let timeText = null;
     if (isFiniteNumber(payload.time)) {
-      const formatter = chart._options?.crosshair?.timeFormatter;
-      if (typeof formatter === 'function') {
-        try {
-          const slot = payload.barId === null ? null : chart.timeline.slotAt(chart.timeline.indexOf(payload.barId));
-          const text = formatter(payload.time, slot);
-          if (typeof text !== 'string') throw new TypeError('crosshair.timeFormatter must return a string');
-          timeText = text;
-        } catch (error) {
-          chart._reportError(error, 'crosshair.timeFormatter');
-        }
-      } else {
-        timeText = formatAxisTime(payload.time, presentation);
+      try {
+        const slot = payload.barId === null ? null : chart.timeline.slotAt(chart.timeline.indexOf(payload.barId));
+        timeText = axisTimeText(payload.time, presentation, chart._options?.crosshair?.timeFormatter, slot);
+      } catch (error) {
+        chart._reportError(error, 'crosshair.timeFormatter');
       }
     }
     if (timeText !== null) {
