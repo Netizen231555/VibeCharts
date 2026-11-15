@@ -843,6 +843,56 @@ $('side-toggle').addEventListener('click', (event) => {
   const open = els.terminal.classList.toggle('show-side');
   event.currentTarget.setAttribute('aria-expanded', String(open));
 });
+
+const sidepanel = $('sidepanel');
+const sideResize = $('side-resize');
+let sideDrag = null;
+function sideBounds() {
+  const max = Math.max(1, Math.floor(window.innerWidth <= 800
+    ? window.innerWidth * .92 : Math.min(640, window.innerWidth - 300)));
+  return { min: Math.min(280, max), max };
+}
+function setSideWidth(width) {
+  const { min, max } = sideBounds();
+  const value = Math.round(Math.max(min, Math.min(max, width)));
+  els.terminal.style.setProperty('--side-width', `${value}px`);
+  sideResize.setAttribute('aria-valuemin', String(min));
+  sideResize.setAttribute('aria-valuemax', String(max));
+  sideResize.setAttribute('aria-valuenow', String(value));
+}
+sideResize.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0 || sideDrag) return;
+  sideDrag = { pointerId: event.pointerId, x: event.clientX, width: sidepanel.getBoundingClientRect().width };
+  sideResize.setPointerCapture(event.pointerId);
+  event.preventDefault();
+});
+sideResize.addEventListener('pointermove', (event) => {
+  if (sideDrag?.pointerId === event.pointerId) setSideWidth(sideDrag.width + sideDrag.x - event.clientX);
+});
+sideResize.addEventListener('pointerup', (event) => {
+  if (sideDrag?.pointerId === event.pointerId) sideDrag = null;
+});
+sideResize.addEventListener('pointercancel', (event) => {
+  if (sideDrag?.pointerId === event.pointerId) {
+    setSideWidth(sideDrag.width);
+    sideDrag = null;
+  }
+});
+sideResize.addEventListener('lostpointercapture', () => { sideDrag = null; });
+sideResize.addEventListener('keydown', (event) => {
+  const { min, max } = sideBounds();
+  const width = sidepanel.getBoundingClientRect().width;
+  let next;
+  if (event.key === 'ArrowLeft') next = width + (event.shiftKey ? 50 : 10);
+  else if (event.key === 'ArrowRight') next = width - (event.shiftKey ? 50 : 10);
+  else if (event.key === 'Home') next = min;
+  else if (event.key === 'End') next = max;
+  else return;
+  event.preventDefault();
+  setSideWidth(next);
+});
+window.addEventListener('resize', () => setSideWidth(sidepanel.getBoundingClientRect().width));
+setSideWidth(sidepanel.getBoundingClientRect().width);
 els.toRealtime.addEventListener('click', () => chart.indexScale().scrollToRealTime());
 
 // -------------------------------------------------------------- draw toolbar

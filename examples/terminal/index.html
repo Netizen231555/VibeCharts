@@ -66,6 +66,8 @@
   </main>
 
   <aside class="sidepanel" id="sidepanel" data-i18n-attr="aria-label:side.aria">
+    <div id="side-resize" class="side-resize" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="sidepanel" data-i18n-attr="aria-label:side.resize"></div>
+    <div class="sidepanel-content">
     <section class="watchlist">
       <div class="list-head"><h2 data-i18n="list.title"></h2><select id="list-select" data-i18n-attr="aria-label:list.select"></select></div>
       <table>
@@ -76,6 +78,7 @@
     <section class="details" id="details" aria-live="polite"></section>
     <section class="alerts" id="alerts" data-i18n-attr="aria-label:alerts.title"></section>
     <p class="fineprint" data-i18n="fineprint"></p>
+    </div>
   </aside>
 </div>
 <div class="status-live" id="status" role="status" aria-live="polite"></div>
