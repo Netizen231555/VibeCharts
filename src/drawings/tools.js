@@ -1,4 +1,5 @@
 import { fail, isObject, isNumber, normalizeZero, requireString, requireBoolean } from './values.js';
+import { AXIS_LABEL_TOOLS, STATS_TOOLS, normalizeAxisLabels, normalizeStats } from './axis-stats.js';
 
 const xy = (count = 2) => ({ count, x: true, price: true });
 
@@ -97,6 +98,19 @@ function withLineOptions(type, base = {}) {
       extend: normalizePair(props.extend, options.extend, 'props.extend', ['left', 'right']),
       ...(options.arrows ? { arrows: normalizePair(props.arrows, options.arrows, 'props.arrows', ['start', 'end']) } : {}),
       ...(options.midpoint !== undefined ? { midpoint: normalizeMidpoint(props.midpoint, options.midpoint) } : {}),
+    }),
+  };
+}
+
+// Axis plates and the statistics badge compose onto the same prop entries as the line options, so one
+// update patch validates the whole effective prop set through `normalizeProps`.
+function withAxisStats(type, base = {}) {
+  return {
+    allowed: [...(base.allowed ?? []), ...(AXIS_LABEL_TOOLS[type] ? ['axisLabels'] : []), ...(STATS_TOOLS[type] ? ['stats'] : [])],
+    normalize: props => ({
+      ...(base.normalize ? base.normalize(props) : {}),
+      ...(AXIS_LABEL_TOOLS[type] ? { axisLabels: normalizeAxisLabels(type, props.axisLabels) } : {}),
+      ...(STATS_TOOLS[type] ? { stats: normalizeStats(type, props.stats) } : {}),
     }),
   };
 }
@@ -218,17 +232,21 @@ const PROP_DEFINITIONS = {
       return { seriesId, k: normalizeZero(props.k) };
     },
   },
-  anchoredVwap: withLineOptions('anchoredVwap', {
+  anchoredVwap: withAxisStats('anchoredVwap', withLineOptions('anchoredVwap', {
     allowed: ['priceSeriesId', 'volumeSeriesId'],
     normalize: props => ({
       priceSeriesId: requireString(props.priceSeriesId, 'props.priceSeriesId'),
       volumeSeriesId: requireString(props.volumeSeriesId, 'props.volumeSeriesId'),
     }),
-  }),
-  segment: withLineOptions('segment'),
-  ray: withLineOptions('ray'),
-  line: withLineOptions('line'),
-  arrow: withLineOptions('arrow'),
+  })),
+  segment: withAxisStats('segment', withLineOptions('segment')),
+  ray: withAxisStats('ray', withLineOptions('ray')),
+  line: withAxisStats('line', withLineOptions('line')),
+  arrow: withAxisStats('arrow', withLineOptions('arrow')),
+  horizontalLevel: withAxisStats('horizontalLevel'),
+  horizontalRay: withAxisStats('horizontalRay'),
+  verticalLine: withAxisStats('verticalLine'),
+  measure: withAxisStats('measure'),
   angle: withLineOptions('angle'),
   parallelChannel: withLineOptions('parallelChannel'),
   rectangle: withLineOptions('rectangle'),
