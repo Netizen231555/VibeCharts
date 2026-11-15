@@ -1,4 +1,4 @@
-import { DRAWING_TOOLS } from '../drawings/tools.js';
+import { DRAWING_TOOLS, normalizeProps } from '../drawings/tools.js';
 import { drawLayout } from '../drawings/render.js';
 import { STYLE_FAMILIES } from '../drawings/styles.js';
 import { translate, resolveLocale } from './messages.js';
@@ -87,6 +87,7 @@ export function createDrawingTool(chart, id, { binding, props = {}, getSnap = ()
   const type = id;
   const spec = DRAWING_TOOLS[type];
   if (!spec || !chart.surface || !chart.drawings) throw new Error(t('drawing.toolUnavailable'));
+  props = normalizeProps(type, props);
   const doc = chart.container.ownerDocument;
   const preview = doc.createElement('canvas');
   preview.setAttribute('aria-hidden', 'true');
