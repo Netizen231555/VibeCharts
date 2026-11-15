@@ -39,6 +39,18 @@ export function formatTime(time, locale, timeZone) {
   }
 }
 
+/**
+ * The price step of one price scale from the `priceStep` of each visible series drawn on it: the step they share, or
+ * `null` when there is none, a series lacks one, or they disagree. The axis and keyboard nudging both use this rule,
+ * so a drawing moves by the step the axis shows.
+ */
+export function commonPriceStep(steps) {
+  if (steps.length === 0) return null;
+  const [first] = steps;
+  if (typeof first !== 'number' || !(first > 0)) return null;
+  return steps.every((step) => step === first) ? first : null;
+}
+
 export function priceDecimals(priceStep) {
   if (typeof priceStep !== 'number' || !(priceStep > 0)) return null;
   const text = String(priceStep);

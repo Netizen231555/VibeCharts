@@ -181,6 +181,43 @@ test('a selection is refused as a whole and nothing is clamped', () => {
   assert.equal(planNudge({ chart, store, adapter, ids: [low.id], action: 'nudgeDown' }).refusal, 'invalid');
 });
 
+test('anchors in the whitespace beyond the data can move back toward it but not further out', () => {
+  const { store } = setup();
+  const chart = fakeChart();
+  // Pointer-placed anchors: b19 plus 5 bars of whitespace, and one inside the data.
+  const beyond = store.add({ type: 'segment', paneId: 'main', scaleId: 'right', anchors: [
+    { anchorBarId: 'b18', offset: 0, price: 40 }, { anchorBarId: 'b19', offset: 5, price: 60 }] });
+  const left = planNudge({ chart, store, adapter, ids: [beyond.id], action: 'nudgeLeft' });
+  assert.deepEqual(left.updates[0].patch.anchors.map(anchor => anchor.offset), [-1, 4]);
+  assert.equal(planNudge({ chart, store, adapter, ids: [beyond.id], action: 'nudgeRight' }).refusal, 'outOfData');
+  // Ten steps toward the data may still end outside it; only getting closer matters.
+  const tenLeft = planNudge({ chart, store, adapter, ids: [beyond.id], action: 'nudgeLeftTen' });
+  assert.deepEqual(tenLeft.updates[0].patch.anchors.map(anchor => anchor.offset), [-10, -5]);
+  // Overshooting to the other side of the data is not getting closer.
+  const far = store.add({ type: 'segment', paneId: 'main', scaleId: 'right', anchors: [
+    { anchorBarId: 'b19', offset: 3, price: 40 }, { anchorBarId: 'b19', offset: 4, price: 60 }] });
+  assert.equal(planNudge({ chart, store, adapter, ids: [far.id], action: 'nudgeLeftTen' }).updates[0].patch.anchors[0].offset, -7);
+  // An anchor far to the left of the data: Left is further out, Right is closer.
+  const before = store.add({ type: 'segment', paneId: 'main', scaleId: 'right', anchors: [
+    { anchorBarId: 'b0', offset: -4, price: 40 }, { anchorBarId: 'b3', offset: 0, price: 60 }] });
+  assert.equal(planNudge({ chart, store, adapter, ids: [before.id], action: 'nudgeLeft' }).refusal, 'outOfData');
+  assert.equal(planNudge({ chart, store, adapter, ids: [before.id], action: 'nudgeRight' }).updates[0].patch.anchors[0].offset, -3);
+  // A move that leaves the data from inside is refused.
+  assert.equal(planNudge({ chart, store, adapter, ids: [store.list()[0].id], action: 'nudgeRightTen' }).refusal, undefined);
+  const edge = store.add({ type: 'segment', paneId: 'main', scaleId: 'right', anchors: anchors(2, 19) });
+  assert.equal(planNudge({ chart, store, adapter, ids: [edge.id], action: 'nudgeRight' }).refusal, 'outOfData');
+});
+
+test('the price step follows the axis rule: series without a step count as disagreeing', () => {
+  const { store, ids } = setup();
+  const chart = fakeChart({ steps: [0.05, undefined] });
+  assert.equal(planNudge({ chart, store, adapter, ids: [ids[0]], action: 'nudgeUp' }).refusal, 'noStep');
+  const hidden = fakeChart({ steps: [0.05, undefined] });
+  const list = hidden.series.list;
+  hidden.series.list = () => list().map((entry, index) => ({ ...entry, visible: index === 0 }));
+  assert.equal(planNudge({ chart: hidden, store, adapter, ids: [ids[0]], action: 'nudgeUp' }).updates.length, 1, 'hidden series are ignored like on the axis');
+});
+
 test('locked drawings, including those locked by a group, refuse the whole selection', () => {
   const { store, ids } = setup();
   const group = store.createGroup('g');

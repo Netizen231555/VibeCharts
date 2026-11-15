@@ -2,6 +2,7 @@
  * Keyboard nudging of the selected drawings: the complete move is planned before anything is written, so a
  * selection is either moved as a whole or refused with a reason and left untouched. Nothing is clamped.
  */
+import { commonPriceStep } from '../render/axes.js';
 
 export const NUDGE_ACTIONS = Object.freeze({
   nudgeLeft: { axis: 'x', sign: -1, amount: 1 },
@@ -26,16 +27,13 @@ function isLocked(store, drawing) {
   return false;
 }
 
-// The price step belongs to the series drawn on the drawing's scale. Series that disagree give no step: moving by
-// one of them would be a guess.
+// The price step is the one the axis of the drawing's scale uses: the step shared by the visible series on it, none
+// when a series lacks one or they disagree (moving by one of them would be a guess).
 function scalePriceStep(chart, binding) {
-  const steps = new Set();
-  for (const entry of chart.series.list()) {
-    if (entry.paneId !== binding.paneId || entry.priceScaleId !== binding.scaleId) continue;
-    const step = chart.series(entry.id).metadata()?.priceStep;
-    if (typeof step === 'number' && step > 0) steps.add(step);
-  }
-  return steps.size === 1 ? [...steps][0] : null;
+  const steps = chart.series.list()
+    .filter((entry) => entry.paneId === binding.paneId && entry.priceScaleId === binding.scaleId && entry.visible !== false)
+    .map((entry) => chart.series(entry.id).metadata()?.priceStep);
+  return commonPriceStep(steps);
 }
 
 /**
@@ -67,8 +65,13 @@ export function planNudge({ chart, store, adapter, ids, action }) {
       if (axis === 'x') {
         if (anchor.anchorBarId === undefined) { anchors.push(anchor); continue; }
         const moved = { ...anchor, offset: anchor.offset + sign * amount };
+        const before = surface.resolveAnchor(anchor, { paneId: drawing.paneId });
         const logical = surface.resolveAnchor(moved, { paneId: drawing.paneId });
-        if (typeof logical !== 'number' || logical < 0 || logical > count - 1) return { refusal: 'outOfData' };
+        if (typeof logical !== 'number' || typeof before !== 'number') return { refusal: 'outOfData' };
+        // A pointer can place anchors in the whitespace beyond the data. Such an anchor may move back toward the data;
+        // only a move that ends outside it without getting closer is refused.
+        const gap = (value) => Math.max(0 - value, value - (count - 1), 0);
+        if (gap(logical) > 0 && gap(logical) >= gap(before)) return { refusal: 'outOfData' };
         anchors.push(moved);
       } else {
         if (anchor.price === undefined) { anchors.push(anchor); continue; }

@@ -1,4 +1,4 @@
-import { drawCountdown, drawCrosshair, drawGrid, drawIndexStrip, drawLastValueLabels, drawPriceAxis, drawPriceLine, drawTimeAxis, resolveTimeTicks } from './axes.js';
+import { commonPriceStep, drawCountdown, drawCrosshair, drawGrid, drawIndexStrip, drawLastValueLabels, drawPriceAxis, drawPriceLine, drawTimeAxis, resolveTimeTicks } from './axes.js';
 import { axisColumns, computeLayout } from './layout.js';
 import { drawDerivedViews } from './derived-renderers.js';
 import { colorForCandle, drawSeries } from './series-renderers.js';
@@ -187,17 +187,16 @@ function drawPane(ctx, chart, layout, paneRect, theme, options, timeTicks, place
     for (const column of columns) {
       let metadata = null;
       let hasProvider = false;
-      let inconsistentStep = false;
+      const steps = [];
       for (const series of pane.series) {
         if (series.priceScaleId !== column.scale.name || series._options.visible === false) continue;
         if (!hasProvider) {
           metadata = series._metadata;
           hasProvider = true;
-        } else if (series._metadata?.priceStep !== metadata?.priceStep) {
-          inconsistentStep = true;
         }
+        steps.push(series._metadata?.priceStep);
       }
-      if (metadata && inconsistentStep) metadata = { ...metadata, priceStep: undefined };
+      if (metadata && commonPriceStep(steps) === null) metadata = { ...metadata, priceStep: undefined };
       ticks.push(...drawPriceAxis(ctx, {
         paneRect, column, theme, priceOptions: options.priceScale, metadata
       }));
