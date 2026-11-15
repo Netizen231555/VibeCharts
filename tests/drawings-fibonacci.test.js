@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createDrawingStore, FIB_TOOL_OPTIONS, fibDefaultLevels } from '../src/drawings/index.js';
+import { drawLayout } from '../src/drawings/render.js';
 
 let mode = 'linear';
 const geometry = {
@@ -167,4 +168,24 @@ test('fan extends either side in anchor order on crossed anchors', () => {
   s.update(id, { props: { extend: { left: true, right: false } } });
   ray = s.layout(id).primitives.find(p => p.role === 'fib-fan-ray');
   assert.equal(ray.x1, 200); assert.equal(ray.x2, 50);
+});
+
+test('per-level styles do not leak to following primitives or labels', () => {
+  const calls = [], stack = [];
+  const ctx = {
+    strokeStyle: 'black', fillStyle: 'black', globalAlpha: 1, textAlign: 'left', lineWidth: 1,
+    save() { stack.push({ strokeStyle: this.strokeStyle, fillStyle: this.fillStyle, globalAlpha: this.globalAlpha, textAlign: this.textAlign, lineWidth: this.lineWidth }); },
+    restore() { Object.assign(this, stack.pop()); },
+    beginPath() {}, rect() {}, clip() {}, setLineDash() {}, moveTo() {}, lineTo() {},
+    stroke() { calls.push(['stroke', this.strokeStyle, this.globalAlpha]); },
+    fillText() { calls.push(['text', this.fillStyle, this.globalAlpha, this.textAlign]); },
+  };
+  drawLayout(ctx, { style: { color: 'blue', opacity: .8, width: 1 }, primitives: [
+    { kind: 'segment', x1: 0, y1: 0, x2: 1, y2: 1, color: 'red', opacity: .4 },
+    { kind: 'segment', x1: 0, y1: 1, x2: 1, y2: 2 },
+  ], labels: [
+    { text: 'one', x: 0, y: 0, color: 'red', opacity: .4, align: 'right' },
+    { text: 'two', x: 0, y: 0 },
+  ], handles: [] }, { x: 0, y: 0, width: 100, height: 100 });
+  assert.deepEqual(calls, [['stroke', 'red', .4], ['stroke', 'blue', .8], ['text', 'red', .4, 'right'], ['text', 'blue', .8, 'left']]);
 });

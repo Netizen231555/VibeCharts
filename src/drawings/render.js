@@ -115,26 +115,29 @@ export function drawLayout(ctx, layout, rect, preview = false, selected = false)
       }
       ctx.restore();
     }
+    let currentColor = layout.style.color, currentAlpha = layout.style.opacity;
     for (const primitive of layout.primitives) {
-      if (primitive.color !== undefined || primitive.opacity !== undefined) {
-        ctx.save();
-        ctx.strokeStyle = primitive.color ?? layout.style.color;
-        ctx.fillStyle = primitive.color ?? layout.style.color;
-        ctx.globalAlpha = primitive.opacity ?? layout.style.opacity;
-        drawPrimitive(ctx, primitive, layout.style.fill === true, false, fillAlpha);
-        ctx.restore();
-      } else drawPrimitive(ctx, primitive, layout.style.fill === true, false, fillAlpha);
+      const color = primitive.color ?? layout.style.color;
+      const alpha = primitive.opacity ?? layout.style.opacity;
+      if (color !== currentColor) { ctx.strokeStyle = color; ctx.fillStyle = color; currentColor = color; }
+      if (alpha !== currentAlpha) { ctx.globalAlpha = alpha; currentAlpha = alpha; }
+      drawPrimitive(ctx, primitive, layout.style.fill === true, false, fillAlpha);
+      if (primitive.kind === 'marker') ctx.lineWidth = layout.style.width ?? 1;
     }
+    if (currentColor !== layout.style.color) { ctx.strokeStyle = layout.style.color; ctx.fillStyle = layout.style.color; }
+    if (currentAlpha !== layout.style.opacity) ctx.globalAlpha = layout.style.opacity;
+    let labelColor = layout.style.color, labelAlpha = layout.style.opacity;
+    const defaultAlign = ctx.textAlign;
+    let currentAlign = defaultAlign;
     for (const label of layout.labels) {
       if (label.selectedOnly === true && !selected) continue;
-      if (label.color !== undefined || label.opacity !== undefined || label.align) {
-        ctx.save();
-        ctx.fillStyle = label.color ?? layout.style.color;
-        ctx.globalAlpha = label.opacity ?? layout.style.opacity;
-        ctx.textAlign = label.align ?? 'left';
-        drawLabel(ctx, label, rect);
-        ctx.restore();
-      } else drawLabel(ctx, label, rect);
+      const color = label.color ?? layout.style.color;
+      const alpha = label.opacity ?? layout.style.opacity;
+      const align = label.align ?? (label.color !== undefined || label.opacity !== undefined ? 'left' : defaultAlign);
+      if (color !== labelColor) { ctx.fillStyle = color; labelColor = color; }
+      if (alpha !== labelAlpha) { ctx.globalAlpha = alpha; labelAlpha = alpha; }
+      if (align !== currentAlign) { ctx.textAlign = align; currentAlign = align; }
+      drawLabel(ctx, label, rect);
     }
     if (selected) {
       ctx.globalAlpha = 1;
