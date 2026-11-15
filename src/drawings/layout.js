@@ -322,9 +322,8 @@ function fibLines({ a, b, c, drawing, adapter, binding, rect }) {
   const second = drawing.props.reverse ? a : b;
   const mode = adapter.getPriceScaleMode(binding);
   const span = horizontalSpan(a, c ?? b);
-  if (span.x1 === span.x2) {
-    span.x1 = Math.min(span.x1, rect.x + rect.width);
-    span.x2 = Math.max(span.x2, rect.x + rect.width);
+  if (span.x1 === span.x2 && span.x1 <= rect.x + rect.width) {
+    span.x2 = rect.x + rect.width;
   }
   if (drawing.props.extend.left) span.x1 = Math.min(span.x1, rect.x);
   if (drawing.props.extend.right) span.x2 = Math.max(span.x2, rect.x + rect.width);
@@ -730,6 +729,7 @@ const BUILDERS = {
     for (const { level, logical, x } of levels) {
       primitives.push({ kind: 'line', role: 'time-zone', coefficient: level.coefficient, logical,
         x1: x, y1: rect.y, x2: x, y2: rect.y + rect.height, ...fibStyle(level, drawing) });
+      if (x < rect.x || x > rect.x + rect.width) continue;
       const y = drawing.props.labelPosition === 'start' ? rect.y + 12 :
         drawing.props.labelPosition === 'center' ? rect.y + rect.height / 2 : rect.y + rect.height - 2;
       const edge = Math.abs(x - rect.x - rect.width) <= 4;

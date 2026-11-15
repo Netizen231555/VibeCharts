@@ -245,3 +245,38 @@ test('render culling retains thick strokes and selection highlights at pane edge
   layout.bounds.y = -8;
   assert.equal(drawingIntersectsRect(layout, rect, true), true);
 });
+
+test('coincident anchors beyond the right edge do not create visible Fibonacci lines', () => {
+  for (const type of ['fibRetracement', 'fibExtension']) {
+    let calls = 0;
+    const g = { ...geometry, getTextContext: () => ({ measureText() { calls++; return { width: 20 }; } }) };
+    const s = createDrawingStore({ context: { instrumentId: 'T', interval: 'D', sourceId: 'src' }, geometry: g, historyLimit: 10 });
+    const anchors = type === 'fibRetracement' ? [anchor(25, 100), anchor(25, 150)] : [anchor(25, 100), anchor(24, 150), anchor(25, 125)];
+    const id = add(s, type, { levels: [{ coefficient: .5 }] }, anchors);
+    calls = 0;
+    const layout = s.layout(id);
+    assert.equal(layout.labels.length, 0);
+    assert.equal(calls, 0);
+    assert.ok(!drawingIntersectsRect({ ...layout, style: s.get(id).style }, geometry.getVisibleRect(), false));
+  }
+});
+
+test('offscreen Fibonacci families avoid canvas measurement and keep visible time labels', () => {
+  for (const type of ['fibRetracement', 'fibExtension', 'fibFan', 'fibArcs', 'fibTimeZones']) {
+    let calls = 0;
+    const g = { ...geometry, getTextContext: () => ({ measureText() { calls++; return { width: 50 }; } }) };
+    const s = createDrawingStore({ context: { instrumentId: 'T', interval: 'D', sourceId: 'src' }, geometry: g, historyLimit: 10 });
+    const xy = [anchor(-4, 100), anchor(-3, 100)];
+    const anchors = type === 'fibTimeZones' ? xy.map(({ anchorBarId, offset }) => ({ anchorBarId, offset }))
+      : type === 'fibExtension' ? [...xy, anchor(-3, 100)] : xy;
+    const props = { levels: [{ coefficient: 1, label: 'foo' }], ...(type === 'fibFan' ? { extend: { left: false, right: false } } : {}) };
+    const id = add(s, type, props, anchors);
+    calls = 0;
+    const layout = s.layout(id);
+    assert.equal(calls, 0, type);
+    assert.equal(layout.labels.length, 0, type);
+  }
+  const s = store();
+  const id = add(s, 'fibTimeZones', { levels: [{ coefficient: 1, label: 'foo' }] }, [{ anchorBarId: 'b2', offset: 0 }, { anchorBarId: 'b3', offset: 0 }]);
+  assert.equal(s.layout(id).labels[0].text, 'foo');
+});
