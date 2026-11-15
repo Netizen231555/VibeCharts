@@ -42,6 +42,65 @@ const FIB_FAN = [0.236, 0.382, 0.5, 0.618, 0.786, 1];
 const FIB_ARCS = [0.382, 0.5, 0.618, 1];
 const FIB_TIME_ZONES = [0.382, 0.5, 0.618, 1];
 
+// Reach, arrow heads and the midpoint marker are properties of a line-family drawing, not identities of the tool:
+// this table holds, next to the tool table, the default that reproduces the behaviour each tool had before the
+// options existed. `extend` defaults to the tool's former clip; `arrows`/`midpoint` exist only where they apply.
+// A missing entry means the tool supports none of the options and its props are rejected as unknown.
+const NONE = { left: false, right: false };
+const RIGHT = { left: false, right: true };
+const BOTH = { left: true, right: true };
+const NO_ARROWS = { start: false, end: false };
+
+export const LINE_OPTIONS = Object.freeze({
+  segment: Object.freeze({ extend: Object.freeze(NONE), arrows: Object.freeze(NO_ARROWS), midpoint: false }),
+  ray: Object.freeze({ extend: Object.freeze(RIGHT), arrows: Object.freeze(NO_ARROWS), midpoint: false }),
+  line: Object.freeze({ extend: Object.freeze(BOTH), arrows: Object.freeze(NO_ARROWS), midpoint: false }),
+  arrow: Object.freeze({ extend: Object.freeze(NONE), arrows: Object.freeze({ start: false, end: true }), midpoint: false }),
+  angle: Object.freeze({ extend: Object.freeze(NONE), arrows: Object.freeze(NO_ARROWS), midpoint: false }),
+  parallelChannel: Object.freeze({ extend: Object.freeze(BOTH) }),
+  fibFan: Object.freeze({ extend: Object.freeze(RIGHT) }),
+  rectangle: Object.freeze({ extend: Object.freeze(NONE) }),
+  pitchfork: Object.freeze({ extend: Object.freeze(RIGHT) }),
+  anchoredVwap: Object.freeze({ extend: Object.freeze(NONE) }),
+});
+
+// The stored prop is the effective value, so a partially given object is an error that names the missing member,
+// never a silent borrow of the default (an update patch replaces the whole object at its key).
+function normalizePair(value, defaults, field, members) {
+  if (value === undefined) return { ...defaults };
+  if (!isObject(value)) fail('invalid-props', `${field} must be an object`, { field });
+  for (const key of Object.keys(value)) {
+    if (!members.includes(key)) fail('invalid-props', `Unknown property ${key} in ${field}`, { field: `${field}.${key}` });
+  }
+  const result = {};
+  for (const key of members) {
+    if (typeof value[key] !== 'boolean') fail('invalid-props', `${field}.${key} must be a boolean`, { field: `${field}.${key}` });
+    result[key] = value[key];
+  }
+  return result;
+}
+
+function normalizeMidpoint(value, fallback) {
+  if (value === undefined) return fallback;
+  if (typeof value !== 'boolean') fail('invalid-props', 'props.midpoint must be a boolean', { field: 'props.midpoint' });
+  return value;
+}
+
+// Composes a tool's own props with the line options: `allowed` grows by the option keys, `normalize` fills
+// the effective option values, so add, update and import validate them through the same normalizeProps path.
+function withLineOptions(type, base = {}) {
+  const options = LINE_OPTIONS[type];
+  return {
+    allowed: [...(base.allowed ?? []), 'extend', ...(options.arrows ? ['arrows'] : []), ...(options.midpoint !== undefined ? ['midpoint'] : [])],
+    normalize: props => ({
+      ...(base.normalize ? base.normalize(props) : {}),
+      extend: normalizePair(props.extend, options.extend, 'props.extend', ['left', 'right']),
+      ...(options.arrows ? { arrows: normalizePair(props.arrows, options.arrows, 'props.arrows', ['start', 'end']) } : {}),
+      ...(options.midpoint !== undefined ? { midpoint: normalizeMidpoint(props.midpoint, options.midpoint) } : {}),
+    }),
+  };
+}
+
 export function normalizeAnchor(raw, spec, index) {
   if (!isObject(raw)) fail('invalid-anchor', `Anchor ${index} must be an object`, { field: 'anchors', index });
   const allowed = ['anchorBarId', 'offset', 'price'];
@@ -127,10 +186,10 @@ const PROP_DEFINITIONS = {
     allowed: ['levels'],
     normalize: props => ({ levels: normalizeLevels(props.levels, FIB_EXTENSION) }),
   },
-  fibFan: {
+  fibFan: withLineOptions('fibFan', {
     allowed: ['levels'],
     normalize: props => ({ levels: normalizeLevels(props.levels, FIB_FAN) }),
-  },
+  }),
   fibArcs: {
     allowed: ['levels'],
     normalize: props => ({ levels: normalizeLevels(props.levels, FIB_ARCS, { positive: true }) }),
@@ -139,7 +198,7 @@ const PROP_DEFINITIONS = {
     allowed: ['levels'],
     normalize: props => ({ levels: normalizeLevels(props.levels, FIB_TIME_ZONES) }),
   },
-  pitchfork: {
+  pitchfork: withLineOptions('pitchfork', {
     allowed: ['variant'],
     normalize: props => {
       const variant = props.variant === undefined ? 'standard' : props.variant;
@@ -148,7 +207,7 @@ const PROP_DEFINITIONS = {
       }
       return { variant };
     },
-  },
+  }),
   regressionChannel: {
     allowed: ['seriesId', 'k'],
     normalize: props => {
@@ -159,13 +218,20 @@ const PROP_DEFINITIONS = {
       return { seriesId, k: normalizeZero(props.k) };
     },
   },
-  anchoredVwap: {
+  anchoredVwap: withLineOptions('anchoredVwap', {
     allowed: ['priceSeriesId', 'volumeSeriesId'],
     normalize: props => ({
       priceSeriesId: requireString(props.priceSeriesId, 'props.priceSeriesId'),
       volumeSeriesId: requireString(props.volumeSeriesId, 'props.volumeSeriesId'),
     }),
-  },
+  }),
+  segment: withLineOptions('segment'),
+  ray: withLineOptions('ray'),
+  line: withLineOptions('line'),
+  arrow: withLineOptions('arrow'),
+  angle: withLineOptions('angle'),
+  parallelChannel: withLineOptions('parallelChannel'),
+  rectangle: withLineOptions('rectangle'),
 };
 
 export function normalizeProps(type, props = {}) {
