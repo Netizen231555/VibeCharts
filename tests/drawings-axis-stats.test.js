@@ -104,6 +104,23 @@ test('price plates at pane edges are clipped rather than discarded', () => {
   }
 });
 
+test('coincident price plates on adjacent pane boundaries retain both clips', () => {
+  for (const selected of [false, true]) {
+    const f = axisFixture();
+    const makePane = id => ({ id, visible: true, priceScales: new Map([['right', { id: 'right', side: 'right', visible: true, overlay: false }]]) });
+    f.options.frameLayout = computeLayout({ width: 300, height: 200, panes: [makePane('main'), makePane('second')] });
+    const layout = f.options.entries[0].layout;
+    layout.axisLabels = [{ axis: 'price', price: 89 }];
+    f.options.entries = [
+      { layout, selected: false },
+      { layout: { ...layout, paneId: 'second', style: { color: '#f00' } }, selected },
+    ];
+    drawAxisLabels(f.ctx, f.options);
+    assert.deepEqual(f.strokes, ['#123', '#f00']);
+    assert.deepEqual(f.clips, [[236, 0, 64, 89], [236, 89, 64, 89]]);
+  }
+});
+
 test('selected coincident plates paint once in the selected colour', () => {
   const f = axisFixture();
   const layout = f.options.entries[0].layout;

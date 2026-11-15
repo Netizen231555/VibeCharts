@@ -97,7 +97,7 @@ function drawPricePlate(ctx, { label, layout, binding, paneRect, frameLayout, wi
   const rect = { left, top, width: plateWidth, height: 2 * half };
   // The live price is the more important number; a selected drawing is what the user edits, so it wins.
   if (!entry.selected && axisPlates.some(plate => plate.paneId === layout.paneId && plate.side === scale.side && intersects(rect, plate))) return;
-  const key = `price:${scale.side}:${column.x}:${Math.round(top)}:${text}`;
+  const key = JSON.stringify(['price', layout.paneId, scale.side, column.x, paneRect.y, paneRect.height, Math.round(top), text]);
   enqueue(key, entry.selected, { rect, text, theme, color: layout.style.color, fontSize,
     clip: { x: column.x, y: paneRect.y, width: column.width, height: paneRect.height } });
 }
