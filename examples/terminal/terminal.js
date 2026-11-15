@@ -4,6 +4,7 @@ import { createChart, attachChartFeatures } from 'vibecharts';
 import { exportChartPng } from 'vibecharts/workspaces';
 import { sourceKey } from 'vibecharts/alerts';
 import { INSTRUMENTS, INTERVALS, generateSeries, decimalsOf, createTicker } from './data.js';
+import { captureWindow, windowRange } from './window.js';
 
 const TZ = 'Europe/Moscow';
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
@@ -215,6 +216,8 @@ function addPrice(s) {
   }
   s.price.setData(pointsFor(type, bars), metadata);
 }
+// Magnet on: every anchor takes the nearest candle's time and its nearest O/H/L/C price; the source is the primary price series.
+const magnetSnap = () => (state.magnet ? { mode: 'strong', magnet: true } : { mode: 'free', magnet: false });
 function removeSeriesSafe(series) { if (series) { try { chart.removeSeries(series); } catch (error) { showNotice(`Не удалось удалить ряд: ${error.message}`); } } }
 
 // Volume is drawn on an overlay scale in the lower fifth of the main pane: its own range, no axis column.
@@ -546,10 +549,12 @@ function setVisibleBars(count) {
 }
 
 function build() {
+  // The time window the user was looking at stays when the instrument or the interval changes.
+  const remembered = chart && session ? captureWindow(chart, session.intervalId) : null;
   teardown();
   clearNotice();
   const data = dataFor(state.instrument, state.interval);
-  const s = { data, index: new Map(data.bars.map((b, i) => [b.barId, i])), indicators: new Map(), unsubscribe: [], alertVersion: 0, hoverPrice: null, ticker: createTicker(`${state.instrument.id}|${state.interval.id}`, state.instrument, data.step) };
+  const s = { data, intervalId: state.interval.id, index: new Map(data.bars.map((b, i) => [b.barId, i])), indicators: new Map(), unsubscribe: [], alertVersion: 0, hoverPrice: null, ticker: createTicker(`${state.instrument.id}|${state.interval.id}`, state.instrument, data.step) };
   session = s;
   try {
     chart = createChart(els.chart, chartOptions(data.step));
@@ -558,7 +563,7 @@ function build() {
     addPrice(s);
     if (state.indicators.has('volume')) addVolume(s);
     rebuildOverlays(s);
-    chart.interaction.setDrawingSnap({ mode: state.magnet ? 'weak' : 'free', ...(state.magnet ? { sourceId: 'price', threshold: 12 } : {}) });
+    chart.interaction.setDrawingSnap(magnetSnap());
     syncAlerts();
   } catch (error) {
     teardown();
@@ -566,11 +571,20 @@ function build() {
     return;
   }
   const targetBars = state.interval.id === 'W' ? 110 : state.interval.id === 'D' ? 140 : 130;
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    if (session !== s) return;
-    try { setVisibleBars(targetBars); chart.indexScale().setFollowRealTime(true); } catch (error) { showNotice(`Не удалось задать видимый диапазон: ${error.message}`); }
-    updateLegend(null);
-  }));
+  // Set before the first frame: the default view fits the whole history, so waiting for a later frame would paint
+  // every bar squeezed first and then jump to the working window. A window carried over from the previous chart
+  // wins when this series has bars inside it; otherwise the working window of the interval is used.
+  try {
+    const carried = remembered ? windowRange(data.slots, remembered, state.interval.id) : null;
+    if (carried) {
+      chart.indexScale().setVisibleRange(carried);
+      chart.priceScale('main').setAutoScale(true);
+      chart.indexScale().setFollowRealTime(remembered.rightTime >= data.slots[data.slots.length - 1].time);
+    } else {
+      setVisibleBars(targetBars);
+      chart.indexScale().setFollowRealTime(true);
+    }
+  } catch (error) { showNotice(`Не удалось задать видимый диапазон: ${error.message}`); }
   els.toRealtime.hidden = true;
   s.unsubscribe.push(chart.subscribe('visibleRangeChange', (payload) => {
     els.toRealtime.hidden = chart.indexScale().isFollowingRealTime();
@@ -760,7 +774,7 @@ toolButtons.get(null).classList.add('active');
   magnet.addEventListener('click', () => {
     state.magnet = !state.magnet;
     magnet.setAttribute('aria-pressed', String(state.magnet));
-    try { chart.interaction.setDrawingSnap({ mode: state.magnet ? 'weak' : 'free', ...(state.magnet ? { sourceId: 'price', threshold: 12 } : {}) }); } catch (error) { showNotice(`Магнит недоступен: ${error.message}`); }
+    try { chart.interaction.setDrawingSnap(magnetSnap()); } catch (error) { showNotice(`Магнит недоступен: ${error.message}`); }
   });
   const trash = document.createElement('button');
   trash.type = 'button'; trash.className = 'tool-btn'; trash.title = 'Удалить все рисунки'; trash.setAttribute('aria-label', 'Удалить все рисунки');
