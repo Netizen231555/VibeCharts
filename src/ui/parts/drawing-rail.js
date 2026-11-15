@@ -156,13 +156,14 @@ export function createDrawingRail(controller, context) {
   for (const item of items) {
     disposers.push(on(item.button, 'click', () => {
       const hadFocus = doc.activeElement === item.button;
+      let result;
       if (item.kind === 'cursor') {
         dropActiveTool();
       } else {
-        controller.run(item.controlId);
+        result = controller.run(item.controlId);
       }
-      // Arming a tool hands focus to the plot; a keyboard user who chose a tool should not be moved without asking.
-      if (hadFocus && doc.activeElement !== item.button) item.button.focus();
+      // A pending text editor owns focus until it is confirmed or cancelled.
+      if (hadFocus && !result?.pendingText && doc.activeElement !== item.button) item.button.focus();
     }));
   }
 

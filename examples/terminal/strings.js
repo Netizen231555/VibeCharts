@@ -166,8 +166,6 @@ export const en = {
   'settings.error.load': 'Saved settings not loaded: {message}',
 
   'tool.cursor': 'Cursor',
-  'tool.textPrompt': 'Annotation text',
-  'tool.textDefault': 'Note',
   'tool.magnet': 'Snap to OHLC prices',
   'tool.clear': 'Delete all drawings',
 
@@ -362,8 +360,6 @@ export const ru = {
   'settings.error.load': 'Сохранённые настройки не загружены: {message}',
 
   'tool.cursor': 'Курсор',
-  'tool.textPrompt': 'Текст аннотации',
-  'tool.textDefault': 'Заметка',
   'tool.magnet': 'Магнит к ценам OHLC',
   'tool.clear': 'Удалить все рисунки',
 

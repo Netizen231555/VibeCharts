@@ -2,6 +2,9 @@ import { createElement, append, clearElement, contains, focusElement } from '../
 import { DRAWING_TOOLS } from '../drawings/tools.js';
 import { t as translate, localeOf } from './messages.js';
 
+const CAPTION_TYPES = new Set(['segment', 'ray', 'line', 'horizontalLevel', 'horizontalRay', 'verticalLine', 'arrow', 'parallelChannel', 'regressionChannel', 'rectangle', 'ellipse', 'triangle']);
+const TEXT_TYPES = new Set(['text', 'callout', 'flag', 'priceLabel']);
+
 export function createDrawingControls({ chart, doc, host, interaction, announce }) {
   const store = chart && chart.drawings;
   if (!store || typeof store.snapshot !== 'function') return null;
@@ -14,6 +17,10 @@ export function createDrawingControls({ chart, doc, host, interaction, announce 
   const drafts = new Map();
   function clearAppliedDrafts(id) {
     const remove = (...keys) => keys.forEach(key => drafts.delete(key));
+    if (id.startsWith('text-apply:') || id.startsWith('text-cancel:') || id.startsWith('text-remove:')) {
+      const drawingId = id.slice(id.indexOf(':') + 1);
+      for (const key of drafts.keys()) if (key.startsWith(`text-editor:${drawingId}:`)) drafts.delete(key);
+    }
     if (id.startsWith('anchor:')) {
       const suffix = id.slice('anchor:'.length);
       remove(`bar:${suffix}`, `offset:${suffix}`, `price:${suffix}`);
@@ -22,7 +29,7 @@ export function createDrawingControls({ chart, doc, host, interaction, announce 
     else if (id.startsWith('save-style:')) remove(`style-name:${id.slice('save-style:'.length)}`);
     else if (id.startsWith('group-delete:')) remove(`group-confirm:${id.slice('group-delete:'.length)}`);
     else if (id === 'group-create') remove('group-name');
-    else if (id === 'construction-finish' || id === 'construction-cancel') remove('construction-anchors', 'construction-props');
+    else if (id === 'construction-finish' || id === 'construction-cancel') remove('construction-anchors', 'construction-props', 'construction-text');
     else if (id === 'snap-apply') remove('snap-mode', 'snap-source', 'snap-threshold', 'snap-magnet', 'snap-magnet-threshold', 'snap-step');
   }
   const action = (id, fn) => {
@@ -31,6 +38,10 @@ export function createDrawingControls({ chart, doc, host, interaction, announce 
     catch (error) {
       busy = false;
       const blockers = error.blockers || (error.details && error.details.blockers);
+      if (id.startsWith('text-apply:') || id.startsWith('text-remove:')) {
+        const errorNode = find(section, `text-error:${id.slice(id.indexOf(':') + 1)}`);
+        if (errorNode) errorNode.textContent = error.message;
+      }
       announce(`${error.message}${blockers && blockers.length ? `: ${blockers.join(', ')}` : ''}`, { error: true });
     }
   };
@@ -58,6 +69,26 @@ export function createDrawingControls({ chart, doc, host, interaction, announce 
     node.addEventListener('input', () => drafts.set(id, node.value));
     append(wrapper, node); append(parent, wrapper); return node;
   }
+  function checkbox(parent, id, label, value) {
+    const wrapper = createElement(doc, 'label', {});
+    const node = createElement(doc, 'input', { type: 'checkbox', 'data-drawing-control': id, 'aria-label': label });
+    node.checked = drafts.has(id) ? drafts.get(id) : value;
+    node.addEventListener('change', () => drafts.set(id, node.checked));
+    append(wrapper, node, createElement(doc, 'span', {}, label)); append(parent, wrapper);
+    return node;
+  }
+  function alignment(parent, id, value) {
+    const label = createElement(doc, 'label', {});
+    append(label, createElement(doc, 'span', {}, t('drawings.align')));
+    const node = createElement(doc, 'select', { 'aria-label': t('drawings.align'), 'data-drawing-control': id });
+    for (const [optionValue, key] of [['start', 'drawings.alignStart'], ['center', 'drawings.alignCenter'], ['end', 'drawings.alignEnd']]) {
+      append(node, createElement(doc, 'option', { value: optionValue }, t(key)));
+    }
+    node.value = drafts.get(id) ?? value;
+    node.addEventListener('change', () => drafts.set(id, node.value));
+    append(label, node); append(parent, label);
+    return node;
+  }
   function number(node, label) {
     if (node.value.trim() === '' || !Number.isFinite(Number(node.value))) throw new Error(t('drawings.finiteRequired', { label }));
     return Number(node.value);
@@ -68,6 +99,41 @@ export function createDrawingControls({ chart, doc, host, interaction, announce 
       const result = find(child, id); if (result) return result;
     }
     return null;
+  }
+  function textEditor(row, drawing) {
+    const caption = CAPTION_TYPES.has(drawing.type);
+    if (!caption && !TEXT_TYPES.has(drawing.type)) return;
+    const style = (caption ? drawing.props.label : drawing.props.textStyle) || {};
+    const prefix = `text-editor:${drawing.id}:`;
+    const group = createElement(doc, 'div', { role: 'group', 'aria-label': t(caption ? 'drawings.caption' : 'drawings.textEntry') });
+    append(row, group);
+    const text = caption || drawing.type !== 'priceLabel'
+      ? textArea(group, `${prefix}text`, t(caption ? 'drawings.caption' : 'drawings.textEntry'), caption ? (style.text ?? '') : drawing.props.text)
+      : null;
+    const color = caption ? input(group, `${prefix}color`, t('drawings.captionColor'), style.color ?? '') : null;
+    const size = input(group, `${prefix}size`, t('drawings.textSize'), style.size ?? 12, 'number');
+    size.setAttribute('min', '8'); size.setAttribute('max', '72'); size.setAttribute('step', 'any');
+    const bold = checkbox(group, `${prefix}bold`, t('drawings.bold'), style.bold ?? false);
+    const italic = checkbox(group, `${prefix}italic`, t('drawings.italic'), style.italic ?? false);
+    const align = alignment(group, `${prefix}align`, style.align ?? (caption ? 'center' : 'start'));
+    append(group, createElement(doc, 'p', { role: 'alert', 'data-drawing-control': `text-error:${drawing.id}` }));
+    button(group, `text-apply:${drawing.id}`, t('drawings.applyText'), () => {
+      if (text && (caption ? text.value.length > 200 || text.value.split('\n').length > 3 : text.value.length > 20000)) {
+        throw new Error(t(caption ? 'drawings.captionLimit' : 'drawings.textLimit'));
+      }
+      const sizeValue = Number(size.value);
+      if (!size.value.trim() || !Number.isFinite(sizeValue) || sizeValue < 8 || sizeValue > 72) throw new Error(t('drawings.sizeLimit'));
+      if (color && color.value && !/^(#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,20}|(rgb|rgba|hsl|hsla)\([0-9.,%\s]+\))$/.test(color.value)) {
+        throw new Error(t('drawings.colorInvalid'));
+      }
+      const typography = { size: sizeValue, bold: bold.checked, italic: italic.checked, align: align.value };
+      const props = caption
+        ? { label: { text: text.value, ...typography, ...(color.value ? { color: color.value } : {}) } }
+        : { ...(text ? { text: text.value } : {}), ...(drawing.props.textStyle || ['size', 'bold', 'italic', 'align'].some(key => drafts.has(`${prefix}${key}`)) ? { textStyle: typography } : {}) };
+      store.update(drawing.id, { props });
+    });
+    if (caption) button(group, `text-remove:${drawing.id}`, t('drawings.removeCaption'), () => store.update(drawing.id, { props: { label: null } }));
+    button(group, `text-cancel:${drawing.id}`, t('drawings.cancelEdit'), () => {});
   }
   function render() {
     const active = doc.activeElement;
@@ -95,14 +161,22 @@ export function createDrawingControls({ chart, doc, host, interaction, announce 
       append(tool, option);
     }
     tool.value = constructionType;
-    tool.addEventListener('change', () => { constructionType = tool.value; });
+    tool.addEventListener('change', () => { constructionType = tool.value; render(); });
     append(toolLabel, tool); append(construction, toolLabel);
     const pane = input(construction, 'construction-pane', t('drawings.paneId'), 'main');
     const scale = input(construction, 'construction-scale', t('drawings.scaleId'), 'right');
     const anchors = textArea(construction, 'construction-anchors', t('drawings.anchors'), '[]');
     const props = textArea(construction, 'construction-props', t('drawings.drawingProps'), '{}');
+    const creationText = ['text', 'callout', 'flag'].includes(constructionType)
+      ? textArea(construction, 'construction-text', t('drawings.textEntry'), '') : null;
+    function constructionProps() {
+      const value = JSON.parse(props.value);
+      if (!creationText) return value;
+      if (creationText.value.length > 20000) throw new Error(t('drawings.textLimit'));
+      return { ...value, text: creationText.value };
+    }
     button(construction, 'construction-arm', t('drawings.arm'), () => {
-      interaction.armDrawing(tool.value, { paneId: pane.value, scaleId: scale.value, props: JSON.parse(props.value) });
+      interaction.armDrawing(tool.value, { paneId: pane.value, scaleId: scale.value, props: constructionProps() });
     }, !(interaction && interaction.armDrawing && chart.surface));
     const activeTool = interaction && interaction.getTool && interaction.getTool();
     button(construction, 'interactive-finish', t('drawings.interactiveFinish'), () => activeTool.finish(),
@@ -139,7 +213,7 @@ export function createDrawingControls({ chart, doc, host, interaction, announce 
     }
     button(construction, 'construction-finish', t('drawings.finish'), () => {
       store.add({ type: tool.value, paneId: pane.value, scaleId: scale.value,
-        anchors: JSON.parse(anchors.value), props: JSON.parse(props.value) });
+        anchors: JSON.parse(anchors.value), props: constructionProps() });
       if (!store.getRepeatMode()) constructionType = 'segment';
       announce(t('drawings.added'));
     });
@@ -194,6 +268,7 @@ export function createDrawingControls({ chart, doc, host, interaction, announce 
       button(row, `lock:${drawing.id}`, t(drawing.locked ? 'drawings.unlock' : 'drawings.lock'), () => store.setLocked(drawing.id, !drawing.locked));
       button(row, `favorite:${drawing.id}`, t(store.isFavorite(drawing.type) ? 'drawings.unfavorite' : 'drawings.favorite'), () => store.setFavorite(drawing.type, !store.isFavorite(drawing.type)));
       if (!chosen) continue;
+      textEditor(row, drawing);
       drawing.anchors.forEach((anchor, index) => {
         const fields = createElement(doc, 'div', { role: 'group', 'aria-label': t('drawings.anchorAria', { index: index + 1, id: drawing.id }) });
         append(row, fields);
@@ -231,5 +306,10 @@ export function createDrawingControls({ chart, doc, host, interaction, announce 
   const unsubscribeSelection = interaction && interaction.subscribe ? interaction.subscribe('selectionChange', () => { if (!busy) render(); }) : null;
   const unsubscribeTool = interaction && interaction.subscribe ? interaction.subscribe('toolChange', () => { if (!busy) render(); }) : null;
   render();
-  return { render, detach() { unsubscribe(); if (unsubscribeSelection) unsubscribeSelection(); if (unsubscribeTool) unsubscribeTool(); if (section.parentNode) section.parentNode.removeChild(section); } };
+  return { render, detach() {
+    unsubscribe(); if (unsubscribeSelection) unsubscribeSelection(); if (unsubscribeTool) unsubscribeTool();
+    const hadFocus = contains(section, doc.activeElement);
+    if (section.parentNode) section.parentNode.removeChild(section);
+    if (hadFocus) focusElement(host);
+  } };
 }

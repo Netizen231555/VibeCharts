@@ -15,6 +15,7 @@ import { createTheme } from './theme.js';
 import { describeActionAccess } from './access.js';
 import { t, localeOf } from './messages.js';
 import { resolveIcons } from './icons.js';
+import { openAnnotationEntry } from './text-entry.js';
 
 const DEFAULT_OPTIONS = Object.freeze({
   accessibleActions: false,
@@ -40,6 +41,7 @@ export function createUiController(chart, options = {}) {
   const listeners = new Map();
   const disposers = [];
   let destroyed = false;
+  let closeTextEntry = null;
   const chartTheme = typeof chart?.getState === 'function' ? chart.getState().options?.theme : undefined;
   let theme = opts.theme ?? chartTheme ?? 'light';
   createTheme(theme);
@@ -232,13 +234,8 @@ export function createUiController(chart, options = {}) {
     return entry ? entry.label : id;
   }
 
-  /**
-   * Properties a tool needs before its first click, since the rail has no form: annotation tools start with their
-   * own name as text (editable afterwards), data-bound tools bind to the chart's own series. When the chart has no
-   * suitable series the tool is refused with a reason instead of failing on the first click.
-   */
+  /** Bind data-dependent tools to visible chart series before placement. */
   function armProps(id, label) {
-    if (id === 'text' || id === 'callout' || id === 'flag') return { props: { text: label } };
     if (id !== 'regressionChannel' && id !== 'anchoredVwap') return { props: {} };
     const series = typeof chart?.series?.list === 'function' ? chart.series.list().filter((entry) => entry.visible) : [];
     const price = series.find((entry) => ['candlestick', 'bar', 'line', 'area', 'baseline'].includes(entry.type));
@@ -311,10 +308,22 @@ export function createUiController(chart, options = {}) {
           return { ok: true, tool: value };
         }
         if (nativeDrawingAvailable()) {
+          if (closeTextEntry) { closeTextEntry(); closeTextEntry = null; }
           const active = interaction.getTool();
           if (active && active.id === value) {
             interaction.setTool(null);
             return { ok: true, tool: null };
+          }
+          if (value === 'text' || value === 'callout' || value === 'flag') {
+            if (active) interaction.setTool(null);
+            closeTextEntry = openAnnotationEntry({
+              chart, t: tr,
+              onApply: text => {
+                interaction.armDrawing(value, { props: { text } });
+                closeTextEntry = null;
+              },
+            });
+            return { ok: true, pendingText: true };
           }
           const label = toolLabel(value);
           const prepared = armProps(value, label);
@@ -558,6 +567,7 @@ export function createUiController(chart, options = {}) {
   function destroy() {
     if (destroyed) return;
     destroyed = true;
+    if (closeTextEntry) { closeTextEntry(false); closeTextEntry = null; }
     for (const dispose of disposers.splice(0)) {
       if (typeof dispose === 'function') dispose();
     }

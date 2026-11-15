@@ -865,12 +865,6 @@ function syncToolButtons() {
 function setActiveTool(id) {
   try {
     if (id === null) { chart.interaction.setTool(null); return; }
-    if (id === 'text') {
-      const text = window.prompt(t('tool.textPrompt'), t('tool.textDefault'));
-      if (text === null) return;
-      chart.interaction.armDrawing(id, { props: { text } });
-      return;
-    }
     const result = session.ui.run(`tool:${id}`);
     if (!result.ok) showNotice(result.reason);
   } catch (error) { showNotice(t('error.tool', { message: error.message })); }
