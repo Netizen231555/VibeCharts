@@ -50,6 +50,22 @@ export function priceDecimals(priceStep) {
   return dot === -1 ? 0 : text.length - dot - 1;
 }
 
+// Number formatters are cached: labelled axis plates and badges format many values per frame, and locales
+// with fixed decimals are few. Bounded, so a host flipping locales forever cannot grow it.
+const NUMBER_FORMATTER_LIMIT = 64;
+const numberFormatterCache = new Map();
+
+export function numberFormatter(locale, decimals) {
+  const key = `${locale}|${decimals}`;
+  let formatter = numberFormatterCache.get(key);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+    if (numberFormatterCache.size >= NUMBER_FORMATTER_LIMIT) numberFormatterCache.delete(numberFormatterCache.keys().next().value);
+    numberFormatterCache.set(key, formatter);
+  }
+  return formatter;
+}
+
 export function formatPrice(value, { priceScale, metadata, locale = 'en-US' } = {}) {
   let display = value;
   let suffix = '';
@@ -63,7 +79,7 @@ export function formatPrice(value, { priceScale, metadata, locale = 'en-US' } = 
     text = String(display);
   } else {
     try {
-      text = new Intl.NumberFormat(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(display);
+      text = numberFormatter(locale, decimals).format(display);
     } catch {
       text = String(display);
     }

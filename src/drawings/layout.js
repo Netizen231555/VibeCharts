@@ -1,6 +1,7 @@
 import { DRAWING_TOOLS } from './tools.js';
 import { DrawingError, equal, isNumber, normalizeZero } from './values.js';
 import { computeRegression, computeVwap, measureAnchors } from './analytics.js';
+import { buildStatsBadge } from './axis-stats.js';
 
 const EPS = 1e-9;
 
@@ -218,38 +219,7 @@ function formatPriceLabel(adapter, price, binding) {
   return String(Number(price.toPrecision(12)));
 }
 
-// Float noise (4.670005912000022) never reaches a label: round to 12 significant digits, then to the requested decimals.
-function signed(value, text = String(Number(value.toPrecision(12)))) {
-  return value >= 0 ? `+${text}` : text;
-}
 
-// A price difference uses the price step's decimals when the host can supply them; otherwise a bounded precision.
-function formatPriceDelta(adapter, delta, binding) {
-  if (typeof adapter.formatPriceDelta === 'function') {
-    const text = adapter.formatPriceDelta(delta, binding);
-    if (typeof text === 'string') return signed(delta, text);
-  }
-  return signed(delta);
-}
-
-// Bar counts may be fractional when an anchor has an offset; two decimals are the most a reader can use.
-function formatIntervals(delta) {
-  return signed(delta, String(Number(delta.toFixed(2))));
-}
-
-// Elapsed time of a measurement: the two largest non-zero units of days, hours, minutes, seconds.
-function formatDuration(milliseconds) {
-  const total = Math.floor(Math.abs(milliseconds) / 1000);
-  const units = [['d', 86400], ['h', 3600], ['m', 60], ['s', 1]];
-  const parts = [];
-  let rest = total;
-  for (const [name, size] of units) {
-    const count = Math.floor(rest / size);
-    rest -= count * size;
-    if (count > 0) parts.push(`${count}${name}`);
-  }
-  return parts.length === 0 ? '0s' : parts.slice(0, 2).join(' ');
-}
 
 function labelText(level) {
   return level.label === undefined ? String(level.coefficient) : level.label;
@@ -377,7 +347,7 @@ const BUILDERS = {
   // A shaded box between the two anchors with a horizontal (time) and a vertical (price) arrow through it, and a
   // badge with the price change, its percentage, the bar count and the elapsed time. The tone (rise or fall) is
   // carried on the geometry and coloured by the renderer.
-  measure({ a, b, adapter, binding }) {
+  measure({ a, b, drawing, adapter, binding }) {
     const measure = measureAnchors([a, b], adapter, binding);
     const tone = measure.priceDelta >= 0 ? 'up' : 'down';
     const left = Math.min(a.x, b.x);
@@ -395,14 +365,17 @@ const BUILDERS = {
       { kind: 'segment', role: 'measure', tone, x1: midX, y1: a.y, x2: midX, y2: b.y },
       { kind: 'polygon', role: 'arrowhead', tone, fillTone: true, points: arrowHead(verticalTip, { x: midX, y: a.y }) },
     ];
-    const change = measure.relativeChange === null ? '' : ` (${signed(measure.relativeChange * 100, (measure.relativeChange * 100).toFixed(2))}%)`;
-    const lines = [`${formatPriceDelta(adapter, measure.priceDelta, binding)}${change}`];
-    if (measure.indexDelta !== null) {
-      const bars = `${Number(Math.abs(measure.indexDelta).toFixed(2))} bars`;
-      lines.push(measure.duration === null ? bars : `${bars}, ${formatDuration(measure.duration)}`);
-    }
-    const labels = [{ x: midX, y: tone === 'up' ? top - 8 : bottom + 8, text: lines[0], lines, box: { tone }, placement: tone === 'up' ? 'above' : 'below' }];
-    return { primitives, labels, measure };
+    // The badge is the shared statistics badge with measure's own props.stats defaults (every figure on);
+    // its anchor sits at the horizontal midpoint, 8px above the measured box for a rise and below for a fall.
+    const label = buildStatsBadge({
+      measure,
+      anchorPoint: { x: midX, y: tone === 'up' ? top - 8 : bottom + 8 },
+      tone,
+      fields: drawing.props.stats,
+      adapter,
+      binding,
+    });
+    return { primitives, labels: label ? [label] : [], measure };
   },
   angle({ a, b, c, drawing, rect }) {
     const u = { x: a.x - b.x, y: a.y - b.y };

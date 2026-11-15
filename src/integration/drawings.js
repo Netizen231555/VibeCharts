@@ -1,9 +1,10 @@
 import { createDrawingStore } from '../drawings/index.js';
 import { drawLayout, drawPrimitive } from '../drawings/render.js';
 import { DRAWING_RESTORE_HOOKS } from '../drawings/store.js';
+import { splitDuration } from '../drawings/axis-stats.js';
 import { createModuleScope } from '../core/module-scope.js';
 import { translate } from './messages.js';
-import { formatPrice, priceDecimals } from '../render/axes.js';
+import { formatPrice, numberFormatter, priceDecimals } from '../render/axes.js';
 
 // Drawing texts use the same price formatting as the axis labels: the step of the first series on the drawing's scale decides the decimals.
 function scaleMetadata(chart, binding) {
@@ -46,7 +47,14 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
     formatPriceDelta: (delta, binding) => {
       const decimals = priceDecimals(scaleMetadata(chart, binding)?.priceStep);
       if (decimals === null) return null;
-      return new Intl.NumberFormat(surface.locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(delta);
+      return numberFormatter(surface.locale, decimals).format(delta);
+    },
+    // Badge words follow the chart language; a host store without these methods keeps the English defaults.
+    formatBars: count => translate(chart._options.locale, 'drawings.stats.bars', { count }),
+    formatDuration: milliseconds => {
+      const locale = chart._options.locale;
+      const parts = splitDuration(milliseconds).map(({ unit, count }) => `${count}${translate(locale, `drawings.stats.unit.${unit}`)}`);
+      return parts.length > 0 ? parts.join(' ') : `0${translate(locale, 'drawings.stats.unit.s')}`;
     },
     hasBinding: ({ paneId, scaleId }) => chart.getInteractionLayout().panes.some(pane => pane.id === paneId && pane.priceScales.some(scale => scale.id === scaleId))
   };

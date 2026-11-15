@@ -76,3 +76,91 @@ export function normalizeStats(type, value) {
   result.position = position;
   return result;
 }
+
+// Float noise (4.670005912000022) never reaches a badge: round to 12 significant digits, then to the requested decimals.
+export function signed(value, text = String(Number(value.toPrecision(12)))) {
+  return value >= 0 ? `+${text}` : text;
+}
+
+// A price difference is not a price: the host adapter may format it (no percent conversion, no unit); the
+// fallback keeps a bounded precision.
+export function formatPriceDelta(adapter, delta, binding) {
+  if (typeof adapter?.formatPriceDelta === 'function') {
+    const text = adapter.formatPriceDelta(delta, binding);
+    if (typeof text === 'string') return signed(delta, text);
+  }
+  return signed(delta);
+}
+
+// Bar counts may be fractional when an anchor has an offset; two decimals are the most a reader can use.
+export function formatIntervals(delta) {
+  return signed(delta, String(Number(delta.toFixed(2))));
+}
+
+const DURATION_UNITS = Object.freeze([['d', 86400], ['h', 3600], ['m', 60], ['s', 1]]);
+
+// The unit split of an elapsed time; the two largest non-zero units. Words are the caller's: the default is
+// the unit letters, a localized adapter spells them out.
+export function splitDuration(milliseconds) {
+  let rest = Math.floor(Math.abs(milliseconds) / 1000);
+  const parts = [];
+  for (const [unit, size] of DURATION_UNITS) {
+    const count = Math.floor(rest / size);
+    rest -= count * size;
+    if (count > 0) parts.push({ unit, count });
+  }
+  return parts.slice(0, 2);
+}
+
+// English defaults of the optional adapter text helpers, so a host store without them keeps the old badge words.
+function defaultBars(count) {
+  return `${count} bars`;
+}
+
+function defaultDuration(milliseconds) {
+  const parts = splitDuration(milliseconds);
+  return parts.length === 0 ? '0s' : parts.map(({ unit, count }) => `${count}${unit}`).join(' ');
+}
+
+function barsText(adapter, count) {
+  if (typeof adapter?.formatBars === 'function') {
+    const text = adapter.formatBars(count);
+    if (typeof text === 'string') return text;
+  }
+  return defaultBars(count);
+}
+
+function durationText(adapter, milliseconds) {
+  if (typeof adapter?.formatDuration === 'function') {
+    const text = adapter.formatDuration(milliseconds);
+    if (typeof text === 'string') return text;
+  }
+  return defaultDuration(milliseconds);
+}
+
+// The one badge of the measure tool and the line tools. `measure` is a `measureAnchors` result, `fields` the
+// four figure flags of `props.stats`; the caller places the anchor point and picks the tone. Returns the
+// `labels[0]` shape the renderer paints, or null when every figure is off or nothing is computable.
+export function buildStatsBadge({ measure, anchorPoint, tone, fields, adapter, binding }) {
+  const lines = [];
+  const priceParts = [];
+  if (fields.priceRange) priceParts.push(formatPriceDelta(adapter, measure.priceDelta, binding));
+  if (fields.percent && measure.relativeChange !== null) {
+    const percent = signed(measure.relativeChange * 100, (measure.relativeChange * 100).toFixed(2));
+    priceParts.push(fields.priceRange ? `(${percent}%)` : `${percent}%`);
+  }
+  if (priceParts.length > 0) lines.push(priceParts.join(' '));
+  const countParts = [];
+  if (fields.bars && measure.indexDelta !== null) countParts.push(barsText(adapter, Number(Math.abs(measure.indexDelta).toFixed(2))));
+  if (fields.time && measure.duration !== null) countParts.push(durationText(adapter, measure.duration));
+  if (countParts.length > 0) lines.push(countParts.join(', '));
+  if (lines.length === 0) return null;
+  return {
+    x: anchorPoint.x,
+    y: anchorPoint.y,
+    text: lines[0],
+    lines,
+    box: { tone },
+    placement: tone === 'up' ? 'above' : 'below',
+  };
+}
