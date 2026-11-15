@@ -167,6 +167,15 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
           if (!drawingIntersectsRect(layout, rect, isSelected)) continue;
           drawLayout(ctx, layout, rect, false, isSelected);
         }
+        // The ghost of a clone drag: dashed and faint so it reads as a pending copy beside the untouched originals.
+        for (const layout of store.clonePreview() ?? []) {
+          if (!layout.visible || !layout.resolved) continue;
+          activeBinding = { paneId: layout.paneId, scaleId: layout.scaleId };
+          const rect = surface.getVisibleRect(activeBinding);
+          if (!rect) continue;
+          layout.style = { ...layout.style, opacity: layout.style.opacity * 0.6 };
+          drawLayout(ctx, layout, rect, true, false);
+        }
         if (axisEntries.length > 0 && frameLayout) {
           // Drawing order with the selected drawings last; the pass culls and formats what survives.
           drawAxisLabels(ctx, {
@@ -220,7 +229,7 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
         }
         activeBinding = {};
       },
-      onDestroy() { try { unsubscribe?.(); unsubscribeAlerts?.(); alertRegion?.remove(); } finally { scope.dispose(); } }
+      onDestroy() { try { store.setClonePreview(null); unsubscribe?.(); unsubscribeAlerts?.(); alertRegion?.remove(); } finally { scope.dispose(); } }
     } });
   } catch (error) { unsubscribe?.(); unsubscribeAlerts?.(); alertRegion?.remove(); scope.dispose(); throw error; }
 }
