@@ -928,6 +928,9 @@ export interface InteractionHandle {
   toggleLogScale(paneId?: string): { applied: boolean; mode?: 'linear' | 'log'; reason?: string; paneId?: string; scaleId?: string };
   /** Mode of the pane's primary price scale (active pane by default), or `null` without a scale. */
   getPriceScaleMode(paneId?: string): 'linear' | 'log' | 'percent' | null;
+  /** Request settings for the supplied drawings, or the current selection when omitted. */
+  activateDrawing(ids?: string[]): void;
+  subscribe(event: 'drawingActivate', listener: (event: { drawingIds: string[]; drawingId: string; source: 'pointer' | 'keyboard' | 'api' }) => void): () => void;
   armDrawing(type: string, options?: { paneId?: string; scaleId?: string; props?: Record<string, unknown> }): DrawingToolHandle;
   cancelGesture(reason?: string): { cancelled: boolean };
   [key: string]: unknown;
@@ -1083,6 +1086,8 @@ export interface ChartUIOptions {
   /** Host parts; an id equal to a built-in part replaces it. */
   parts?: Record<string, UiPartFactory | UiPartSpec>;
   interaction?: InteractionHandle;
+  /** Set false to leave drawing activation to the host. */
+  drawingSettings?: false | { sharedStyle?: () => Partial<DrawingStyle> | null };
   title?: string;
   demo?: boolean;
   demoLabel?: string;

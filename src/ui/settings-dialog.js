@@ -529,6 +529,8 @@ export function createDrawingSettingsDialog({ chart, doc, host, interaction = nu
   }
 
   function onClosed() {
+    // A queued close event can arrive after the same dialog has been reopened.
+    if (dialog?.open) return;
     const invoker = session?.invoker;
     unsubscribeStore?.();
     unsubscribeStore = null;

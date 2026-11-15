@@ -1,4 +1,4 @@
-import type { Chart, ChartUIOptions, UIHandle, UiController, UiLayout, UiPresetName, UiRegion, UiModel, UiControl, UiControlGroup, UiActionResult, UiActionAccess, UiStateKey, UiReadKey } from './index.js';
+import type { Chart, ChartUIOptions, DrawingStyle, InteractionHandle, UIHandle, UiController, UiLayout, UiPresetName, UiRegion, UiModel, UiControl, UiControlGroup, UiActionResult, UiActionAccess, UiStateKey, UiReadKey } from './index.js';
 export type { ChartUIOptions, UIHandle, UiController, UiLayout, UiPartContext, UiPartFactory, UiPartInstance, UiPartSpec, UiPresetName, UiRegion, UiModel, UiControl, UiControlGroup, UiActionResult, UiActionAccess, UiStateKey, UiReadKey } from './index.js';
 
 /** Group of a drawing-rail tool; the rail draws a thin separator where the group changes. */
@@ -72,7 +72,23 @@ export interface DrawingSettingsDescription {
   readonly types: readonly string[];
   readonly count: number;
   readonly locked: boolean;
-  readonly tabs: readonly { readonly id: string; readonly label: string; readonly groups: readonly unknown[] }[];
+  readonly tabs: readonly { readonly id: string; readonly label: string; readonly groups: readonly DrawingSettingsGroup[] }[];
+}
+
+export interface DrawingSettingsGroup {
+  readonly id: string;
+  readonly label: string;
+  readonly fields: readonly DrawingSettingsValue[];
+}
+export interface DrawingSettingsValue {
+  readonly id: string;
+  readonly type: DrawingSettingsField['type'];
+  readonly label: string;
+  readonly value: unknown;
+  readonly mixed: boolean;
+  readonly enabled: boolean;
+  readonly reason: string | null;
+  readonly limits?: Readonly<Record<string, unknown>>;
 }
 
 /** Describes (and applies) the editable settings of selected drawings. Headless: no DOM. */
@@ -89,7 +105,7 @@ export function createDrawingSettingsDialog(options: {
   chart: Chart;
   doc: Document;
   host: HTMLElement;
-  interaction?: { subscribe: (event: string, listener: (payload: unknown) => void) => () => void } | null;
+  interaction?: Pick<InteractionHandle, 'subscribe'> | null;
   announce?: (text: string, options?: { error?: boolean }) => void;
-  sharedStyle?: (() => (object | null)) | null;
-}): { destroy(): void };
+  sharedStyle?: (() => (Partial<DrawingStyle> | null)) | null;
+}): { open(ids: string[], invoker?: HTMLElement | null): void; close(): void; destroy(): void; readonly isOpen: boolean; readonly element: HTMLDialogElement | null };

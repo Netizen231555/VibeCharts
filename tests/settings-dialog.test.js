@@ -120,14 +120,14 @@ test('cancel drops the draft and closes without touching the document', () => {
   const h = mount(store);
   h.activate([id]);
   const before = store.get(id);
-  const historyDepth = JSON.stringify(store.export().drawings); // creation only
   const color = h.find(node => node.tagName === 'INPUT' && node.getAttribute('type') === 'color');
   color.value = '#123456';
   color.emit('input');
   h.find(node => node.getAttribute?.('data-settings-action') === 'cancel').emit('click');
   assert.ok(!h.root().open, 'cancel closes');
   assert.deepEqual(store.get(id), before, 'document and history unchanged');
-  assert.equal(JSON.stringify(store.export().drawings), historyDepth, 'no history entry was added');
+  store.undo();
+  assert.throws(() => store.get(id), /unknown|not found/i, 'one undo reverses creation, not cancellation');
 });
 
 test('an externally deleted drawing is reported and nothing is applied', () => {
@@ -164,4 +164,22 @@ test('the host shared style is offered back only to individually styled drawings
   const after = store.get(individual);
   assert.equal(after.style.color, '#4a9fd0');
   assert.equal(after.ownStyle, false);
+});
+
+test('a queued close event does not discard a reopened session', () => {
+  const store = makeStore();
+  const id = addSegment(store);
+  store.select(id);
+  const h = mount(store);
+  h.activate([id]);
+  const root = h.root();
+  root.close = () => { root.open = false; };
+  h.dialog.close();
+  h.activate([id]);
+  root.emit('close');
+  const color = h.find(node => node.tagName === 'INPUT' && node.getAttribute('type') === 'color');
+  color.value = '#123456';
+  color.emit('input');
+  h.find(node => node.tagName === 'FORM').emit('submit');
+  assert.equal(store.get(id).style.color, '#123456');
 });

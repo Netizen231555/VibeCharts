@@ -187,7 +187,7 @@ export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart,
   function renderDrawingsTab() {
     const values = settings.drawingValues();
     const defaults = DRAWING_FIELDS.map((field) => control(field, t(`settings.d.${field.key}`), values[field.key], {
-      onInput: field.type === 'color' ? (value) => { writeDrawing(field.key, value); sharedPreview(field.key, value); } : (value) => sharedPreview(field.key, value),
+      onInput: (value) => sharedPreview(field.key, value),
       onChange: (value) => sharedCommit(field.key, value),
     }));
     body.replaceChildren(
@@ -201,6 +201,9 @@ export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart,
 
   /* -------------------------------- layout -------------------------------- */
   function renderBody() {
+    // Discard a transient drawing preview when its controls are replaced.
+    const chart = getChart();
+    if (chart) { chart.drawings.setDragPreview(null); chart.requestRender(); }
     if (activeTab === 'drawings') renderDrawingsTab(); else renderThemeTab(activeTab);
     for (const tab of tablist.children) {
       const selected = tab.dataset.tab === activeTab;
@@ -283,7 +286,8 @@ export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart,
     if (dialog.hidden) return;
     dialog.hidden = true;
     button.setAttribute('aria-expanded', 'false');
-    getChart()?.drawings.setDragPreview(null);
+    const chart = getChart();
+    if (chart) { chart.drawings.setDragPreview(null); chart.requestRender(); }
     button.focus();
   }
   close.addEventListener('click', closeDialog);
