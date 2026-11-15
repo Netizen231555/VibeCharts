@@ -3,7 +3,7 @@
 ## 0.1.0 — unreleased
 
 - Dragging a drawing moves the drawing itself: it follows the pointer instead of a dashed ghost that jumped to the final place on release. The document and undo stack still change once, on release (`drawings.setDragPreview`).
-- The crosshair sits on the snapped position (nearest bar and its nearest O/H/L/C price) whenever snapping is effective, with or without a drawing tool armed, as the pointer moves and when a modifier is pressed or released.
+- The crosshair sits on the snapped position (nearest bar and its nearest O/H/L/C price) whenever snapping is effective, with or without a drawing tool armed, as the pointer moves and when a modifier is pressed or released. A drawing tool is given that same point from the first pointer-down on (`begin`, `move` and `end`), so an anchor is no longer placed at the raw pointer first and moved to the snapped spot afterwards.
 - The snap modifier accepts a list and defaults to `['alt', 'meta']`, so Cmd works on a Mac as well as Option.
 - Drawing snapping: the built-in magnet toggle now actually snaps (it switches to strong mode with the bar-centre magnet; before it set weak mode without a source and nothing snapped), a persistent snapping mode without `sourceId` resolves the pane's primary price series like the modifier does, and line and area series snap to their `value`. Pressing or releasing the snap modifier with a still pointer redraws the construction preview.
 - A resize of the chart container (and a change of device pixel ratio) redraws in the same frame instead of on the next one, which painted one blank frame per resize and showed up as a flash while a page settled.

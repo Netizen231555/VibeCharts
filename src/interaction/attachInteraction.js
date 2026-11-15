@@ -628,11 +628,13 @@ export function attachInteraction(chart, options = {}) {
       move(point, meta) {
         if (typeof tool.move === 'function') {
           toolPoint = point;
-          tool.move(point, modifierState(meta?.event));
+          const mods = modifierState(meta?.event);
+          tool.move(toolInput(point, mods), mods);
         }
       },
       end(point, meta) {
-        try { if (typeof tool.end === 'function') tool.end(point, modifierState(meta?.event)); }
+        const mods = modifierState(meta?.event);
+        try { if (typeof tool.end === 'function') tool.end(toolInput(point, mods), mods); }
         catch (error) {
           reportError(error, { action: 'drawing-construction' });
           return { cancelled: true, reason: 'commit-failed', error };
@@ -1101,7 +1103,7 @@ export function attachInteraction(chart, options = {}) {
       // it does for the mouse; a two-point construction works with a finger.
       if (toolReadyGlobal && !router.active) {
         if (typeof toolReadyGlobal.begin === 'function') {
-          const accepted = toolReadyGlobal.begin(point, { pointerId: event.pointerId, pointerType });
+          const accepted = toolReadyGlobal.begin(toolInput(point, modifierState(event)), { pointerId: event.pointerId, pointerType });
           if (accepted === false || (accepted && accepted.accepted === false)) return;
         }
         const pane = axisPaneForPoint(layoutValue, point);
@@ -1152,7 +1154,7 @@ export function attachInteraction(chart, options = {}) {
       // The tool receives the exact down point so a two-point drag and its
       // preview never have to wait for the first pointermove.
       if (typeof toolReady.begin === 'function') {
-        const accepted = toolReady.begin(point, { pointerId: event.pointerId, pointerType });
+        const accepted = toolReady.begin(toolInput(point, modifierState(event)), { pointerId: event.pointerId, pointerType });
         if (accepted === false || (accepted && accepted.accepted === false)) return;
       }
       capturePointer(event.pointerId);
@@ -1213,14 +1215,23 @@ export function attachInteraction(chart, options = {}) {
     }
   }
 
+  // What a drawing tool receives is exactly where the crosshair is drawn, so an anchor never lands first at the raw
+  // pointer and then moves to the snapped spot.
+  function toolInput(point, mods) {
+    const pane = paneAtPoint(point, layout());
+    return pane ? cursorPoint(point, mods, pane) : point;
+  }
+
   function placeCrosshair(point, mods) {
     const pane = paneAtPoint(point, layout());
-    if (pane) {
-      activePaneId = pane.id;
-      crosshair.pointerMove(cursorPoint(point, mods, pane), pane);
-    } else {
+    if (!pane) {
       crosshair.pointerLeave();
+      return;
     }
+    activePaneId = pane.id;
+    const snapped = cursorPoint(point, mods, pane);
+    if (toolState && toolState.pending && typeof toolState.move === 'function') toolState.move(snapped, mods);
+    crosshair.pointerMove(snapped, pane);
   }
 
   function onPointerMove(event) {
@@ -1253,7 +1264,6 @@ export function attachInteraction(chart, options = {}) {
     }
     const mods = modifierState(event);
     toolPoint = point;
-    if (toolState && toolState.pending && typeof toolState.move === 'function') toolState.move(point, mods);
     placeCrosshair(point, mods);
   }
 
@@ -1543,9 +1553,7 @@ export function attachInteraction(chart, options = {}) {
   function onSnapModifierKey(event) {
     if (destroyed || !toolPoint || drawingSnap.modifier === null) return;
     if (![].concat(drawingSnap.modifier).some(name => event.key === SNAP_MODIFIER_KEYS[name])) return;
-    const mods = modifierState(event);
-    if (toolState && toolState.pending && typeof toolState.move === 'function') toolState.move(toolPoint, mods);
-    placeCrosshair(toolPoint, mods);
+    placeCrosshair(toolPoint, modifierState(event));
   }
   disposers.push(on(doc, 'keydown', onSnapModifierKey));
   disposers.push(on(doc, 'keyup', onSnapModifierKey));
