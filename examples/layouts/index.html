@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ru" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Раскладки интерфейса графика</title>
+  <title data-i18n="pageTitle"></title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="../../src/styles/charting.css">
   <link rel="stylesheet" href="../../src/styles/ui.css">
@@ -12,63 +12,65 @@
 </head>
 <body>
   <header class="page-header">
-    <h1>Раскладки интерфейса графика</h1>
-    <button type="button" id="theme" aria-pressed="false">Светлая тема</button>
+    <h1 data-i18n="pageTitle"></h1>
+    <div class="header-controls">
+      <button type="button" id="theme" aria-pressed="false" data-i18n="themeLight"></button>
+    </div>
   </header>
   <main>
-    <p class="data-notice">Демонстрационные данные · синтетические цены и объёмы · не биржевые котировки</p>
+    <p class="data-notice" data-i18n="dataNotice"></p>
 
     <section data-layout-example="default" aria-labelledby="title-default">
-      <h2 id="title-default">1. Раскладка по умолчанию</h2>
-      <p>Верхняя полоса с типом графика и индикатором, колонка инструментов рисования, навигация в углу графика (появляется при наведении или фокусе), меню «⋯» и строка статуса. Тема, таблица данных, панели и форма координат — в меню.</p>
+      <h2 id="title-default" data-i18n="s1Title"></h2>
+      <p data-i18n="s1Desc"></p>
       <div class="example-grid">
         <div data-host></div>
-        <pre data-code aria-label="Описание раскладки"></pre>
+        <pre data-code data-i18n-attr="aria-label:codeAria"></pre>
       </div>
     </section>
 
     <section data-layout-example="compact" aria-labelledby="title-compact">
-      <h2 id="title-compact">2. Пресет compact для плитки</h2>
-      <p>Только график, строка статуса и меню настроек. Остальные действия доступны с клавиатуры и жестами.</p>
+      <h2 id="title-compact" data-i18n="s2Title"></h2>
+      <p data-i18n="s2Desc"></p>
       <div class="example-grid example-tile">
         <div data-host></div>
-        <pre data-code aria-label="Описание раскладки"></pre>
+        <pre data-code data-i18n-attr="aria-label:codeAria"></pre>
       </div>
     </section>
 
     <section data-layout-example="custom" aria-labelledby="title-custom">
-      <h2 id="title-custom">3. Своя раскладка</h2>
-      <p>Верхняя область занята частью хоста, части типа графика и индикаторов сняты явно через <code>without</code>, акцент переопределён токеном <code>--chart-ui-accent</code>.</p>
+      <h2 id="title-custom" data-i18n="s3Title"></h2>
+      <p><span data-i18n="s3Desc1"></span> <code>without</code><span data-i18n="s3Desc2"></span> <code>--chart-ui-accent</code><span data-i18n="s3Desc3"></span></p>
       <div class="example-grid example-custom">
         <div data-host></div>
-        <pre data-code aria-label="Описание раскладки"></pre>
+        <pre data-code data-i18n-attr="aria-label:codeAria"></pre>
       </div>
     </section>
 
     <section data-layout-example="end" aria-labelledby="title-end">
-      <h2 id="title-end">4. Инструменты справа</h2>
-      <p>Колонка инструментов рисования стоит в зоне <code>end</code>, справа от графика; подсказки открываются влево.</p>
+      <h2 id="title-end" data-i18n="s4Title"></h2>
+      <p><span data-i18n="s4Desc1"></span> <code>end</code><span data-i18n="s4Desc2"></span></p>
       <div class="example-grid">
         <div data-host></div>
-        <pre data-code aria-label="Описание раскладки"></pre>
+        <pre data-code data-i18n-attr="aria-label:codeAria"></pre>
       </div>
     </section>
 
     <section data-layout-example="bottom" aria-labelledby="title-bottom">
-      <h2 id="title-bottom">5. Инструменты снизу</h2>
-      <p>В зоне <code>bottom</code> рейка становится строкой с горизонтальной прокруткой; подсказки открываются вверх.</p>
+      <h2 id="title-bottom" data-i18n="s5Title"></h2>
+      <p><span data-i18n="s5Desc1"></span> <code>bottom</code> <span data-i18n="s5Desc2"></span></p>
       <div class="example-grid">
         <div data-host></div>
-        <pre data-code aria-label="Описание раскладки"></pre>
+        <pre data-code data-i18n-attr="aria-label:codeAria"></pre>
       </div>
     </section>
 
     <section data-layout-example="floating" aria-labelledby="title-floating">
-      <h2 id="title-floating">6. Плавающая панель</h2>
-      <p>В зоне <code>overlay</code> рейка лежит поверх графика у начального края и прокручивается внутри высоты графика; клики рядом с ней попадают в график.</p>
+      <h2 id="title-floating" data-i18n="s6Title"></h2>
+      <p><span data-i18n="s6Desc1"></span> <code>overlay</code> <span data-i18n="s6Desc2"></span></p>
       <div class="example-grid">
         <div data-host></div>
-        <pre data-code aria-label="Описание раскладки"></pre>
+        <pre data-code data-i18n-attr="aria-label:codeAria"></pre>
       </div>
     </section>
   </main>

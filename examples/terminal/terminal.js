@@ -4,12 +4,28 @@ import { createChart, attachChartFeatures } from 'vibecharts';
 import { exportChartPng } from 'vibecharts/workspaces';
 import { sourceKey } from 'vibecharts/alerts';
 import { INSTRUMENTS, INTERVALS, generateSeries, decimalsOf, createTicker } from './data.js';
+import { createToolbarModel, createUiController, createIcon } from 'vibecharts/ui';
 import { captureWindow, windowRange } from './window.js';
+import { createI18n, mountLanguageSwitch } from '../shared/i18n.js';
+import { en, ru } from './strings.js';
+
+// The page is built once in the chosen language (the switch reloads it), so strings are resolved at the point of use.
+const i18n = createI18n({ en, ru });
+const { t } = i18n;
+i18n.apply(document);
+mountLanguageSwitch(document.getElementById('language-host'));
+const nameOf = (instrument) => instrument.names[i18n.lang];
+const labelOf = (interval) => interval.labels[i18n.lang];
 
 const TZ = 'Europe/Moscow';
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
-const UP = '#3fa77f';
-const DOWN = '#d9645a';
+// Candle and volume colours of the chosen palette; reassigned by applyPalette, which also repaints the live chart.
+const PALETTES = {
+  classic: { up: '#3fa77f', down: '#d9645a', upVolume: 'rgba(8, 153, 129, 0.55)', downVolume: 'rgba(242, 54, 69, 0.55)' },
+  safe: { up: '#4a9fd0', down: '#e0a84a', upVolume: 'rgba(74, 159, 208, 0.55)', downVolume: 'rgba(224, 168, 74, 0.55)' },
+  mono: { up: '#d0d7de', down: '#6b7785', upVolume: 'rgba(208, 215, 222, 0.5)', downVolume: 'rgba(107, 119, 133, 0.55)' },
+};
+let { up: UP, down: DOWN, upVolume: UP_VOLUME, downVolume: DOWN_VOLUME } = PALETTES.classic;
 const BLUE = '#4a9fd0';
 const ORANGE = '#e0a84a';
 const PURPLE = '#9a7fd1';
@@ -25,15 +41,7 @@ const THEMES = {
 
 const ICONS = {
   cursor: '<path d="M6 4l11 8-5 1.2 3 5.8-2.2 1.1-3-5.8L6 17z"/>',
-  segment: '<circle cx="6" cy="17" r="2"/><circle cx="18" cy="7" r="2"/><path d="M7.5 15.5l9-7"/>',
-  ray: '<circle cx="6" cy="17" r="2"/><path d="M7.5 15.5L20 6"/><path d="M15 6h5v5"/>',
-  horizontal: '<path d="M3 12h18"/><circle cx="12" cy="12" r="2"/>',
-  vertical: '<path d="M12 3v18"/><circle cx="12" cy="12" r="2"/>',
-  channel: '<path d="M4 15l13-8"/><path d="M7 20l13-8"/><circle cx="4" cy="15" r="1.5"/><circle cx="17" cy="7" r="1.5"/>',
-  fib: '<path d="M3 5h18M3 10h12M3 15h12M3 20h18"/><path d="M5 20L19 5" stroke-dasharray="2 2"/>',
-  rect: '<rect x="4" y="6" width="16" height="12" rx="1"/>',
-  text: '<path d="M6 6h12M12 6v13M9 19h6"/>',
-  measure: '<rect x="3" y="9" width="18" height="6" rx="1" transform="rotate(-35 12 12)"/><path d="M8 13l1.5 1.2M11 11l1.5 1.2M14 9l1.5 1.2" />',
+  settings: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
   magnet: '<path d="M6 4v8a6 6 0 0012 0V4h-4v8a2 2 0 01-4 0V4z"/><path d="M6 8h4M14 8h4"/>',
   trash: '<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>',
   undo: '<path d="M9 7L5 11l4 4"/><path d="M5 11h9a5 5 0 010 10h-3"/>',
@@ -60,58 +68,49 @@ const els = {
 for (const node of document.querySelectorAll('[data-icon]')) node.innerHTML = svg(node.dataset.icon);
 
 const CHART_TYPES = [
-  { id: 'candles', label: 'Свечи', icon: 'candles' },
-  { id: 'bars', label: 'Бары', icon: 'bars' },
-  { id: 'line', label: 'Линия', icon: 'line' },
-  { id: 'area', label: 'Область', icon: 'area' },
+  { id: 'candles', label: t('chartType.candles'), icon: 'candles' },
+  { id: 'bars', label: t('chartType.bars'), icon: 'bars' },
+  { id: 'line', label: t('chartType.line'), icon: 'line' },
+  { id: 'area', label: t('chartType.area'), icon: 'area' },
 ];
 const INDICATORS = [
-  { id: 'volume', label: 'Объём' },
-  { id: 'sma', label: 'Скользящая средняя (SMA 20)' },
-  { id: 'ema', label: 'Экспоненциальная средняя (EMA 50)' },
-  { id: 'bollinger', label: 'Полосы Боллинджера (20, 2)' },
-  { id: 'rsi', label: 'RSI (14)' },
-  { id: 'macd', label: 'MACD (12, 26, 9)' },
-];
-const DRAW_TOOLS = [
-  { id: null, label: 'Курсор', icon: 'cursor' },
-  { id: 'segment', label: 'Трендовая линия', icon: 'segment' },
-  { id: 'ray', label: 'Луч', icon: 'ray' },
-  { id: 'horizontalLevel', label: 'Горизонтальная линия', icon: 'horizontal' },
-  { id: 'verticalLine', label: 'Вертикальная линия', icon: 'vertical' },
-  { id: 'parallelChannel', label: 'Параллельный канал', icon: 'channel' },
-  { id: 'fibRetracement', label: 'Коррекция Фибоначчи', icon: 'fib' },
-  { id: 'rectangle', label: 'Прямоугольник', icon: 'rect' },
-  { id: 'text', label: 'Текст', icon: 'text' },
-  { id: 'measure', label: 'Линейка', icon: 'measure' },
+  { id: 'volume', label: t('indicator.volume') },
+  { id: 'sma', label: t('indicator.sma') },
+  { id: 'ema', label: t('indicator.ema') },
+  { id: 'bollinger', label: t('indicator.bollinger') },
+  { id: 'rsi', label: t('indicator.rsi') },
+  { id: 'macd', label: t('indicator.macd') },
 ];
 const RANGES = [
-  { id: '1d', label: '1Д', days: 1 }, { id: '5d', label: '5Д', days: 5 }, { id: '1m', label: '1М', days: 30 },
-  { id: '3m', label: '3М', days: 91 }, { id: '6m', label: '6М', days: 182 }, { id: 'ytd', label: 'С нач. года', ytd: true },
-  { id: '1y', label: '1Г', days: 365 }, { id: 'all', label: 'Все', all: true },
+  { id: '1d', label: t('range.1d'), days: 1 }, { id: '5d', label: t('range.5d'), days: 5 }, { id: '1m', label: t('range.1m'), days: 30 },
+  { id: '3m', label: t('range.3m'), days: 91 }, { id: '6m', label: t('range.6m'), days: 182 }, { id: 'ytd', label: t('range.ytd'), ytd: true },
+  { id: '1y', label: t('range.1y'), days: 365 }, { id: 'all', label: t('range.all'), all: true },
 ];
 
 // Static lists stand in for user-managed watchlists; membership refers to instrument ids from data.js.
 const LISTS = [
-  { id: 'all', label: 'Все инструменты', ids: null },
-  { id: 'favorites', label: 'Избранное', ids: ['DEMO01', 'DEMO02', 'DEMO05', 'DEMO10'] },
-  { id: 'resources', label: 'Сырьевые', ids: ['DEMO01', 'DEMO03', 'DEMO06', 'DEMO07', 'DEMO10'] },
-  { id: 'services', label: 'Сервисы', ids: ['DEMO02', 'DEMO04', 'DEMO08', 'DEMO09', 'DEMO11', 'DEMO12'] },
+  { id: 'all', label: t('list.all'), ids: null },
+  { id: 'favorites', label: t('list.favorites'), ids: ['DEMO01', 'DEMO02', 'DEMO05', 'DEMO10'] },
+  { id: 'resources', label: t('list.resources'), ids: ['DEMO01', 'DEMO03', 'DEMO06', 'DEMO07', 'DEMO10'] },
+  { id: 'services', label: t('list.services'), ids: ['DEMO02', 'DEMO04', 'DEMO08', 'DEMO09', 'DEMO11', 'DEMO12'] },
 ];
 
 const state = {
   instrument: INSTRUMENTS[0], interval: INTERVALS[3], chartType: 'candles', theme: 'dark',
+  appearance: { palette: 'classic', grid: true, crosshair: true, priceLine: true },
   indicators: new Set(['volume', 'sma']), live: true, tool: null, magnet: false,
   listId: 'all', alerts: new Map(), // alerts: instrument id -> [{ price, operation, engineId }]
 };
 
 // ---------------------------------------------------------------- formatting
-const priceFmt = (decimals) => new Intl.NumberFormat('ru-RU', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
-const compact = new Intl.NumberFormat('ru-RU', { notation: 'compact', maximumFractionDigits: 2 });
-const fmtCrossDate = new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' });
-const fmtHour = new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-const fmtClock = new Intl.DateTimeFormat('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+const priceFmt = (decimals) => new Intl.NumberFormat(i18n.locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+const compact = new Intl.NumberFormat(i18n.locale, { notation: 'compact', maximumFractionDigits: 2 });
+const pctFmt = new Intl.NumberFormat(i18n.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtCrossDate = new Intl.DateTimeFormat(i18n.locale, { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short', year: '2-digit' });
+const fmtHour = new Intl.DateTimeFormat(i18n.locale, { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const fmtClock = new Intl.DateTimeFormat(i18n.locale, { timeZone: TZ, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
 const sign = (v) => (v > 0 ? '+' : v < 0 ? '−' : '');
+const pctText = (pct) => `${sign(pct)}${pctFmt.format(Math.abs(pct))}%`;
 
 // -------------------------------------------------------------------- menus
 let openMenu = null;
@@ -122,33 +121,38 @@ function closeMenu() {
   openMenu.button.focus();
   openMenu = null;
 }
-function showMenu(button, build) {
+function showMenu(button, build, { placement = 'below', form = false } = {}) {
   if (openMenu) { const same = openMenu.button === button; closeMenu(); if (same) return; }
   const panel = document.createElement('div');
   panel.className = 'menu';
-  panel.setAttribute('role', 'menu');
+  panel.setAttribute('role', form ? 'dialog' : 'menu');
   build(panel, closeMenu);
   // The top bar scrolls horizontally, which would clip an absolutely positioned child; the panel lives on <body> instead.
   document.body.append(panel);
   const anchor = button.getBoundingClientRect();
-  panel.style.top = `${Math.round(anchor.bottom + 4)}px`;
-  panel.style.left = `${Math.round(Math.max(8, Math.min(anchor.left, window.innerWidth - panel.offsetWidth - 8)))}px`;
+  if (placement === 'right') {
+    panel.style.left = `${Math.round(anchor.right + 4)}px`;
+    panel.style.top = `${Math.round(Math.max(8, Math.min(anchor.top, window.innerHeight - panel.offsetHeight - 8)))}px`;
+  } else {
+    panel.style.top = `${Math.round(anchor.bottom + 4)}px`;
+    panel.style.left = `${Math.round(Math.max(8, Math.min(anchor.left, window.innerWidth - panel.offsetWidth - 8)))}px`;
+  }
   button.setAttribute('aria-expanded', 'true');
-  openMenu = { button, panel };
-  panel.querySelector('button')?.focus();
+  openMenu = { button, panel, form };
+  (panel.querySelector('input, button'))?.focus();
 }
 document.addEventListener('pointerdown', (event) => { if (openMenu && !openMenu.panel.contains(event.target) && !openMenu.button.contains(event.target)) { openMenu.panel.remove(); openMenu.button.setAttribute('aria-expanded', 'false'); openMenu = null; } });
 document.addEventListener('keydown', (event) => {
   if (!openMenu) return;
   if (event.key === 'Escape') { event.preventDefault(); closeMenu(); return; }
-  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+  if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && !openMenu.form) {
     event.preventDefault();
     const items = [...openMenu.panel.querySelectorAll('button')];
     const index = items.indexOf(document.activeElement);
     items[(index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
   }
 });
-function menuItem(parent, label, { checked, icon, onClick }) {
+function menuItem(parent, label, { checked, icon, iconNode, onClick }) {
   const item = document.createElement('button');
   item.type = 'button';
   item.setAttribute('role', checked === undefined ? 'menuitem' : 'menuitemcheckbox');
@@ -158,6 +162,7 @@ function menuItem(parent, label, { checked, icon, onClick }) {
   mark.textContent = checked ? '✓' : '';
   item.append(mark);
   if (icon) { const i = document.createElement('span'); i.className = 'icon'; i.innerHTML = svg(icon); item.append(i); }
+  if (iconNode) { const i = document.createElement('span'); i.className = 'icon'; i.append(iconNode); item.append(i); }
   const text = document.createElement('span');
   text.textContent = label;
   item.append(text);
@@ -181,11 +186,17 @@ function announce(message) { els.status.textContent = ''; els.status.textContent
 function showNotice(message, kind = 'error') { els.notice.textContent = message; els.notice.dataset.kind = kind; els.notice.hidden = false; announce(message); }
 function clearNotice() { els.notice.hidden = true; els.notice.textContent = ''; delete els.notice.dataset.kind; }
 
-function chartOptions(step) {
+// The theme's colours with the user's appearance switches (grid, crosshair) applied on top.
+function themeOptions() {
   const theme = THEMES[state.theme];
+  return { ...theme, grid: { ...theme.grid, visible: state.appearance.grid }, crosshair: { ...theme.crosshair, visible: state.appearance.crosshair } };
+}
+
+function chartOptions(step) {
+  const theme = themeOptions();
   return {
-    ...theme, locale: 'ru-RU', timeZone: TZ, autoSize: true,
-    accessibilityLabel: `График ${state.instrument.id}, ${state.interval.label}. Синтетические демонстрационные данные.`,
+    ...theme, locale: i18n.locale, timeZone: TZ, autoSize: true,
+    accessibilityLabel: t('chart.accessibility', { id: state.instrument.id, interval: labelOf(state.interval) }),
     // Ticks sit on calendar boundaries; the crosshair plate names the weekday and, intraday, the time.
     timeScale: { ...theme.timeScale, barSpacing: 9, rightOffset: 10, tickMode: 'time' },
     priceScale: { ...theme.priceScale, tickSpacing: 44 },
@@ -203,7 +214,7 @@ function pointsFor(type, bars) {
 function addPrice(s) {
   const { bars, step } = s.data;
   const metadata = { instrumentId: `DEMO:${state.instrument.id}`, interval: state.interval.id, sourceId: 'synthetic-demo', board: 'DEMO', priceStep: step };
-  const common = { id: 'price', lastValueVisible: true, priceLine: { style: 'dashed' }, lastValueColorMode: 'direction' };
+  const common = { id: 'price', lastValueVisible: true, priceLine: { style: 'dashed', visible: state.appearance.priceLine }, lastValueColorMode: 'direction' };
   const type = state.chartType;
   if (type === 'candles') {
     s.price = chart.addSeries('candlestick', { ...common, upColor: UP, downColor: DOWN, borderUpColor: UP, borderDownColor: DOWN, wickUpColor: UP, wickDownColor: DOWN, equalColor: '#8793a0' }, 'main');
@@ -218,16 +229,14 @@ function addPrice(s) {
 }
 // Magnet on: every anchor takes the nearest candle's time and its nearest O/H/L/C price; the source is the primary price series.
 const magnetSnap = () => (state.magnet ? { mode: 'strong', magnet: true } : { mode: 'free', magnet: false });
-function removeSeriesSafe(series) { if (series) { try { chart.removeSeries(series); } catch (error) { showNotice(`Не удалось удалить ряд: ${error.message}`); } } }
+function removeSeriesSafe(series) { if (series) { try { chart.removeSeries(series); } catch (error) { showNotice(t('error.removeSeries', { message: error.message })); } } }
 
 // Volume is drawn on an overlay scale in the lower fifth of the main pane: its own range, no axis column.
-const UP_VOLUME = 'rgba(8, 153, 129, 0.55)';
-const DOWN_VOLUME = 'rgba(242, 54, 69, 0.55)';
 const seriesMetadata = (step) => ({ instrumentId: `DEMO:${state.instrument.id}`, interval: state.interval.id, sourceId: 'synthetic-demo', board: 'DEMO', priceStep: step });
 function volumeUnit(bars) {
   const max = bars.reduce((m, b) => Math.max(m, b.volume), 0);
-  if (max >= 1e6) return { div: 1e6, step: 0.01, label: 'млн' };
-  if (max >= 1e3) return { div: 1e3, step: 0.1, label: 'тыс' };
+  if (max >= 1e6) return { div: 1e6, step: 0.01, label: t('unit.million') };
+  if (max >= 1e3) return { div: 1e3, step: 0.1, label: t('unit.thousand') };
   return { div: 1, step: 1, label: '' };
 }
 function addVolume(s) {
@@ -291,7 +300,7 @@ function removeIndicator(s, id) {
   const entry = s.indicators.get(id);
   if (!entry) return;
   entry.handle.remove();
-  if (entry.pane) { try { chart.removePane(entry.pane); } catch (error) { showNotice(`Не удалось удалить панель: ${error.message}`); } }
+  if (entry.pane) { try { chart.removePane(entry.pane); } catch (error) { showNotice(t('error.removePane', { message: error.message })); } }
   s.indicators.delete(id);
 }
 function rebuildOverlays(s) {
@@ -317,14 +326,14 @@ function updateLegend(barId, seriesValues) {
   const color = bar.close >= bar.open ? UP : DOWN;
   const rows = [];
   const title = legendRow('title');
-  title.append(span(state.instrument.id, ''), span('·', 'dim'), span(state.instrument.name, 'dim'), span('·', 'dim'), span(state.interval.label, 'dim'));
-  if (state.live) { const dot = document.createElement('span'); dot.className = 'live'; dot.title = 'Эмуляция потока включена (синтетические данные)'; title.append(dot); }
+  title.append(span(state.instrument.id, ''), span('·', 'dim'), span(nameOf(state.instrument), 'dim'), span('·', 'dim'), span(labelOf(state.interval), 'dim'));
+  if (state.live) { const dot = document.createElement('span'); dot.className = 'live'; dot.title = t('legend.liveTitle'); title.append(dot); }
   rows.push(title);
   const ohlc = legendRow('ohlc');
-  ohlc.append(span('О', 'k'), bold(f.format(bar.open), color), span('В', 'k'), bold(f.format(bar.high), color), span('Н', 'k'), bold(f.format(bar.low), color), span('З', 'k'), bold(f.format(bar.close), color),
-    bold(`${sign(change)}${f.format(Math.abs(change))} (${sign(pct)}${Math.abs(pct).toFixed(2).replace('.', ',')}%)`, change >= 0 ? UP : DOWN));
+  ohlc.append(span(t('legend.open'), 'k'), bold(f.format(bar.open), color), span(t('legend.high'), 'k'), bold(f.format(bar.high), color), span(t('legend.low'), 'k'), bold(f.format(bar.low), color), span(t('legend.close'), 'k'), bold(f.format(bar.close), color),
+    bold(`${sign(change)}${f.format(Math.abs(change))} (${pctText(pct)})`, change >= 0 ? UP : DOWN));
   rows.push(ohlc);
-  if (state.indicators.has('volume')) { const vol = legendRow('vol'); vol.append(span('Объём', 'k'), bold(compact.format(bar.volume), color)); rows.push(vol); }
+  if (state.indicators.has('volume')) { const vol = legendRow('vol'); vol.append(span(t('legend.volume'), 'k'), bold(compact.format(bar.volume), color)); rows.push(vol); }
   const byId = new Map((seriesValues ?? chart.getSeriesValues(bar.barId) ?? []).map((entry) => [entry.seriesId, entry]));
   for (const [id, entry] of session.indicators) {
     const row = legendRow('ind');
@@ -342,7 +351,7 @@ function updateLegend(barId, seriesValues) {
 // ---------------------------------------------------------------- watchlist
 function listRows() {
   const list = LISTS.find((entry) => entry.id === state.listId);
-  if (!list) throw new Error(`Неизвестный список: ${state.listId}`);
+  if (!list) throw new Error(t('list.unknown', { id: state.listId }));
   const members = list.ids ? INSTRUMENTS.filter((instrument) => list.ids.includes(instrument.id)) : INSTRUMENTS;
   return members.map((instrument) => {
     const daily = dailyOf(instrument).bars;
@@ -367,7 +376,7 @@ function renderWatchlist(liveClose) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'row-btn';
-    button.setAttribute('aria-label', `${row.instrument.id}, ${row.instrument.name}`);
+    button.setAttribute('aria-label', `${row.instrument.id}, ${nameOf(row.instrument)}`);
     const logo = document.createElement('span'); logo.className = 'logo'; logo.textContent = row.instrument.id.slice(-2); logo.setAttribute('aria-hidden', 'true');
     button.append(logo, document.createTextNode(row.instrument.id));
     // The whole row is the target; a click on the button (keyboard Enter or Space) bubbles to the row.
@@ -375,7 +384,7 @@ function renderWatchlist(liveClose) {
     th.append(button);
     const cell = (text, cls) => { const td = document.createElement('td'); const s = document.createElement('span'); s.className = `cell ${cls ?? ''}`; s.textContent = text; td.append(s); return td; };
     tr.append(th, cell(f.format(last)), cell(`${change > 0 ? '▲' : change < 0 ? '▼' : ''} ${sign(change)}${f.format(Math.abs(change))}`, color),
-      cell(`${sign(pct)}${Math.abs(pct).toFixed(2).replace('.', ',')}%`, color));
+      cell(pctText(pct), color));
     return tr;
   }));
 }
@@ -392,14 +401,14 @@ function renderDetails(liveClose) {
   const color = change >= 0 ? 'up' : 'down';
   const name = document.createElement('div'); name.className = 'name';
   const logo = document.createElement('span'); logo.className = 'logo'; logo.textContent = instrument.id.slice(-2); logo.setAttribute('aria-hidden', 'true');
-  name.append(logo, document.createTextNode(`${instrument.id} · ${instrument.name}`));
+  name.append(logo, document.createTextNode(`${instrument.id} · ${nameOf(instrument)}`));
   const price = document.createElement('div'); price.className = 'price'; price.textContent = f.format(close);
   const chg = document.createElement('div'); chg.className = `chg ${color}`;
-  chg.textContent = `${change > 0 ? '▲' : change < 0 ? '▼' : ''} ${sign(change)}${f.format(Math.abs(change))}  ${sign(pct)}${Math.abs(pct).toFixed(2).replace('.', ',')}%`;
+  chg.textContent = `${change > 0 ? '▲' : change < 0 ? '▼' : ''} ${sign(change)}${f.format(Math.abs(change))}  ${pctText(pct)}`;
   const dl = document.createElement('dl');
   const stat = (k, v) => { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; dl.append(dt, dd); };
-  stat('Открытие', f.format(today.open)); stat('Максимум', f.format(Math.max(today.high, close))); stat('Минимум', f.format(Math.min(today.low, close)));
-  stat('Пред. закрытие', f.format(prev.close)); stat('Объём', compact.format(today.volume));
+  stat(t('detail.open'), f.format(today.open)); stat(t('detail.high'), f.format(Math.max(today.high, close))); stat(t('detail.low'), f.format(Math.min(today.low, close)));
+  stat(t('detail.prevClose'), f.format(prev.close)); stat(t('detail.volume'), compact.format(today.volume));
   els.details.replaceChildren(name, price, chg, dl);
 }
 
@@ -411,14 +420,15 @@ let alertCounter = 0;
 let placingAlert = false;
 const alertsFor = () => { if (!state.alerts.has(state.instrument.id)) state.alerts.set(state.instrument.id, []); return state.alerts.get(state.instrument.id); };
 const alertLeft = () => ({ kind: 'series', seriesId: 'price', field: state.chartType === 'line' || state.chartType === 'area' ? 'value' : 'close', units: ALERT_UNITS });
-const alertText = (record, decimals) => `${record.operation === 'crossUp' ? '▲ при росте до' : '▼ при падении до'} ${priceFmt(decimals).format(record.price)}`;
+const alertLevel = (record, decimals) => t(record.operation === 'crossUp' ? 'alert.levelUp' : 'alert.levelDown', { price: priceFmt(decimals).format(record.price) });
+const alertText = (record, decimals) => `${record.operation === 'crossUp' ? '▲' : '▼'} ${alertLevel(record, decimals)}`;
 
 function registerAlert(record) {
   record.engineId = `alert-${++alertCounter}`;
   chart.alerts.add({
     id: record.engineId,
     // The line label shows the name; the level itself stays readable on the price axis while the line is dragged.
-    name: `${state.instrument.id} ${record.operation === 'crossUp' ? '▲ при росте' : '▼ при падении'}`,
+    name: t(record.operation === 'crossUp' ? 'alert.nameUp' : 'alert.nameDown', { id: state.instrument.id }),
     left: alertLeft(),
     right: { kind: 'constant', value: record.price, units: ALERT_UNITS },
     operation: record.operation,
@@ -434,9 +444,9 @@ function syncAlerts() {
 function renderAlerts() {
   const records = alertsFor();
   const decimals = decimalsOf(session.data.step);
-  const title = document.createElement('h3'); title.textContent = 'Алерты';
+  const title = document.createElement('h3'); title.textContent = t('alerts.title');
   if (records.length === 0) {
-    const hint = document.createElement('p'); hint.textContent = 'Нет алертов. Нажмите «Алерт» и выберите уровень на графике; линию можно перетащить.';
+    const hint = document.createElement('p'); hint.textContent = t('alert.empty');
     els.alerts.replaceChildren(title, hint);
     return;
   }
@@ -445,7 +455,7 @@ function renderAlerts() {
     const item = document.createElement('li');
     const label = document.createElement('span'); label.textContent = alertText(record, decimals);
     const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = '✕';
-    remove.setAttribute('aria-label', `Удалить алерт: ${alertText(record, decimals)}`);
+    remove.setAttribute('aria-label', t('alert.removeAria', { text: alertText(record, decimals) }));
     remove.addEventListener('click', () => removeAlert(record));
     item.append(label, remove);
     list.append(item);
@@ -459,10 +469,10 @@ function dropAlertRecord(engineId) {
   return index >= 0;
 }
 function removeAlert(record) {
-  try { chart.alerts.remove(record.engineId); } catch (error) { showNotice(`Алерт не удалён: ${error.message}`); return; }
+  try { chart.alerts.remove(record.engineId); } catch (error) { showNotice(t('error.alertRemove', { message: error.message })); return; }
   dropAlertRecord(record.engineId);
   renderAlerts();
-  announce('Алерт удалён');
+  announce(t('alert.removed'));
 }
 function addAlertAt(price) {
   const step = session.data.step;
@@ -472,7 +482,7 @@ function addAlertAt(price) {
   registerAlert(record);
   alertsFor().push(record);
   renderAlerts();
-  announce(`Алерт создан: ${alertText(record, decimalsOf(step))}`);
+  announce(t('alert.created', { text: alertText(record, decimalsOf(step)) }));
 }
 function onAlertEvent(event) {
   if (event.type === 'alert-updated') {
@@ -481,11 +491,11 @@ function onAlertEvent(event) {
   } else if (event.type === 'alert-event') {
     const record = alertsFor().find((entry) => entry.engineId === event.alertId);
     if (!record) return;
-    const text = `Алерт сработал: ${state.instrument.id}, ${alertText(record, decimalsOf(session.data.step)).slice(2)}`;
+    const text = t('alert.fired', { id: state.instrument.id, text: alertLevel(record, decimalsOf(session.data.step)) });
     dropAlertRecord(event.alertId);
     const s = session;
     // The engine is still dispatching this event; remove the finished alert afterwards.
-    queueMicrotask(() => { if (session !== s) return; try { chart.alerts.remove(event.alertId); } catch (error) { showNotice(`Алерт не удалён: ${error.message}`); } renderAlerts(); });
+    queueMicrotask(() => { if (session !== s) return; try { chart.alerts.remove(event.alertId); } catch (error) { showNotice(t('error.alertRemove', { message: error.message })); } renderAlerts(); });
     showNotice(text, 'info');
     setTimeout(() => { if (els.notice.textContent === text) clearNotice(); }, 8000);
   }
@@ -501,7 +511,7 @@ function setPlacingAlert(on) {
   placingAlert = on;
   $('alert-button').setAttribute('aria-pressed', String(on));
   els.chart.classList.toggle('placing-alert', on);
-  if (on) showNotice('Кликните по графику, чтобы поставить алерт на этот уровень. Esc — отмена.', 'info');
+  if (on) showNotice(t('alert.place'), 'info');
   else if (els.notice.dataset.kind === 'info') clearNotice();
 }
 // Capture phase on the chart host: a placement click must not also start a pan or a drawing.
@@ -512,9 +522,9 @@ els.chart.addEventListener('pointerdown', (event) => {
   const price = session?.hoverPrice;
   setPlacingAlert(false);
   try {
-    if (!Number.isFinite(price)) throw new Error('цена под курсором неизвестна: наведите курсор на область цены');
+    if (!Number.isFinite(price)) throw new Error(t('alert.noPrice'));
     addAlertAt(price);
-  } catch (error) { showNotice(`Алерт не создан: ${error.message}`); }
+  } catch (error) { showNotice(t('error.alertCreate', { message: error.message })); }
 }, true);
 document.addEventListener('keydown', (event) => { if (placingAlert && event.key === 'Escape') setPlacingAlert(false); });
 
@@ -531,15 +541,16 @@ function populateLists() {
 els.listSelect.addEventListener('change', () => {
   state.listId = els.listSelect.value;
   renderWatchlist();
-  announce(`Список: ${LISTS.find((list) => list.id === state.listId).label}`);
+  announce(t('list.announce', { name: LISTS.find((list) => list.id === state.listId).label }));
 });
 
 // ------------------------------------------------------------ chart session
 function teardown() {
   if (!session) return;
   clearInterval(session.timer);
+  session.ui?.destroy();
   for (const off of session.unsubscribe) { try { off(); } catch { /* subscription already closed */ } }
-  try { chart.destroy(); } catch (error) { showNotice(`Ошибка освобождения графика: ${error.message}`); }
+  try { chart.destroy(); } catch (error) { showNotice(t('error.destroy', { message: error.message })); }
   chart = null; session = null;
 }
 
@@ -560,6 +571,7 @@ function build() {
   try {
     chart = createChart(els.chart, chartOptions(data.step));
     attachChartFeatures(chart, { context: { instrumentId: `DEMO:${state.instrument.id}`, interval: state.interval.id, sourceId: 'synthetic-demo' }, interaction: {} });
+    s.ui = createUiController(chart, { interaction: chart.interaction });
     chart.timeline.setTimeline(data.slots);
     addPrice(s);
     if (state.indicators.has('volume')) addVolume(s);
@@ -568,7 +580,7 @@ function build() {
     syncAlerts();
   } catch (error) {
     teardown();
-    showNotice(`Не удалось построить график: ${error.message}`);
+    showNotice(t('error.build', { message: error.message }));
     return;
   }
   const targetBars = state.interval.id === 'W' ? 110 : state.interval.id === 'D' ? 140 : 130;
@@ -585,7 +597,7 @@ function build() {
       setVisibleBars(targetBars);
       chart.indexScale().setFollowRealTime(true);
     }
-  } catch (error) { showNotice(`Не удалось задать видимый диапазон: ${error.message}`); }
+  } catch (error) { showNotice(t('error.visibleRange', { message: error.message })); }
   els.toRealtime.hidden = true;
   s.unsubscribe.push(chart.subscribe('visibleRangeChange', (payload) => {
     els.toRealtime.hidden = chart.indexScale().isFollowingRealTime();
@@ -599,7 +611,9 @@ function build() {
   s.unsubscribe.push(chart.subscribe('error', ({ operation, error }) => showNotice(`${operation}: ${error?.message ?? error}`)));
   s.unsubscribe.push(chart.alerts.subscribe(onAlertEvent));
   s.unsubscribe.push(chart.drawings.subscribe(() => syncHistoryButtons()));
-  s.unsubscribe.push(chart.interaction.subscribe('toolChange', ({ toolId }) => { if (toolId === null) setActiveTool(null, true); }));
+  s.unsubscribe.push(chart.interaction.subscribe('toolChange', ({ toolId }) => { state.tool = toolId; syncToolButtons(); }));
+  state.tool = null;
+  syncToolButtons();
   syncHistoryButtons();
   updateLegend(null);
   renderWatchlist();
@@ -623,7 +637,7 @@ function startLive() {
       renderDetails(next.close);
       renderWatchlist(next.close);
       observeAlerts(s, next);
-    } catch (error) { clearInterval(s.timer); showNotice(`Эмуляция потока остановлена: ${error.message}`); }
+    } catch (error) { clearInterval(s.timer); showNotice(t('error.liveStopped', { message: error.message })); }
   }, 1000);
 }
 
@@ -633,14 +647,14 @@ function selectInstrument(instrument) {
   state.instrument = instrument;
   syncSymbol();
   build();
-  announce(`Инструмент ${instrument.id}, ${instrument.name}`);
+  announce(t('announce.instrument', { id: instrument.id, name: nameOf(instrument) }));
 }
 function selectInterval(interval) {
   if (interval.id === state.interval.id) return;
   state.interval = interval;
   syncIntervals();
   build();
-  announce(`Интервал ${interval.label}`);
+  announce(t('announce.interval', { label: labelOf(interval) }));
 }
 function syncSymbol() {
   $('symbol-text').textContent = state.instrument.id;
@@ -650,10 +664,11 @@ function syncIntervals() {
   for (const button of $('intervals').children) button.setAttribute('aria-pressed', String(button.dataset.id === state.interval.id));
 }
 function syncType() {
-  const type = CHART_TYPES.find((t) => t.id === state.chartType);
-  $('type-button').innerHTML = `<span class="icon">${svg(type.icon)}</span><span>${type.label}</span>`;
-  $('type-button').setAttribute('aria-label', `Тип графика: ${type.label}`);
-  $('type-button').title = `Тип графика: ${type.label}`;
+  const type = CHART_TYPES.find((entry) => entry.id === state.chartType);
+  $('type-button').innerHTML = `<span class="icon">${svg(type.icon)}</span><span></span>`;
+  $('type-button').lastElementChild.textContent = type.label;
+  $('type-button').setAttribute('aria-label', t('type.current', { label: type.label }));
+  $('type-button').title = t('type.current', { label: type.label });
 }
 function syncHistoryButtons() {
   $('undo').disabled = !chart?.drawings?.canUndo();
@@ -662,7 +677,7 @@ function syncHistoryButtons() {
 
 for (const interval of INTERVALS) {
   const button = document.createElement('button');
-  button.type = 'button'; button.className = 'interval'; button.dataset.id = interval.id; button.textContent = interval.label;
+  button.type = 'button'; button.className = 'interval'; button.dataset.id = interval.id; button.textContent = labelOf(interval);
   button.setAttribute('aria-pressed', 'false');
   button.addEventListener('click', () => selectInterval(interval));
   $('intervals').append(button);
@@ -683,10 +698,10 @@ function changeType(id) {
     rebuildOverlays(s);
     syncAlerts();
     updateLegend(null);
-  } catch (error) { showNotice(`Не удалось сменить тип графика: ${error.message}`); }
+  } catch (error) { showNotice(t('error.changeType', { message: error.message })); }
 }
 $('indicators-button').addEventListener('click', (event) => showMenu(event.currentTarget, (panel) => {
-  const h = document.createElement('h3'); h.textContent = 'Индикаторы'; panel.append(h);
+  const h = document.createElement('h3'); h.textContent = t('indicators.title'); panel.append(h);
   for (const ind of INDICATORS) {
     menuItem(panel, ind.label, { checked: state.indicators.has(ind.id), onClick: () => toggleIndicator(ind.id) });
   }
@@ -698,8 +713,8 @@ function toggleIndicator(id) {
     if (on) { state.indicators.add(id); if (id === 'volume') addVolume(s); else addIndicator(s, id); }
     else { state.indicators.delete(id); if (id === 'volume') removeVolume(s); else removeIndicator(s, id); }
     updateLegend(null);
-    announce(`${INDICATORS.find((i) => i.id === id).label}: ${on ? 'включён' : 'выключен'}`);
-  } catch (error) { if (on) state.indicators.delete(id); else state.indicators.add(id); showNotice(`Индикатор не изменён: ${error.message}`); }
+    announce(t(on ? 'indicator.on' : 'indicator.off', { label: INDICATORS.find((i) => i.id === id).label }));
+  } catch (error) { if (on) state.indicators.delete(id); else state.indicators.add(id); showNotice(t('error.indicator', { message: error.message })); }
   closeMenu();
 }
 $('undo').addEventListener('click', () => { chart.drawings.undo(); syncHistoryButtons(); });
@@ -709,29 +724,95 @@ $('live-toggle').addEventListener('click', (event) => {
   state.live = !state.live;
   event.currentTarget.setAttribute('aria-pressed', String(state.live));
   startLive(); updateLegend(null);
-  announce(`Эмуляция потока ${state.live ? 'включена' : 'выключена'}`);
+  announce(t(state.live ? 'announce.liveOn' : 'announce.liveOff'));
 });
-$('theme').addEventListener('click', () => {
-  state.theme = state.theme === 'dark' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = state.theme;
-  try { chart.applyOptions(THEMES[state.theme]); } catch (error) { showNotice(`Тема не применена: ${error.message}`); }
+function setTheme(name) {
+  state.theme = name;
+  document.documentElement.dataset.theme = name;
+  try { chart.applyOptions(themeOptions()); } catch (error) { showNotice(t('error.theme', { message: error.message })); }
   updateLegend(null);
-});
+}
+$('theme').addEventListener('click', () => setTheme(state.theme === 'dark' ? 'light' : 'dark'));
+
+// ----------------------------------------------------------------- settings
+// Palette colours reach the series that exist, the indicator histogram, the side panel and the legend without a rebuild,
+// so drawings and the view stay.
+function applyPalette() {
+  ({ up: UP, down: DOWN, upVolume: UP_VOLUME, downVolume: DOWN_VOLUME } = PALETTES[state.appearance.palette]);
+  document.documentElement.style.setProperty('--up', UP);
+  document.documentElement.style.setProperty('--down', DOWN);
+  const s = session;
+  try {
+    if (state.chartType === 'candles') chart.series(s.price.id).setOptions({ upColor: UP, downColor: DOWN, borderUpColor: UP, borderDownColor: DOWN, wickUpColor: UP, wickDownColor: DOWN });
+    else if (state.chartType === 'bars') chart.series(s.price.id).setOptions({ upColor: UP, downColor: DOWN });
+    if (s.volUp) {
+      chart.series(s.volUp.id).setOptions({ color: UP_VOLUME });
+      chart.series(s.volDown.id).setOptions({ color: DOWN_VOLUME });
+      paintLiveVolume(s);
+    }
+    const macd = s.indicators.get('macd');
+    if (macd?.outputs.histogram) chart.series(macd.outputs.histogram).setOptions({ color: UP });
+  } catch (error) { showNotice(t('error.colors', { message: error.message })); }
+  updateLegend(s.hoverBarId ?? null);
+  renderWatchlist();
+  renderDetails();
+}
+function applyAppearance() {
+  try {
+    chart.applyOptions({ grid: { visible: state.appearance.grid }, crosshair: { visible: state.appearance.crosshair } });
+    chart.series(session.price.id).setOptions({ priceLine: { visible: state.appearance.priceLine, style: 'dashed' } });
+  } catch (error) { showNotice(t('error.appearance', { message: error.message })); }
+}
+function settingsGroup(legendText) {
+  const group = document.createElement('fieldset');
+  const legend = document.createElement('legend');
+  legend.textContent = legendText;
+  group.append(legend);
+  return group;
+}
+function settingsInput(type, name, value, text, checked, onChange) {
+  const label = document.createElement('label');
+  const input = document.createElement('input');
+  input.type = type; input.name = name; input.value = value; input.checked = checked;
+  input.addEventListener('change', () => onChange(input));
+  label.append(input, document.createTextNode(text));
+  return label;
+}
+function openSettings(button) {
+  showMenu(button, (panel) => {
+    panel.classList.add('settings');
+    panel.setAttribute('aria-label', t('settings.title'));
+    const title = document.createElement('h3');
+    title.textContent = t('settings.title');
+    const theme = settingsGroup(t('settings.theme'));
+    for (const [id, text] of [['dark', t('settings.dark')], ['light', t('settings.light')]]) theme.append(settingsInput('radio', 'theme', id, text, state.theme === id, () => setTheme(id)));
+    const palette = settingsGroup(t('settings.palette'));
+    for (const [id, text] of [['classic', t('settings.paletteClassic')], ['safe', t('settings.paletteSafe')], ['mono', t('settings.paletteMono')]]) {
+      palette.append(settingsInput('radio', 'palette', id, text, state.appearance.palette === id, () => { state.appearance.palette = id; applyPalette(); }));
+    }
+    const look = settingsGroup(t('settings.look'));
+    for (const [id, text] of [['grid', t('settings.grid')], ['crosshair', t('settings.crosshair')], ['priceLine', t('settings.priceLine')]]) {
+      look.append(settingsInput('checkbox', id, id, text, state.appearance[id], (input) => { state.appearance[id] = input.checked; applyAppearance(); }));
+    }
+    panel.append(title, theme, palette, look);
+  }, { form: true });
+}
+$('settings').addEventListener('click', (event) => openSettings(event.currentTarget));
 $('snapshot').addEventListener('click', async () => {
   try {
     const result = await exportChartPng(chart, { chartId: chart.id });
     const blob = result instanceof Blob ? result : result?.blob;
-    if (!(blob instanceof Blob)) throw new Error('экспорт не вернул изображение');
+    if (!(blob instanceof Blob)) throw new Error(t('error.exportEmpty'));
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `${state.instrument.id}-${state.interval.id}-demo.png`; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    announce('Снимок графика сохранён');
-  } catch (error) { showNotice(`Снимок не создан: ${error.message}`); }
+    announce(t('announce.snapshot'));
+  } catch (error) { showNotice(t('error.snapshot', { message: error.message })); }
 });
 $('fullscreen').addEventListener('click', () => {
   if (document.fullscreenElement) document.exitFullscreen();
-  else document.documentElement.requestFullscreen?.().catch((error) => showNotice(`Полный экран недоступен: ${error.message}`));
+  else document.documentElement.requestFullscreen?.().catch((error) => showNotice(t('error.fullscreen', { message: error.message })));
 });
 $('side-toggle').addEventListener('click', (event) => {
   const open = els.terminal.classList.toggle('show-side');
@@ -740,54 +821,87 @@ $('side-toggle').addEventListener('click', (event) => {
 els.toRealtime.addEventListener('click', () => chart.indexScale().scrollToRealTime());
 
 // -------------------------------------------------------------- draw toolbar
-const toolButtons = new Map();
-function setActiveTool(id, silent = false) {
-  state.tool = id;
-  for (const [toolId, button] of toolButtons) button.classList.toggle('active', toolId === id);
-  if (silent) return;
-  try {
-    if (id === null) { chart.interaction.setTool(null); return; }
-    let props = {};
-    if (id === 'text') {
-      const text = window.prompt('Текст аннотации', 'Заметка');
-      if (text === null) { setActiveTool(null, true); toolButtons.get(null).classList.add('active'); return; }
-      props = { text };
-    }
-    chart.interaction.armDrawing(id, { props });
-    announce('Стрелки перемещают курсор, Enter задаёт якорь, Escape отменяет');
-  } catch (error) { showNotice(`Инструмент недоступен: ${error.message}`); setActiveTool(null, true); toolButtons.get(null).classList.add('active'); }
-}
-for (const tool of DRAW_TOOLS) {
+// The tool list, its groups and the labels in the chart language come from the library's own model; arming goes
+// through the headless controller, so a refusal (for example a tool that needs data) arrives as a reason to show.
+const toolControls = createToolbarModel({ locale: i18n.locale }).groups.find((group) => group.id === 'tools').controls;
+const TOOL_GROUPS = [...new Set(toolControls.map((control) => control.group))].map((id) => {
+  const tools = toolControls.filter((control) => control.group === id);
+  return { id, label: tools[0].groupLabel, tools };
+});
+const toolLabels = new Map(toolControls.map((control) => [control.value, control.label]));
+const lastToolOfGroup = new Map(TOOL_GROUPS.map((group) => [group.id, group.tools[0].value]));
+const groupButtons = new Map();
+const cursorButton = document.createElement('button');
+cursorButton.type = 'button'; cursorButton.className = 'tool-btn';
+cursorButton.setAttribute('aria-label', t('tool.cursor')); cursorButton.title = t('tool.cursor');
+cursorButton.innerHTML = `<span class="icon">${svg('cursor')}</span>`;
+cursorButton.addEventListener('click', () => setActiveTool(null));
+$('drawbar').append(cursorButton);
+for (const group of TOOL_GROUPS) {
   const button = document.createElement('button');
-  button.type = 'button'; button.className = 'tool-btn';
-  button.setAttribute('aria-label', tool.label); button.title = tool.label;
-  button.innerHTML = `<span class="icon">${svg(tool.icon)}</span>`;
-  button.addEventListener('click', () => setActiveTool(tool.id));
-  toolButtons.set(tool.id, button);
+  button.type = 'button'; button.className = 'tool-btn tool-group';
+  button.setAttribute('aria-haspopup', 'menu'); button.setAttribute('aria-expanded', 'false');
+  button.innerHTML = '<span class="icon"></span>';
+  button.addEventListener('click', () => showMenu(button, (panel, close) => {
+    const heading = document.createElement('h3');
+    heading.textContent = group.label;
+    panel.append(heading);
+    for (const tool of group.tools) {
+      menuItem(panel, tool.label, { checked: state.tool === tool.value, iconNode: createIcon(document, tool.value, { size: 18 }), onClick: () => { close(); setActiveTool(tool.value); } });
+    }
+  }, { placement: 'right' }));
+  groupButtons.set(group.id, button);
   $('drawbar').append(button);
 }
-toolButtons.get(null).classList.add('active');
+// The group button shows the tool last used from that group and is active while one of its tools is armed.
+function syncToolButtons() {
+  cursorButton.classList.toggle('active', state.tool === null);
+  for (const group of TOOL_GROUPS) {
+    const button = groupButtons.get(group.id);
+    const armed = group.tools.some((control) => control.value === state.tool);
+    if (armed) lastToolOfGroup.set(group.id, state.tool);
+    const current = lastToolOfGroup.get(group.id);
+    button.classList.toggle('active', armed);
+    button.querySelector('.icon').replaceChildren(createIcon(document, current, { size: 20 }));
+    const name = `${group.label}: ${toolLabels.get(current)}`;
+    button.title = name; button.setAttribute('aria-label', name);
+  }
+}
+function setActiveTool(id) {
+  try {
+    if (id === null) { chart.interaction.setTool(null); return; }
+    if (id === 'text') {
+      const text = window.prompt(t('tool.textPrompt'), t('tool.textDefault'));
+      if (text === null) return;
+      chart.interaction.armDrawing(id, { props: { text } });
+      return;
+    }
+    const result = session.ui.run(`tool:${id}`);
+    if (!result.ok) showNotice(result.reason);
+  } catch (error) { showNotice(t('error.tool', { message: error.message })); }
+}
+syncToolButtons();
 {
   const gap = document.createElement('span'); gap.className = 'gap'; $('drawbar').append(gap);
   const magnet = document.createElement('button');
-  magnet.type = 'button'; magnet.className = 'tool-btn'; magnet.title = 'Магнит к ценам OHLC'; magnet.setAttribute('aria-label', 'Магнит к ценам OHLC'); magnet.setAttribute('aria-pressed', 'false');
+  magnet.type = 'button'; magnet.className = 'tool-btn'; magnet.title = t('tool.magnet'); magnet.setAttribute('aria-label', t('tool.magnet')); magnet.setAttribute('aria-pressed', 'false');
   magnet.innerHTML = `<span class="icon">${svg('magnet')}</span>`;
   magnet.addEventListener('click', () => {
     state.magnet = !state.magnet;
     magnet.setAttribute('aria-pressed', String(state.magnet));
-    try { chart.interaction.setDrawingSnap(magnetSnap()); } catch (error) { showNotice(`Магнит недоступен: ${error.message}`); }
+    try { chart.interaction.setDrawingSnap(magnetSnap()); } catch (error) { showNotice(t('error.magnet', { message: error.message })); }
   });
   const trash = document.createElement('button');
-  trash.type = 'button'; trash.className = 'tool-btn'; trash.title = 'Удалить все рисунки'; trash.setAttribute('aria-label', 'Удалить все рисунки');
+  trash.type = 'button'; trash.className = 'tool-btn'; trash.title = t('tool.clear'); trash.setAttribute('aria-label', t('tool.clear'));
   trash.innerHTML = `<span class="icon">${svg('trash')}</span>`;
-  trash.addEventListener('click', () => { try { chart.interaction.setTool(null); chart.drawings.clear(); } catch (error) { showNotice(`Рисунки не удалены: ${error.message}`); } });
+  trash.addEventListener('click', () => { try { chart.interaction.setTool(null); chart.drawings.clear(); } catch (error) { showNotice(t('error.clear', { message: error.message })); } });
   $('drawbar').append(magnet, trash);
 }
 
 // ---------------------------------------------------------------- range bar
 for (const range of RANGES) {
   const button = document.createElement('button');
-  button.type = 'button'; button.className = 'range'; button.textContent = range.label; button.title = `Показать: ${range.label}`;
+  button.type = 'button'; button.className = 'range'; button.textContent = range.label; button.title = t('range.show', { label: range.label });
   button.addEventListener('click', () => applyRange(range));
   $('ranges').append(button);
 }
@@ -808,11 +922,12 @@ function applyRange(range) {
 $('log').addEventListener('click', (event) => {
   const on = event.currentTarget.getAttribute('aria-pressed') !== 'true';
   try { chart.priceScale('main').setMode(on ? 'log' : 'linear'); event.currentTarget.setAttribute('aria-pressed', String(on)); }
-  catch (error) { showNotice(`Логарифмическая шкала недоступна: ${error.message}`); }
+  catch (error) { showNotice(t('error.logScale', { message: error.message })); }
 });
 $('auto').addEventListener('click', () => { chart.priceScale('main').setAutoScale(true); $('auto').setAttribute('aria-pressed', 'true'); });
-setInterval(() => { els.clock.textContent = `${fmtClock.format(Date.now())} (Москва, UTC+3)`; }, 1000);
-els.clock.textContent = `${fmtClock.format(Date.now())} (Москва, UTC+3)`;
+const clockText = () => `${fmtClock.format(Date.now())} (${t('clock.zone')})`;
+setInterval(() => { els.clock.textContent = clockText(); }, 1000);
+els.clock.textContent = clockText();
 
 syncSymbol(); syncIntervals(); syncType(); populateLists();
 build();

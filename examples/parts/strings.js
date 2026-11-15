@@ -1,0 +1,26 @@
+export const en = {
+  'page.title': 'Custom interface parts',
+  'mode.label': 'Drawing tools as',
+  'mode.builtin': 'Built-in rail (reference)',
+  'mode.popover': 'Popup (recipe)',
+  'mode.select': 'Select (recipe)',
+  'notice': 'Example data is synthetic. The two recipes are copyable parts built only on the public controller; see docs/parts.md.',
+  'layout.label': 'Active layout',
+  'chart.label': 'Synthetic price chart',
+  'error.unknownMode': 'Unknown mode {mode}',
+  'error.layout': 'Layout not applied: {message}',
+  'error.build': 'The page could not be built: {message}',
+};
+export const ru = {
+  'page.title': 'Свои части интерфейса',
+  'mode.label': 'Инструменты рисования:',
+  'mode.builtin': 'Встроенная панель (эталон)',
+  'mode.popover': 'Всплывающее окно (рецепт)',
+  'mode.select': 'Список выбора (рецепт)',
+  'notice': 'Данные примера синтетические. Два рецепта — копируемые части, построенные только на публичном контроллере; см. docs/parts.md.',
+  'layout.label': 'Активная раскладка',
+  'chart.label': 'Синтетический график цены',
+  'error.unknownMode': 'Неизвестный режим {mode}',
+  'error.layout': 'Раскладка не применена: {message}',
+  'error.build': 'Страницу не удалось построить: {message}',
+};

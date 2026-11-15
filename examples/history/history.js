@@ -3,7 +3,14 @@
 import { createChart, attachChartFeatures } from 'vibecharts';
 // Synthetic prices from the generator shared by the examples (not part of the package).
 import { INSTRUMENTS, INTERVALS, generateSeries } from '../terminal/data.js';
+import { createI18n, mountLanguageSwitch } from '../shared/i18n.js';
+import { en, ru } from './strings.js';
 import { captureWindow, windowRange } from '../terminal/window.js';
+
+const i18n = createI18n({ en, ru });
+const { t, lang } = i18n;
+i18n.apply();
+mountLanguageSwitch(document.querySelector('.page-header .controls'));
 
 const PAGE_SIZE = 200;
 // Request the next page when this many bars or fewer remain to the left of the window.
@@ -49,9 +56,9 @@ function createPagedFeed(all, label) {
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
           const end = request.before === undefined ? all.bars.length : all.bars.findIndex((bar) => bar.barId === request.before);
-          if (end < 0) { reject(new Error(`Unknown history cursor ${request.before}`)); return; }
+          if (end < 0) { reject(new Error(t('error.cursor', { cursor: request.before }))); return; }
           const start = Math.max(0, end - request.limit);
-          logRequest(`${label}: bars ${start}–${end - 1} of ${all.bars.length}${request.before === undefined ? ' (initial page)' : ''}`);
+          logRequest(t('log.page', { label, start, end: end - 1, total: all.bars.length, initial: request.before === undefined ? t('log.initial') : '' }));
           resolve({
             context: request.context,
             slots: all.slots.slice(start, end),
@@ -80,42 +87,42 @@ function unmount() {
 
 function describe(current) {
   const state = current.features.datafeed.getState();
-  const more = state.hasMore ? 'older history available' : 'start of history reached';
-  return `${current.instrument.id} · ${current.interval.label}: ${state.timeline.slotCount} bars loaded, ${more}`;
+  const more = t(state.hasMore ? 'status.more' : 'status.end');
+  return t('status.summary', { instrument: current.instrument.id, interval: current.interval.labels[lang], count: state.timeline.slotCount, more });
 }
 
 async function loadMore(current) {
   const feed = current.features.datafeed;
   if (feed.getState().loading || !feed.getState().hasMore) return;
-  setStatus('Loading older bars…');
+  setStatus(t('status.loadingOlder'));
   const state = await feed.loadMore();
   if (session !== current) return;
-  if (state.error) setStatus(`Older bars could not be loaded: ${state.error.message}`, 'error');
+  if (state.error) setStatus(t('status.olderFailed', { message: state.error.message }), 'error');
   else setStatus(describe(current));
 }
 
 async function mount(instrument, interval, remembered) {
   unmount();
-  setStatus('Loading…');
+  setStatus(t('status.loading'));
   const all = seriesFor(instrument, interval);
   const container = document.createElement('div');
   container.className = 'example-chart';
   host.append(container);
-  const chart = createChart(container, { autoSize: true, theme: 'dark', locale: 'en-US', timeZone: 'UTC', accessibilityLabel: `${instrument.id} ${interval.label}, synthetic prices` });
+  const chart = createChart(container, { autoSize: true, theme: 'dark', locale: i18n.locale, timeZone: 'UTC', accessibilityLabel: t('chart.label', { instrument: instrument.id, interval: interval.labels[lang] }) });
   const context = { instrumentId: instrument.id, interval: interval.id, sourceId: 'synthetic-demo' };
   const features = attachChartFeatures(chart, {
     context,
     interaction: {},
-    datafeed: { pageSize: PAGE_SIZE, onError: (error) => setStatus(`${error.operation ?? 'Feed'}: ${error.message}`, 'error') },
-    chartUI: { host, layout: 'full', title: instrument.id, demo: true, theme: 'dark' },
+    datafeed: { pageSize: PAGE_SIZE, onError: (error) => setStatus(t('status.feedError', { operation: error.operation ?? t('status.feed'), message: error.message }), 'error') },
+    chartUI: { host, layout: 'full', title: `${instrument.id} · ${instrument.names[lang]}`, demo: true, theme: 'dark' },
   });
   chart.addSeries('candlestick', { id: 'price', priceLine: { style: 'dashed' }, lastValueColorMode: 'direction' });
   const current = { chart, features, instrument, interval };
   session = current;
 
-  const initial = await features.connectDatafeed(createPagedFeed(all, `${instrument.id} ${interval.label}`), context);
+  const initial = await features.connectDatafeed(createPagedFeed(all, `${instrument.id} ${interval.labels[lang]}`), context);
   if (session !== current) return;
-  if (initial.error) { setStatus(`Initial history failed: ${initial.error.message}`, 'error'); return; }
+  if (initial.error) { setStatus(t('status.initialFailed', { message: initial.error.message }), 'error'); return; }
 
   const scale = chart.indexScale();
   let restored = null;
@@ -132,7 +139,7 @@ async function mount(instrument, interval, remembered) {
   scale.setVisibleRange(restored ?? { from: Math.max(-0.5, count - 120), to: count + 8 });
   chart.priceScale('main').setAutoScale(true);
   setStatus(remembered && !restored
-    ? `${describe(current)}. The remembered window has no bars here; showing the latest ones.`
+    ? t('status.noRemembered', { summary: describe(current) })
     : describe(current));
 
   chart.subscribe('visibleRangeChange', () => {
@@ -152,8 +159,8 @@ function fill(select, entries, label) {
     return option;
   }));
 }
-fill(instrumentSelect, instruments, (entry) => entry.id);
-fill(intervalSelect, intervals, (entry) => entry.label);
+fill(instrumentSelect, instruments, (entry) => `${entry.id} · ${entry.names[lang]}`);
+fill(intervalSelect, intervals, (entry) => entry.labels[lang]);
 intervalSelect.value = 'D';
 
 async function change() {
@@ -163,7 +170,7 @@ async function change() {
   try {
     await mount(instrument, interval, remembered);
   } catch (error) {
-    setStatus(`The chart could not be built: ${error.message}`, 'error');
+    setStatus(t('status.buildFailed', { message: error.message }), 'error');
     throw error;
   }
 }

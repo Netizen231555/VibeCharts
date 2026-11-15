@@ -61,6 +61,9 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus)
 .chip[aria-pressed="true"] .live-dot { background: var(--up); box-shadow: 0 0 0 0 rgba(8, 153, 129, .6); animation: pulse 1.6s infinite; }
 @keyframes pulse { 70% { box-shadow: 0 0 0 6px rgba(8, 153, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(8, 153, 129, 0); } }
 .demo-badge { margin: 0 8px; padding: 3px 8px; border: 1px solid var(--warn); border-radius: 4px; color: var(--warn); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.language-switch { display: inline-flex; align-items: center; gap: 6px; margin: 0 4px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.language-switch select { height: 28px; padding: 0 6px; background: var(--chip); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font: inherit; cursor: pointer; }
+.language-switch select:hover { background: var(--hover); }
 .watchlist tbody tr { cursor: pointer; }
 .narrow-only { display: none; }
 
@@ -70,9 +73,18 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus)
 .menu .check { width: 14px; color: var(--accent); font-weight: 700; }
 .menu hr { margin: 6px 0; border: 0; border-top: 1px solid var(--border); }
 .menu h3 { margin: 4px 14px 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.menu.settings { width: 280px; padding: 8px 0 10px; }
+.menu.settings fieldset { margin: 0; padding: 4px 14px 8px; border: 0; }
+.menu.settings legend { padding: 0; margin-bottom: 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.menu.settings label { display: flex; align-items: center; gap: 10px; min-height: 30px; cursor: pointer; }
+.menu.settings input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.menu.settings input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .drawbar { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; border-right: 1px solid var(--border); overflow-y: auto; scrollbar-width: none; }
 .drawbar .tool-btn { width: 38px; height: 38px; }
+/* A corner mark tells a group button (opens a list of tools) from a single tool. */
+.tool-group { position: relative; }
+.tool-group::after { content: ""; position: absolute; right: 4px; bottom: 4px; border: 3px solid transparent; border-right-color: currentColor; border-bottom-color: currentColor; opacity: .55; }
 .drawbar .gap { width: 26px; height: 1px; margin: 6px 0; background: var(--border); }
 
 .chart-column { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -139,6 +151,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus)
 .status-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 @media (max-width: 1100px) { .terminal { grid-template-columns: 48px minmax(0, 1fr) 290px; } }
+@media (max-width: 1500px) { .language-switch span { display: none; } }
 @media (max-width: 800px) {
   .terminal { grid-template-columns: 44px minmax(0, 1fr); }
   .sidepanel { position: fixed; z-index: 40; top: 46px; right: 0; bottom: 0; width: min(320px, 92vw); transform: translateX(100%); transition: transform .18s; box-shadow: -8px 0 24px rgba(0, 0, 0, .4); }

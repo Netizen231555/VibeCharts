@@ -1,18 +1,13 @@
 import { createChart, attachInteraction } from '../../src/index.js';
+import { createI18n, mountLanguageSwitch } from '../shared/i18n.js';
+import { en, ru } from './strings.js';
 import { INSTRUMENTS, INTERVALS, generateSeries } from '../terminal/data.js';
 
-const variants = [
-  ['Классический терминал', 'Цена справа, объём в отдельной панели, спокойная сетка и отметка последней цены.', ['правая шкала', 'объём отдельно']],
-  ['Максимум пространства', 'Без сетки и лишних панелей: объём занимает нижнюю часть основной области.', ['без сетки', 'объём внутри']],
-  ['Аналитический лист', 'Цена слева, заголовок и значения одной строкой. Компоновка для последовательного чтения.', ['левая шкала', 'сдержанная сетка']],
-  ['Двойная шкала', 'Справа цена, слева изменение относительно выбранной точки отсчёта.', ['цена и %', 'выбор базы']],
-  ['Многопанельный анализ', 'Цена, объём и скользящая средняя отклонения расположены на отдельных панелях.', ['3 панели', 'общая ось времени']],
-  ['Фокус на цене', 'Пунктир последней цены и более редкие уровни помогают быстро найти текущую отметку.', ['последняя цена', 'редкие уровни']],
-  ['Календарная структура', 'Временная ось с границами месяцев и дней; старшие границы выделены начертанием.', ['календарные тики', 'UTC']],
-  ['Таблица и график', 'Сводные значения вынесены в отдельную колонку, график и объём остаются рядом.', ['колонка данных', 'адаптивная']],
-  ['Сравнение в сетке', 'Четыре независимых инструмента с синхронным временным диапазоном и собственными ценовыми шкалами.', ['4 графика', 'общий диапазон']],
-  ['Технический минимализм', 'Редкие уровни, нейтральные подписи и тонкая линия цены; объём отдельно.', ['мало сетки', 'нейтральная палитра']],
-];
+const variants = Array.from({ length: 10 }, (_, index) => [`v${index + 1}Title`, `v${index + 1}Desc`, [`v${index + 1}Tag1`, `v${index + 1}Tag2`]]);
+const i18n = createI18n({ en, ru });
+const { t } = i18n;
+i18n.apply(document);
+mountLanguageSwitch(document.querySelector('.header-controls'));
 const root = document.querySelector('#showcase');
 const themeButton = document.querySelector('#theme');
 const charts = [];
@@ -20,8 +15,8 @@ const data = INSTRUMENTS.slice(0, 4).map((instrument) => {
   const generated = generateSeries(instrument, INTERVALS.find((interval) => interval.id === 'D'));
   return { instrument, step: generated.step, slots: generated.slots.slice(-100), bars: generated.bars.slice(-100) };
 });
-const dateFormat = new Intl.DateTimeFormat('ru-RU', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' });
-const numberFormat = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 });
+const dateFormat = new Intl.DateTimeFormat(i18n.locale, { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' });
+const numberFormat = new Intl.NumberFormat(i18n.locale, { maximumFractionDigits: 2 });
 const colors = () => document.documentElement.dataset.theme === 'light'
   ? { background: '#ffffff', text: '#5e6d79', grid: '#e8edef', up: '#287e6b', down: '#a44b42', volume: '#9cbdb7', line: '#4e7184' }
   : { background: '#121820', text: '#99a5b3', grid: '#27323c', up: '#71b6a5', down: '#d18d85', volume: '#557c78', line: '#9bb8c6' };
@@ -29,12 +24,12 @@ const colors = () => document.documentElement.dataset.theme === 'light'
 function chartOptions(kind) {
   const c = colors();
   return {
-    autoSize: true, theme: document.documentElement.dataset.theme, locale: 'ru-RU', timeZone: 'UTC',
+    autoSize: true, theme: document.documentElement.dataset.theme, locale: i18n.locale, timeZone: 'UTC',
     layout: { background: c.background, textColor: c.text, fontSize: kind === 10 ? 11 : 12, fontFamily: kind === 10 ? 'monospace' : 'system-ui' },
     grid: { visible: ![2, 6, 10].includes(kind), color: c.grid },
     timeScale: { tickMode: 'time', barSpacing: 7 },
     priceScale: { tickSpacing: kind === 6 || kind === 10 ? 80 : 55 },
-    accessibilityLabel: `Демонстрационный график, вариант ${kind}`,
+    accessibilityLabel: t('chartLabel', { kind }),
   };
 }
 
@@ -81,7 +76,7 @@ function makeChart(container, kind, dataset = data[0], { compact = false } = {})
         if (event.target.value === '') { scale.setVisible(false); return; }
         scale.setMode('percent', { base: dataset.bars[index].close });
         scale.setVisible(true);
-      } catch (error) { showError(container, `Не удалось изменить базу: ${error.message}`); }
+      } catch (error) { showError(container, t('baseChangeFailed', { message: error.message })); }
     });
   }
   attachInteraction(chart, {});
@@ -92,37 +87,37 @@ function makeChart(container, kind, dataset = data[0], { compact = false } = {})
 function showError(element, message) {
   let output = element.parentElement.querySelector('.error');
   if (!output) { output = document.createElement('p'); output.className = 'error'; output.setAttribute('role', 'alert'); element.parentElement.append(output); }
-  output.textContent = `Ошибка графика: ${message}`;
+  output.textContent = t('chartError', { message });
 }
-function section(kind, [title, description, tags]) {
+function section(kind, [titleKey, descriptionKey, tagKeys]) {
   const article = document.createElement('section');
   article.className = 'variant'; article.id = `variant-${kind}`;
   const info = document.createElement('div'); info.className = 'variant-info';
   const number = document.createElement('div'); number.className = 'number'; number.textContent = String(kind).padStart(2, '0') + ' / 10';
-  const heading = document.createElement('h2'); heading.textContent = title;
-  const paragraph = document.createElement('p'); paragraph.textContent = description;
+  const heading = document.createElement('h2'); heading.textContent = t(titleKey);
+  const paragraph = document.createElement('p'); paragraph.textContent = t(descriptionKey);
   const tagList = document.createElement('div'); tagList.className = 'tags';
-  for (const tag of tags) { const el = document.createElement('span'); el.className = 'tag'; el.textContent = tag; tagList.append(el); }
+  for (const tagKey of tagKeys) { const el = document.createElement('span'); el.className = 'tag'; el.textContent = t(tagKey); tagList.append(el); }
   info.append(number, heading, paragraph, tagList);
   const demo = document.createElement('div'); demo.className = 'demo';
   const header = document.createElement('div'); header.className = 'demo-header';
-  const name = document.createElement('div'); name.className = 'symbol'; name.textContent = kind === 9 ? 'ЧЕТЫРЕ ИНСТРУМЕНТА' : 'DEMO01';
-  const subtitle = document.createElement('small'); subtitle.textContent = 'Дневной интервал · синтетика'; name.append(subtitle); header.append(name);
+  const name = document.createElement('div'); name.className = 'symbol'; name.textContent = kind === 9 ? t('fourInstruments') : 'DEMO01';
+  const subtitle = document.createElement('small'); subtitle.textContent = t('dailySynthetic'); name.append(subtitle); header.append(name);
   if (kind === 4) {
-    const label = document.createElement('label'); label.className = 'base-control'; label.textContent = 'База %';
-    const select = document.createElement('select'); select.setAttribute('aria-label', 'База процентной шкалы');
-    for (const [value, text] of [['', 'Не выбрана'], ['0', `Первый бар · ${dateFormat.format(data[0].slots[0].time)}`], ['49', `Середина · ${dateFormat.format(data[0].slots[49].time)}`], ['99', `Последний бар · ${dateFormat.format(data[0].slots[99].time)}`]]) {
+    const label = document.createElement('label'); label.className = 'base-control'; label.textContent = t('baseLabel');
+    const select = document.createElement('select'); select.setAttribute('aria-label', t('baseAria'));
+    for (const [value, text] of [['', t('baseNone')], ['0', t('baseFirst', { date: dateFormat.format(data[0].slots[0].time) })], ['49', t('baseMiddle', { date: dateFormat.format(data[0].slots[49].time) })], ['99', t('baseLast', { date: dateFormat.format(data[0].slots[99].time) })]]) {
       const option = document.createElement('option'); option.value = value; option.textContent = text; select.append(option);
     }
     label.append(select); header.append(label);
-  } else { const meta = document.createElement('span'); meta.className = 'meta'; meta.textContent = kind === 5 ? 'Цена / Объём / Отклонение от SMA 20' : 'ДЕМО · 1Д'; header.append(meta); }
+  } else { const meta = document.createElement('span'); meta.className = 'meta'; meta.textContent = kind === 5 ? t('metaMulti') : t('metaDefault'); header.append(meta); }
   demo.append(header); article.append(info, demo); root.append(article);
   if (kind === 9) {
     const grid = document.createElement('div'); grid.className = 'chart-grid'; demo.append(grid); const group = [];
     data.forEach((dataset) => {
       const cell = document.createElement('div'); cell.className = 'chart-cell';
       const cellHead = document.createElement('div'); cellHead.className = 'cell-header'; cellHead.textContent = dataset.instrument.id;
-      const label = document.createElement('span'); label.textContent = dataset.instrument.name; cellHead.append(label);
+      const label = document.createElement('span'); label.textContent = dataset.instrument.names[i18n.lang]; cellHead.append(label);
       const host = document.createElement('div'); host.className = 'chart compact'; cell.append(cellHead, host); grid.append(cell);
       try { group.push(makeChart(host, kind, dataset, { compact: true })); } catch (error) { showError(host, error.message); }
     });
@@ -138,10 +133,10 @@ function section(kind, [title, description, tags]) {
     if (kind === 8) {
       const split = document.createElement('div'); split.className = 'split';
       const aside = document.createElement('aside'); aside.className = 'instrument';
-      const caption = document.createElement('div'); caption.className = 'caption'; caption.textContent = 'ПОСЛЕДНЯЯ ЦЕНА · ДЕМО';
+      const caption = document.createElement('div'); caption.className = 'caption'; caption.textContent = t('lastPriceCaption');
       const value = document.createElement('div'); value.className = 'large'; value.textContent = numberFormat.format(data[0].bars.at(-1).close);
       const list = document.createElement('dl');
-      for (const [key, val] of [['Открытие', data[0].bars.at(-1).open], ['Максимум', data[0].bars.at(-1).high], ['Минимум', data[0].bars.at(-1).low]]) {
+      for (const [key, val] of [[t('open'), data[0].bars.at(-1).open], [t('high'), data[0].bars.at(-1).high], [t('low'), data[0].bars.at(-1).low]]) {
         const row = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = key; dd.textContent = numberFormat.format(val); row.append(dt, dd); list.append(row);
       }
       aside.append(caption, value, list); split.append(aside); demo.append(split); parent = split;
@@ -150,21 +145,21 @@ function section(kind, [title, description, tags]) {
     try { makeChart(host, kind); } catch (error) { showError(host, error.message); }
   }
   const footer = document.createElement('div'); footer.className = 'demo-footer';
-  const left = document.createElement('span'); left.textContent = kind === 5 ? 'Отклонение = закрытие − SMA(20)' : 'Синтетическая история · 100 дневных баров';
-  const right = document.createElement('span'); right.textContent = 'UTC · DEMO'; footer.append(left, right); demo.append(footer);
+  const left = document.createElement('span'); left.textContent = kind === 5 ? t('footnoteDeviation') : t('footnoteHistory');
+  const right = document.createElement('span'); right.textContent = t('footnoteRight'); footer.append(left, right); demo.append(footer);
 }
 
 variants.forEach((variant, index) => section(index + 1, variant));
 themeButton.addEventListener('click', () => {
   const light = document.documentElement.dataset.theme !== 'light';
   document.documentElement.dataset.theme = light ? 'light' : 'dark';
-  themeButton.setAttribute('aria-pressed', String(light)); themeButton.textContent = light ? 'Тёмная тема' : 'Светлая тема';
+  themeButton.setAttribute('aria-pressed', String(light)); themeButton.textContent = t(light ? 'themeDark' : 'themeLight');
   for (const { chart, kind } of charts) {
     try {
       chart.applyOptions(chartOptions(kind));
       const c = colors(); chart.series('price').setOptions({ upColor: c.up, downColor: c.down, borderUpColor: c.up, borderDownColor: c.down, wickUpColor: c.up, wickDownColor: c.down });
       chart.series('volume').setOptions({ color: c.volume });
       if (kind === 5) chart.series('difference').setOptions({ color: c.line });
-    } catch (error) { showError(chart.container, `смена темы: ${error.message}`); }
+    } catch (error) { showError(chart.container, t('themeChangeFailed', { message: error.message })); }
   }
 });

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Older history and remembered position</title>
+  <title data-i18n="page.title">Older history and remembered position</title>
   <link rel="icon" href="data:,">
   <!-- Resolves the package names to the local sources of this checkout. -->
   <script type="importmap">
@@ -16,21 +16,21 @@
 </head>
 <body>
   <header class="page-header">
-    <h1>Older history and remembered position</h1>
+    <h1 data-i18n="page.title"></h1>
     <div class="controls">
-      <label>Instrument
+      <label><span data-i18n="instrument.label"></span>
         <select id="instrument"></select>
       </label>
-      <label>Interval
+      <label><span data-i18n="interval.label"></span>
         <select id="interval"></select>
       </label>
     </div>
   </header>
   <main>
-    <p class="data-notice">Example data is synthetic and served from memory in pages after a short delay. Scroll the chart to the left: when fewer than a screenful of bars remain on the left, the next page is requested. Switching the instrument or the interval keeps the time window you were looking at.</p>
+    <p class="data-notice" data-i18n="notice"></p>
     <div id="host" class="example-host" data-chart-ui-host></div>
-    <p id="status" role="status" class="status-line">Loading…</p>
-    <p id="log-title" class="log-title">Requests</p>
+    <p id="status" role="status" class="status-line"></p>
+    <p id="log-title" class="log-title" data-i18n="log.title"></p>
     <ol id="log" aria-labelledby="log-title" class="request-log"></ol>
   </main>
 </body>

@@ -42,3 +42,5 @@ pre { margin: 16px 0 0; padding: 12px; overflow: auto; font: 12px/1.5 ui-monospa
 .recipe-popover-item { justify-content: flex-start; width: 100%; text-align: left; }
 .recipe-popover-panel > .recipe-popover-item { margin-top: 4px; }
 .recipe-popover-item[aria-disabled="true"] .chart-ui-icon { opacity: 0.6; }
+.header-controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.language-switch { font-size: 13px; }

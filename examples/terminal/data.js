@@ -4,27 +4,27 @@
 // market data and carries no relation to any real instrument.
 
 export const INSTRUMENTS = Object.freeze([
-  { id: 'DEMO01', name: 'Демо Нефтегаз', base: 182.4, vol: 0.016, volume: 4.2e6 },
-  { id: 'DEMO02', name: 'Демо Банк', base: 312.8, vol: 0.014, volume: 6.8e6 },
-  { id: 'DEMO03', name: 'Демо Металлы', base: 96.15, vol: 0.021, volume: 3.1e6 },
-  { id: 'DEMO04', name: 'Демо Телеком', base: 41.76, vol: 0.012, volume: 9.4e6 },
-  { id: 'DEMO05', name: 'Демо Ритейл', base: 2284.0, vol: 0.019, volume: 5.6e5 },
-  { id: 'DEMO06', name: 'Демо Энергия', base: 5.382, vol: 0.026, volume: 2.2e7 },
-  { id: 'DEMO07', name: 'Демо Химия', base: 6420.5, vol: 0.017, volume: 2.4e5 },
-  { id: 'DEMO08', name: 'Демо Транспорт', base: 74.9, vol: 0.022, volume: 7.7e6 },
-  { id: 'DEMO09', name: 'Демо Софт', base: 1105.2, vol: 0.028, volume: 8.1e5 },
-  { id: 'DEMO10', name: 'Демо Агро', base: 3568.0, vol: 0.015, volume: 3.3e5 },
-  { id: 'DEMO11', name: 'Демо Строй', base: 18.44, vol: 0.024, volume: 1.4e7 },
-  { id: 'DEMO12', name: 'Демо Фарма', base: 842.3, vol: 0.018, volume: 1.2e6 },
+  { id: 'DEMO01', names: { en: 'Demo Oil & Gas', ru: 'Демо Нефтегаз' }, base: 182.4, vol: 0.016, volume: 4.2e6 },
+  { id: 'DEMO02', names: { en: 'Demo Bank', ru: 'Демо Банк' }, base: 312.8, vol: 0.014, volume: 6.8e6 },
+  { id: 'DEMO03', names: { en: 'Demo Metals', ru: 'Демо Металлы' }, base: 96.15, vol: 0.021, volume: 3.1e6 },
+  { id: 'DEMO04', names: { en: 'Demo Telecom', ru: 'Демо Телеком' }, base: 41.76, vol: 0.012, volume: 9.4e6 },
+  { id: 'DEMO05', names: { en: 'Demo Retail', ru: 'Демо Ритейл' }, base: 2284.0, vol: 0.019, volume: 5.6e5 },
+  { id: 'DEMO06', names: { en: 'Demo Energy', ru: 'Демо Энергия' }, base: 5.382, vol: 0.026, volume: 2.2e7 },
+  { id: 'DEMO07', names: { en: 'Demo Chemicals', ru: 'Демо Химия' }, base: 6420.5, vol: 0.017, volume: 2.4e5 },
+  { id: 'DEMO08', names: { en: 'Demo Transport', ru: 'Демо Транспорт' }, base: 74.9, vol: 0.022, volume: 7.7e6 },
+  { id: 'DEMO09', names: { en: 'Demo Software', ru: 'Демо Софт' }, base: 1105.2, vol: 0.028, volume: 8.1e5 },
+  { id: 'DEMO10', names: { en: 'Demo Agro', ru: 'Демо Агро' }, base: 3568.0, vol: 0.015, volume: 3.3e5 },
+  { id: 'DEMO11', names: { en: 'Demo Construction', ru: 'Демо Строй' }, base: 18.44, vol: 0.024, volume: 1.4e7 },
+  { id: 'DEMO12', names: { en: 'Demo Pharma', ru: 'Демо Фарма' }, base: 842.3, vol: 0.018, volume: 1.2e6 },
 ]);
 
 // minutes: bar length; sessionBars: trading minutes per day (10:00-18:50 MSK).
 export const INTERVALS = Object.freeze([
-  { id: '5', label: '5м', minutes: 5, count: 2600 },
-  { id: '15', label: '15м', minutes: 15, count: 2400 },
-  { id: '60', label: '1ч', minutes: 60, count: 2000 },
-  { id: 'D', label: '1Д', minutes: 1440, count: 900 },
-  { id: 'W', label: '1Н', minutes: 10080, count: 520 },
+  { id: '5', labels: { en: '5m', ru: '5м' }, minutes: 5, count: 2600 },
+  { id: '15', labels: { en: '15m', ru: '15м' }, minutes: 15, count: 2400 },
+  { id: '60', labels: { en: '1h', ru: '1ч' }, minutes: 60, count: 2000 },
+  { id: 'D', labels: { en: '1D', ru: '1Д' }, minutes: 1440, count: 900 },
+  { id: 'W', labels: { en: '1W', ru: '1Н' }, minutes: 10080, count: 520 },
 ]);
 
 const SESSION_OPEN_UTC_MIN = 7 * 60; // 10:00 MSK

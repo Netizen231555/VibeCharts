@@ -80,7 +80,10 @@ export function createDomHost(container, options = {}) {
   table.id = tableId;
   visuallyHidden(table.style);
   const caption = createElement(doc, 'caption');
-  setText(caption, 'Chart data, accessible alternative');
+  // Interface text follows the chart locale given at creation, like the other host texts.
+  const text = (key) => translate(options.locale, key);
+  const tableHeaders = (keys) => keys.map((key) => text(`table.${key}`));
+  setText(caption, text('table.caption'));
   const thead = createElement(doc, 'thead');
   const headerRow = createElement(doc, 'tr');
   const tbody = createElement(doc, 'tbody');
@@ -177,16 +180,16 @@ export function createDomHost(container, options = {}) {
   }
 
   function formatTimeCell(time) {
-    if (typeof time !== 'number') return 'not provided';
+    if (typeof time !== 'number') return text('table.notProvided');
     try {
       return new Date(time).toISOString();
     } catch {
-      return 'not provided';
+      return text('table.notProvided');
     }
   }
 
   function formatSessionDate(date) {
-    if (!date) return 'not provided';
+    if (!date) return text('table.notProvided');
     return `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`;
   }
 
@@ -200,7 +203,7 @@ export function createDomHost(container, options = {}) {
     headerRow.textContent = '';
     tbody.textContent = '';
     if (!series) {
-      const headers = ['Bar', 'Time (UTC)', 'Session date', 'Value'];
+      const headers = tableHeaders(['bar', 'timeUtc', 'sessionDate', 'value']);
       for (const name of headers) {
         const th = createElement(doc, 'th');
         th.scope = 'col';
@@ -210,15 +213,15 @@ export function createDomHost(container, options = {}) {
       const row = createElement(doc, 'tr');
       const cell = createElement(doc, 'td');
       cell.colSpan = headers.length;
-      setText(cell, 'No data');
+      setText(cell, text('table.noData'));
       row.appendChild(cell);
       tbody.appendChild(row);
       return;
     }
     const ohlc = series.type === 'candlestick' || series.type === 'bar';
     const headers = ohlc
-      ? ['Bar', 'Time (UTC)', 'Session date', 'Open', 'High', 'Low', 'Close', 'Direction', 'Volume']
-      : ['Bar', 'Time (UTC)', 'Session date', 'Value'];
+      ? tableHeaders(['bar', 'timeUtc', 'sessionDate', 'open', 'high', 'low', 'close', 'direction', 'volume'])
+      : tableHeaders(['bar', 'timeUtc', 'sessionDate', 'value']);
     for (const name of headers) {
       const th = createElement(doc, 'th');
       th.scope = 'col';
@@ -230,7 +233,7 @@ export function createDomHost(container, options = {}) {
       const row = createElement(doc, 'tr');
       const cell = createElement(doc, 'td');
       cell.colSpan = headers.length;
-      setText(cell, 'No visible data');
+      setText(cell, text('table.noVisibleData'));
       row.appendChild(cell);
       tbody.appendChild(row);
       return;
@@ -254,8 +257,8 @@ export function createDomHost(container, options = {}) {
           String(point.high),
           String(point.low),
           String(point.close),
-          point.close > point.open ? 'up' : point.close < point.open ? 'down' : 'unchanged',
-          point.volume === null || point.volume === undefined ? 'unavailable' : String(point.volume)
+          point.close > point.open ? text('table.up') : point.close < point.open ? text('table.down') : text('table.unchanged'),
+          point.volume === null || point.volume === undefined ? text('table.unavailable') : String(point.volume)
         );
       } else {
         cells.push(String(point.value));

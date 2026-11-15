@@ -1,14 +1,15 @@
 <!doctype html>
-<html lang="ru" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Терминал — демонстрация VibeCharts (синтетические данные)</title>
+<title data-i18n="page.title">Terminal — VibeCharts demo (synthetic data)</title>
 <!-- Resolves the package name to local sources for this repository checkout.
      An application that installed the archive uses its bundler instead. -->
 <script type="importmap">
 { "imports": {
   "vibecharts": "../../src/index.js",
+  "vibecharts/ui": "../../src/ui/index.js",
   "vibecharts/workspaces": "../../src/workspaces/index.js",
   "vibecharts/alerts": "../../src/alerts/engine.js"
 } }
@@ -19,59 +20,61 @@
 <body>
 <div class="terminal" id="terminal">
   <header class="topbar" role="banner">
-    <div class="brand" aria-label="VibeCharts Terminal, демонстрация">
+    <div class="brand" data-i18n-attr="aria-label:brand.aria">
       <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-      <span class="brand-name">Терминал</span>
+      <span class="brand-name" data-i18n="brand.name"></span>
     </div>
     <span class="sep" aria-hidden="true"></span>
-    <button class="symbol-badge" id="symbol-button" type="button" aria-label="Выбрать инструмент"><span class="logo" id="symbol-logo" aria-hidden="true"></span><span id="symbol-text">DEMO01</span></button>
+    <button class="symbol-badge" id="symbol-button" type="button" data-i18n-attr="aria-label:symbol.pick"><span class="logo" id="symbol-logo" aria-hidden="true"></span><span id="symbol-text">DEMO01</span></button>
     <span class="sep" aria-hidden="true"></span>
-    <div class="group" id="intervals" role="group" aria-label="Интервал"></div>
+    <div class="group" id="intervals" role="group" data-i18n-attr="aria-label:intervals.aria"></div>
     <span class="sep" aria-hidden="true"></span>
-    <div class="menu-host"><button class="tool-btn wide" id="type-button" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Тип графика"></button></div>
-    <div class="menu-host"><button class="tool-btn wide" id="indicators-button" type="button" aria-haspopup="menu" aria-expanded="false"><span class="icon" data-icon="indicators"></span><span>Индикаторы</span></button></div>
+    <div class="menu-host"><button class="tool-btn wide" id="type-button" type="button" aria-haspopup="menu" aria-expanded="false" data-i18n-attr="aria-label:type.aria"></button></div>
+    <div class="menu-host"><button class="tool-btn wide" id="indicators-button" type="button" aria-haspopup="menu" aria-expanded="false"><span class="icon" data-icon="indicators"></span><span data-i18n="indicators.title"></span></button></div>
     <span class="sep" aria-hidden="true"></span>
-    <button class="tool-btn" id="undo" type="button" aria-label="Отменить"><span class="icon" data-icon="undo"></span></button>
-    <button class="tool-btn" id="redo" type="button" aria-label="Повторить"><span class="icon" data-icon="redo"></span></button>
-    <button class="tool-btn wide" id="alert-button" type="button" aria-pressed="false" title="Поставить алерт на уровень цены"><span class="icon" data-icon="bell"></span><span>Алерт</span></button>
+    <button class="tool-btn" id="undo" type="button" data-i18n-attr="aria-label:undo.aria"><span class="icon" data-icon="undo"></span></button>
+    <button class="tool-btn" id="redo" type="button" data-i18n-attr="aria-label:redo.aria"><span class="icon" data-icon="redo"></span></button>
+    <button class="tool-btn wide" id="alert-button" type="button" aria-pressed="false" data-i18n-attr="title:alert.buttonTitle"><span class="icon" data-icon="bell"></span><span data-i18n="alert.button"></span></button>
     <span class="spacer"></span>
-    <button class="chip" id="live-toggle" type="button" aria-pressed="true"><span class="live-dot" aria-hidden="true"></span>Поток (демо)</button>
-    <span class="demo-badge" role="note" title="Все данные вымышлены и сгенерированы локально, это не биржевые котировки">Демо</span>
-    <button class="tool-btn" id="theme" type="button" aria-label="Переключить тему"><span class="icon" data-icon="theme"></span></button>
-    <button class="tool-btn" id="snapshot" type="button" aria-label="Сохранить график в PNG"><span class="icon" data-icon="camera"></span></button>
-    <button class="tool-btn" id="fullscreen" type="button" aria-label="Полный экран"><span class="icon" data-icon="fullscreen"></span></button>
-    <button class="tool-btn narrow-only" id="side-toggle" type="button" aria-label="Список инструментов" aria-expanded="false"><span class="icon" data-icon="list"></span></button>
+    <button class="chip" id="live-toggle" type="button" aria-pressed="true"><span class="live-dot" aria-hidden="true"></span><span data-i18n="live.toggle"></span></button>
+    <span class="demo-badge" role="note" data-i18n="demo.badge" data-i18n-attr="title:demo.badgeTitle"></span>
+    <span class="language-host" id="language-host"></span>
+    <button class="tool-btn" id="settings" type="button" aria-haspopup="dialog" aria-expanded="false" data-i18n-attr="aria-label:settings.title;title:settings.title"><span class="icon" data-icon="settings"></span></button>
+    <button class="tool-btn" id="theme" type="button" data-i18n-attr="aria-label:theme.toggle"><span class="icon" data-icon="theme"></span></button>
+    <button class="tool-btn" id="snapshot" type="button" data-i18n-attr="aria-label:snapshot.aria"><span class="icon" data-icon="camera"></span></button>
+    <button class="tool-btn" id="fullscreen" type="button" data-i18n-attr="aria-label:fullscreen.aria"><span class="icon" data-icon="fullscreen"></span></button>
+    <button class="tool-btn narrow-only" id="side-toggle" type="button" data-i18n-attr="aria-label:side.toggle" aria-expanded="false"><span class="icon" data-icon="list"></span></button>
   </header>
 
-  <nav class="drawbar" id="drawbar" aria-label="Инструменты рисования"></nav>
+  <nav class="drawbar" id="drawbar" data-i18n-attr="aria-label:drawbar.aria"></nav>
 
   <main class="chart-column">
     <div class="chart-wrap">
       <div class="legend" id="legend" aria-hidden="true"></div>
       <div class="chart-surface" id="chart"></div>
-      <button class="to-realtime" id="to-realtime" type="button" aria-label="К последнему бару" hidden><span class="icon" data-icon="forward"></span></button>
+      <button class="to-realtime" id="to-realtime" type="button" data-i18n-attr="aria-label:realtime.aria" hidden><span class="icon" data-icon="forward"></span></button>
       <div class="notice" id="notice" role="alert" hidden></div>
     </div>
-    <div class="rangebar" role="toolbar" aria-label="Диапазон и шкала">
-      <div class="group" id="ranges" role="group" aria-label="Диапазон"></div>
+    <div class="rangebar" role="toolbar" data-i18n-attr="aria-label:rangebar.aria">
+      <div class="group" id="ranges" role="group" data-i18n-attr="aria-label:ranges.aria"></div>
       <span class="spacer"></span>
-      <span class="clock" id="clock" title="Часовой пояс отображения"></span>
-      <button class="mini" id="log" type="button" aria-pressed="false">Лог</button>
-      <button class="mini" id="auto" type="button" aria-pressed="true">Авто</button>
+      <span class="clock" id="clock" data-i18n-attr="title:clock.title"></span>
+      <button class="mini" id="log" type="button" aria-pressed="false" data-i18n="scale.log"></button>
+      <button class="mini" id="auto" type="button" aria-pressed="true" data-i18n="scale.auto"></button>
     </div>
   </main>
 
-  <aside class="sidepanel" id="sidepanel" aria-label="Список инструментов">
+  <aside class="sidepanel" id="sidepanel" data-i18n-attr="aria-label:side.aria">
     <section class="watchlist">
-      <div class="list-head"><h2>Список</h2><select id="list-select" aria-label="Выбор списка инструментов"></select></div>
+      <div class="list-head"><h2 data-i18n="list.title"></h2><select id="list-select" data-i18n-attr="aria-label:list.select"></select></div>
       <table>
-        <thead><tr><th scope="col">Тикер</th><th scope="col" class="num">Цена</th><th scope="col" class="num">Изм.</th><th scope="col" class="num">Изм.%</th></tr></thead>
+        <thead><tr><th scope="col" data-i18n="col.ticker"></th><th scope="col" class="num" data-i18n="col.price"></th><th scope="col" class="num" data-i18n="col.change"></th><th scope="col" class="num" data-i18n="col.changePct"></th></tr></thead>
         <tbody id="watchlist"></tbody>
       </table>
     </section>
     <section class="details" id="details" aria-live="polite"></section>
-    <section class="alerts" id="alerts" aria-label="Алерты"></section>
-    <p class="fineprint">Все данные вымышлены и сгенерированы локально. Нет подключения к бирже; значения не являются котировками или рекомендацией.</p>
+    <section class="alerts" id="alerts" data-i18n-attr="aria-label:alerts.title"></section>
+    <p class="fineprint" data-i18n="fineprint"></p>
   </aside>
 </div>
 <div class="status-live" id="status" role="status" aria-live="polite"></div>
