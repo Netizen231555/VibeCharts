@@ -15,6 +15,7 @@ import { createPaneLayout } from './panes.js';
 import { createNavigation } from './navigation.js';
 import { createCrosshairController, buildReadout } from './crosshair.js';
 import { createKeyboard, createCrosshairNavigation, isEditableTarget } from './keyboard.js';
+import { NUDGE_ACTIONS, planNudge } from './nudge.js';
 import { createGestureRecognizer } from './gestures.js';
 import { hitTest, paneAtPoint, normalizeHitRadius } from './hittest.js';
 import { buildMenuItems, createContextMenu } from './menu.js';
@@ -637,8 +638,13 @@ export function attachInteraction(chart, options = {}) {
   function drawingDrag(request) {
     const store = adapter.drawings;
     const surface = chart.surface;
-    if (!store || !surface || typeof store.update !== 'function' ||
-        typeof surface.anchorToX !== 'function' || typeof surface.xToAnchor !== 'function') return null;
+    if (!store || !surface || typeof surface.anchorToX !== 'function' || typeof surface.xToAnchor !== 'function') return null;
+    // A clone drag shows its copies as a separate ghost and commits one duplicate; a move drags the drawings themselves.
+    const clone = request.clone === true;
+    if (clone ? typeof store.duplicate !== 'function' || typeof store.setClonePreview !== 'function' : typeof store.update !== 'function') {
+      if (clone) reportError(new Error(tr('drawing.cloneApiUnavailable')), { action: 'drawing-clone' });
+      return null;
+    }
     const selected = typeof store.getSelection === 'function' ? store.getSelection() : [];
     const ids = request.anchorIndex === null && selected.includes(request.drawingId) ? selected : [request.drawingId];
     const entries = ids.map(id => {
@@ -662,7 +668,8 @@ export function attachInteraction(chart, options = {}) {
     // The drawing itself is drawn at its pending position (store.setDragPreview), so it follows the pointer instead
     // of a dashed ghost that jumps on release; the document and the undo stack change only on commit.
     function clearPreview() {
-      store.setDragPreview(null);
+      if (clone) store.setClonePreview(null);
+      else store.setDragPreview(null);
       lastPreviewError = null;
       chart.requestRender();
     }
@@ -688,19 +695,43 @@ export function attachInteraction(chart, options = {}) {
     function previewMove(point, meta = {}) {
       try {
         const updates = updatesAt(point, () => {}, meta.event);
-        store.setDragPreview(updates);
-        for (const { id } of updates) {
-          const layout = store.layout(id);
-          if (!layout.resolved) throw new Error(layout.error?.message || layout.reason || tr('drawing.geometryUnavailable'));
+        if (clone) {
+          store.setClonePreview(updates);
+          for (const layout of store.clonePreview()) {
+            if (!layout.resolved) throw new Error(layout.error?.message || layout.reason || tr('drawing.geometryUnavailable'));
+          }
+        } else {
+          store.setDragPreview(updates);
+          for (const { id } of updates) {
+            const layout = store.layout(id);
+            if (!layout.resolved) throw new Error(layout.error?.message || layout.reason || tr('drawing.geometryUnavailable'));
+          }
         }
         lastPreviewError = null;
       } catch (error) {
         // An unresolvable position is not shown: the drawing stays where it was until the pointer returns to a valid one.
-        store.setDragPreview(null);
+        if (clone) store.setClonePreview(null);
+        else store.setDragPreview(null);
         if (lastPreviewError !== error.message) reportError(error, { action: 'drawing-preview' });
         lastPreviewError = error.message;
       }
       chart.requestRender();
+    }
+    // The drop is validated through the ghost first so an unresolvable destination creates nothing and is announced.
+    function duplicateAt(updates) {
+      try {
+        store.setClonePreview(updates);
+        const unresolved = store.clonePreview().some(layout => !layout.resolved);
+        store.setClonePreview(null);
+        if (unresolved) throw new Error(tr('drawing.cloneUnavailable'));
+        const copies = store.duplicate(updates.map(update => update.id), { updates });
+        adoptStoreSelection();
+        announce(tr('drawing.copied', { count: copies.length }));
+      } catch (error) {
+        store.setClonePreview(null);
+        reportError(error, { action: 'drawing-clone' });
+        announce(tr('drawing.cloneUnavailable'), { error: true });
+      }
     }
     return {
       move: previewMove,
@@ -711,26 +742,41 @@ export function attachInteraction(chart, options = {}) {
         const dy = point.y - request.point.y;
         if (dx === 0 && dy === 0) return;
         const updates = updatesAt(point, text => announce(text), meta.event);
-        if (updates.length === 1) store.update(updates[0].id, updates[0].patch);
+        if (clone) duplicateAt(updates);
+        else if (updates.length === 1) store.update(updates[0].id, updates[0].patch);
         else store.updateBatch(updates);
       },
     };
   }
 
-  function objectOwner(hit, point) {
+  // The interaction keeps one primary drawing for handles and events; after the store replaced the selection
+  // (copies, hiding) the last selected drawing becomes primary.
+  function adoptStoreSelection() {
+    const ids = adapter.drawings?.getSelection?.() ?? [];
+    const primary = ids.length ? ids[ids.length - 1] : null;
+    if (selection === primary) return;
+    selection = primary;
+    emitter.emit('selectionChange', { drawingId: primary, selected: primary !== null });
+  }
+
+  // Shift sampled at pointer down turns a body drag into a clone drag; handle drags keep their own constraint.
+  function objectOwner(hit, point, event) {
     const selected = typeof adapter.drawings?.getSelection === 'function' ? adapter.drawings.getSelection() : [];
     if (!selected.includes(hit.drawingId)) selectDrawing(hit.drawingId);
     else if (selection !== hit.drawingId) {
       selection = hit.drawingId;
       emitter.emit('selectionChange', { drawingId: hit.drawingId, selected: true });
     }
+    const clone = hit.kind === 'drawing' && event?.shiftKey === true;
     const controllerRequest = {
       drawingId: hit.drawingId,
       anchorIndex: hit.kind === 'handle' ? hit.anchorIndex : null,
       locked: hit.locked === true,
+      clone,
       point: { x: point.x, y: point.y },
     };
-    const controller = !hit.locked
+    // A locked drawing cannot move, but copying leaves it untouched, so a clone drag is allowed.
+    const controller = !hit.locked || clone
       ? (options.drawingController && typeof options.drawingController.begin === 'function'
         ? options.drawingController.begin(controllerRequest) : drawingDrag(controllerRequest))
       : null;
@@ -756,6 +802,86 @@ export function attachInteraction(chart, options = {}) {
       },
       commitKey: `object:${hit.drawingId}`,
     };
+  }
+
+  function nudgeSelection(action) {
+    const store = adapter.drawings;
+    if (!store || typeof store.updateBatch !== 'function' || typeof store.getGroup !== 'function') {
+      announce(tr('announce.nudgeUnavailable'), { error: true });
+      return { handled: true };
+    }
+    const ids = store.getSelection();
+    if (!ids.length) {
+      announce(tr('announce.noSelection'));
+      return { handled: true };
+    }
+    const plan = planNudge({ chart, store, adapter, ids, action });
+    const refusals = {
+      locked: 'announce.nudgeLocked', noStep: 'announce.nudgeNoStep', noAnchor: 'announce.nudgeNoAnchor',
+      outOfData: 'announce.nudgeOutOfData',
+    };
+    if (plan.refusal) {
+      announce(plan.refusal === 'invalid'
+        ? tr('announce.nudgeInvalid', { message: tr('drawing.geometryUnavailable') }) : tr(refusals[plan.refusal]), { error: true });
+      return { handled: true };
+    }
+    try {
+      store.updateBatch(plan.updates, { coalesceKey: 'nudge' });
+    } catch (error) {
+      reportError(error, { action: 'nudge' });
+      announce(error.code === 'locked' ? tr('announce.nudgeLocked') : tr('announce.nudgeInvalid', { message: error.message }), { error: true });
+      return { handled: true };
+    }
+    announce(tr(`announce.${action}`));
+    return { handled: true };
+  }
+
+  function duplicateSelection() {
+    const store = adapter.drawings;
+    if (!store || typeof store.duplicate !== 'function') {
+      announce(tr('announce.drawingsUnavailable'), { error: true });
+      return { handled: true };
+    }
+    const ids = store.getSelection();
+    if (!ids.length) {
+      announce(tr('announce.noSelection'));
+      return { handled: true };
+    }
+    try {
+      const copies = store.duplicate(ids);
+      adoptStoreSelection();
+      announce(tr('drawing.copied', { count: copies.length }));
+    } catch (error) {
+      reportError(error, { action: 'duplicate' });
+      announce(error.message, { error: true });
+    }
+    return { handled: true };
+  }
+
+  // A mixed state hides or locks everything first; only a fully hidden or fully locked set is reversed.
+  function toggleAllDrawings(flag) {
+    const store = adapter.drawings;
+    const method = flag === 'visible' ? 'setAllVisible' : 'setAllLocked';
+    if (!store || typeof store.summary !== 'function' || typeof store[method] !== 'function') {
+      announce(tr('announce.drawingsUnavailable'), { error: true });
+      return { handled: true };
+    }
+    const summary = store.summary();
+    if (summary[flag] === null) {
+      announce(tr('announce.noDrawings'));
+      return { handled: true };
+    }
+    const next = flag === 'visible' ? summary.visible === 'none' : summary.locked !== 'all';
+    try {
+      store[method](next);
+      adoptStoreSelection();
+      announce(tr(flag === 'visible' ? (next ? 'announce.drawingsShown' : 'announce.drawingsHidden')
+        : (next ? 'announce.drawingsLocked' : 'announce.drawingsUnlocked')));
+    } catch (error) {
+      reportError(error, { action: method });
+      announce(error.message, { error: true });
+    }
+    return { handled: true };
   }
 
   // A click only selects; the engine sees one update on release after a real
@@ -1151,7 +1277,7 @@ export function attachInteraction(chart, options = {}) {
     }
     if (route.kind === ROUTE.OBJECT) {
       capturePointer(event.pointerId);
-      router.begin(ROUTE.OBJECT, objectOwner(hit, point), { pointerId: event.pointerId, point, data: { drawingId: hit.drawingId } });
+      router.begin(ROUTE.OBJECT, objectOwner(hit, point, event), { pointerId: event.pointerId, point, data: { drawingId: hit.drawingId } });
       if (typeof event.preventDefault === 'function') event.preventDefault();
       return;
     }
@@ -1441,7 +1567,13 @@ export function attachInteraction(chart, options = {}) {
           (typeof panes.hasPreview === 'boolean' ? panes.hasPreview : false) ||
           keyboard.crosshairActive;
         if (!cancellable) {
-          // Nothing chart-local is in flight: leave Escape to the page/dialog.
+          // With nothing in flight and no armed tool, Escape drops the selection, which hands the arrow keys back to
+          // the camera; with nothing selected it stays with the page or dialog.
+          if (!toolState && ((adapter.drawings?.getSelection?.() ?? []).length > 0 || selection !== null)) {
+            clearSelection();
+            announce(tr('announce.selectionCleared'));
+            return { handled: true };
+          }
           return { handled: false, bubble: true };
         }
         cancelActive(CANCEL_REASONS.ESCAPE);
@@ -1453,8 +1585,11 @@ export function attachInteraction(chart, options = {}) {
         if (!opened.opened) writeLive(tr('menu.noActions'));
         return { handled: true };
       }
+      case 'duplicateSelection': return duplicateSelection();
+      case 'toggleDrawingsVisible': return toggleAllDrawings('visible');
+      case 'toggleDrawingsLocked': return toggleAllDrawings('locked');
       default:
-        return { handled: false };
+        return Object.hasOwn(NUDGE_ACTIONS, resolved) ? nudgeSelection(resolved) : { handled: false };
     }
   }
 
@@ -1494,7 +1629,9 @@ export function attachInteraction(chart, options = {}) {
       event.preventDefault();
       return;
     }
-    const resolved = keyboard.resolveEvent(event, { target: event.target });
+    const selectionScope = !toolState;
+    const selectionActive = selectionScope && (adapter.drawings?.getSelection?.() ?? []).length > 0;
+    const resolved = keyboard.resolveEvent(event, { target: event.target, selectionActive, selectionScope });
     if (resolved === null) return;
     let outcome = null;
     try {
