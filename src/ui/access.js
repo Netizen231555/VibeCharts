@@ -21,6 +21,8 @@ export const KEYBOARD_EQUIVALENTS = Object.freeze({
   follow: ['follow'],
   logScale: ['toggleLogScale'],
   crosshair: ['toggleCrosshair'],
+  hideDrawings: ['toggleDrawingsVisible'],
+  lockDrawings: ['toggleDrawingsLocked'],
   // Arrow keys move the crosshair by one slot while it is active.
   crosshairPrev: ['toggleCrosshair', 'panLeft'],
   crosshairNext: ['toggleCrosshair', 'panRight'],

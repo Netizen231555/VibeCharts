@@ -51,6 +51,8 @@ const ICONS = {
   settings: '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',
   magnet: '<path d="M6 4v8a6 6 0 0012 0V4h-4v8a2 2 0 01-4 0V4z"/><path d="M6 8h4M14 8h4"/>',
   trash: '<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>',
+  eyeOff: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/>',
+  lock: '<path d="M6 11h12v9H6z"/><path d="M8.5 11V8a3.5 3.5 0 017 0v3"/>',
   undo: '<path d="M9 7L5 11l4 4"/><path d="M5 11h9a5 5 0 010 10h-3"/>',
   redo: '<path d="M15 7l4 4-4 4"/><path d="M19 11h-9a5 5 0 000 10h3"/>',
   indicators: '<path d="M3 17l5-6 4 4 5-8 4 5"/>',
@@ -644,11 +646,12 @@ function build() {
   }));
   s.unsubscribe.push(chart.subscribe('error', ({ operation, error }) => showNotice(`${operation}: ${error?.message ?? error}`)));
   s.unsubscribe.push(chart.alerts.subscribe(onAlertEvent));
-  s.unsubscribe.push(chart.drawings.subscribe(() => { syncHistoryButtons(); settingsPanel.refreshSelection(); }));
+  s.unsubscribe.push(chart.drawings.subscribe(() => { syncHistoryButtons(); syncDrawingStateButtons(); settingsPanel.refreshSelection(); }));
   s.unsubscribe.push(chart.interaction.subscribe('toolChange', ({ toolId }) => { state.tool = toolId; syncToolButtons(); }));
   state.tool = null;
   syncToolButtons();
   syncHistoryButtons();
+  syncDrawingStateButtons();
   updateLegend(null);
   renderWatchlist();
   renderDetails();
@@ -707,6 +710,21 @@ function syncType() {
 function syncHistoryButtons() {
   $('undo').disabled = !chart?.drawings?.canUndo();
   $('redo').disabled = !chart?.drawings?.canRedo();
+}
+// Hide and lock act on every drawing and group at once. Pressed means all are hidden or locked; an empty or
+// unavailable store keeps the button focusable (aria-disabled) with the reason as its title, as the rail does.
+function syncDrawingStateButtons() {
+  const summary = typeof chart?.drawings?.summary === 'function' ? chart.drawings.summary() : null;
+  for (const [id, flag, pressedState] of [['hide-all', 'visible', 'none'], ['lock-all', 'locked', 'all']]) {
+    const button = document.getElementById(id);
+    if (!button) continue;
+    const reason = summary === null ? t('tool.bulkUnavailable') : (summary[flag] === null ? t('tool.bulkEmpty') : '');
+    button.setAttribute('aria-pressed', String(summary !== null && summary[flag] === pressedState));
+    if (reason) button.setAttribute('aria-disabled', 'true'); else button.removeAttribute('aria-disabled');
+    const name = t(flag === 'visible' ? 'tool.hideAll' : 'tool.lockAll');
+    button.setAttribute('aria-label', reason ? `${name}: ${reason}` : name);
+    button.title = reason ? `${name}: ${reason}` : name;
+  }
 }
 
 for (const interval of INTERVALS) {
@@ -884,7 +902,23 @@ syncToolButtons();
   trash.type = 'button'; trash.className = 'tool-btn'; trash.title = t('tool.clear'); trash.setAttribute('aria-label', t('tool.clear'));
   trash.innerHTML = `<span class="icon">${svg('trash')}</span>`;
   trash.addEventListener('click', () => { try { chart.interaction.setTool(null); chart.drawings.clear(); } catch (error) { showNotice(t('error.clear', { message: error.message })); } });
-  $('drawbar').append(magnet, trash);
+  const bulkButton = (id, icon, flag, setAll) => {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'tool-btn'; button.id = id; button.setAttribute('aria-pressed', 'false');
+    button.innerHTML = `<span class="icon">${svg(icon)}</span>`;
+    button.addEventListener('click', () => {
+      if (button.getAttribute('aria-disabled') === 'true') { showNotice(button.title); return; }
+      try {
+        // A mixed state hides or locks everything first; only a fully hidden or locked set is reversed.
+        const summary = chart.drawings.summary();
+        chart.drawings[setAll](flag === 'visible' ? summary.visible === 'none' : summary.locked !== 'all');
+      } catch (error) { showNotice(t('error.bulk', { message: error.message })); }
+    });
+    return button;
+  };
+  $('drawbar').append(magnet, bulkButton('hide-all', 'eyeOff', 'visible', 'setAllVisible'),
+    bulkButton('lock-all', 'lock', 'locked', 'setAllLocked'), trash);
+  syncDrawingStateButtons();
 }
 
 // ---------------------------------------------------------------- range bar

@@ -24,7 +24,10 @@ export function createDrawingRail(controller, context) {
   const initial = controller.model();
   const region = context.region;
   const tools = (initial.groups.find((group) => group.id === 'tools') || { controls: [] }).controls;
-  const clearControl = initial.groups.flatMap((group) => group.controls).find((control) => control.id === 'clearDrawings') || null;
+  const allControls = initial.groups.flatMap((group) => group.controls);
+  const clearControl = allControls.find((control) => control.id === 'clearDrawings') || null;
+  // Hide and lock are toggles about the whole document, kept apart from the tools by a rule.
+  const stateControls = ['hideDrawings', 'lockDrawings'].map((id) => allControls.find((control) => control.id === id)).filter(Boolean);
 
   const root = createElement(doc, 'div', {
     class: `chart-ui-bar chart-ui-rail${tools.length > GRID_THRESHOLD ? ' chart-ui-rail-grid' : ''}`,
@@ -34,7 +37,7 @@ export function createDrawingRail(controller, context) {
   });
   const tip = createElement(doc, 'div', { class: 'chart-ui-tip chart-ui-rail-tip', 'aria-hidden': 'true', hidden: true });
 
-  /** @type {Array<{ kind: 'cursor'|'tool'|'clear', controlId: string|null, group: string|null, button: HTMLElement, label: string, reason: HTMLElement }>} */
+  /** @type {Array<{ kind: 'cursor'|'tool'|'clear'|'toggle', controlId: string|null, group: string|null, button: HTMLElement, label: string, reason: HTMLElement }>} */
   const items = [];
 
   function addItem(kind, controlId, label, iconName, group = null) {
@@ -58,6 +61,7 @@ export function createDrawingRail(controller, context) {
   if (tools.length > 0) addItem('cursor', null, controller.t('rail.cursor'), 'cursor', 'cursor');
   for (const control of tools) addItem('tool', control.id, control.label, control.value, control.group ?? null);
   if (clearControl) addItem('clear', clearControl.id, clearControl.label, 'clear', 'clear');
+  for (const control of stateControls) addItem('toggle', control.id, control.label, control.id, 'state');
 
   // A rule between groups; tools without a group (host-supplied sets) form one run and get no inner rules.
   items.forEach((item, index) => {
@@ -190,7 +194,7 @@ export function createDrawingRail(controller, context) {
       }
       const control = byId.get(item.controlId);
       if (!control) continue;
-      if (item.kind === 'tool') item.button.setAttribute('aria-pressed', control.pressed ? 'true' : 'false');
+      if (item.kind === 'tool' || item.kind === 'toggle') item.button.setAttribute('aria-pressed', control.pressed ? 'true' : 'false');
       paint(item, control);
     }
     // The single Tab stop follows the chosen tool while focus is elsewhere; it never jumps under the user's hands.

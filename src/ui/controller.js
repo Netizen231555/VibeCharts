@@ -126,6 +126,7 @@ export function createUiController(chart, options = {}) {
       tools: opts.tools,
       canUndo: drawingHistory().canUndo,
       canRedo: drawingHistory().canRedo,
+      drawingState: typeof chart?.drawings?.summary === 'function' ? chart.drawings.summary() : null,
     };
   }
 
@@ -169,6 +170,7 @@ export function createUiController(chart, options = {}) {
       canSelectIndicator: typeof opts.onIndicator === 'function',
       canDraw: typeof opts.onToolChange === 'function' || Boolean(interaction && typeof opts.createTool === 'function' && typeof interaction.setTool === 'function') || nativeDrawingAvailable(),
       canClearDrawings: typeof opts.onClearDrawings === 'function' || Boolean(chart && chart.drawings && typeof chart.drawings.clear === 'function'),
+      canBulkDrawings: Boolean(chart?.drawings && ['summary', 'setAllVisible', 'setAllLocked'].every((method) => typeof chart.drawings[method] === 'function')),
       canUndo: history.available && history.canUndo,
       canRedo: history.available && history.canRedo,
       canChangeInterval: typeof opts.onIntervalChange === 'function',
@@ -350,6 +352,21 @@ export function createUiController(chart, options = {}) {
         if (interaction && typeof interaction.setTool === 'function' && read('tool') !== null) interaction.setTool(null);
         announce(tr('chart.drawingsCleared'));
         return { ok: true };
+      case 'hideDrawings':
+      case 'lockDrawings': {
+        const store = chart && chart.drawings;
+        const flag = action === 'hideDrawings' ? 'visible' : 'locked';
+        const method = action === 'hideDrawings' ? 'setAllVisible' : 'setAllLocked';
+        if (!store || typeof store.summary !== 'function' || typeof store[method] !== 'function') return { ok: false, code: 'CONTROL_DISABLED' };
+        const summary = store.summary();
+        if (summary[flag] === null) return { ok: false, code: 'NOTHING_TO_CHANGE', reason: tr('reason.noDrawings') };
+        // A mixed state moves to the pressed state first; only a fully hidden or fully locked set is reversed.
+        const next = flag === 'visible' ? summary.visible === 'none' : summary.locked !== 'all';
+        store[method](next);
+        announce(tr(flag === 'visible' ? (next ? 'chart.drawingsShown' : 'chart.drawingsHidden')
+          : (next ? 'chart.drawingsLocked' : 'chart.drawingsUnlocked')));
+        return { ok: true, [flag]: next };
+      }
       case 'undo':
       case 'redo': {
         const store = chart && chart.drawings;

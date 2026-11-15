@@ -66,6 +66,8 @@ export const ICONS = Object.freeze({
   undo: ['M9 5L4 10l5 5', 'M4 10h9a5 5 0 0 1 0 10h-3'],
   redo: ['M15 5l5 5-5 5', 'M20 10h-9a5 5 0 0 0 0 10h3'],
   clear: ['M5 7h14M10 7V4h4v3', 'M7 7l1 13h8l1-13'],
+  hideDrawings: ['M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z', circle(12, 12, 3), 'M4 4l16 16'],
+  lockDrawings: ['M6 11h12v9H6z', 'M8.5 11V8a3.5 3.5 0 0 1 7 0v3'],
   // chrome
   settings: [circle(5.5, 12, 1), circle(12, 12, 1), circle(18.5, 12, 1)],
   indicator: ['M3 16l4-5 4 3 5-7 5 4'],

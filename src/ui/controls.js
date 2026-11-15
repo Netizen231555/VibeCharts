@@ -45,7 +45,7 @@ export const DRAWING_TOOLS = Object.freeze(
 
 const REASON_KEYS = Object.freeze([
   'chartType', 'indicator', 'drawing', 'clear', 'undo', 'redo', 'interval', 'navigation', 'theme', 'table',
-  'logScale', 'logScalePercent', 'logScaleNone', 'drawingSnap', 'crosshair',
+  'logScale', 'logScalePercent', 'logScaleNone', 'drawingSnap', 'crosshair', 'bulkDrawings', 'noDrawings',
 ]);
 
 /** Reasons are resolved per model build so they follow the chart locale at that moment. */
@@ -143,6 +143,22 @@ export function createToolbarModel({ current = {}, capabilities = {}, locale = '
             reason: capabilities.canClearDrawings === false ? REASONS.clear : null,
             action: 'clearDrawings',
           },
+          // Pressed means every drawing and group is hidden or locked; anything mixed reads as not pressed, so the
+          // next activation hides or locks all. An empty document has nothing to change.
+          ...[['hideDrawings', 'visible', 'none'], ['lockDrawings', 'locked', 'all']].map(([id, flag, pressedState]) => {
+            const state = current.drawingState ?? null;
+            const unavailable = capabilities.canBulkDrawings === false;
+            const empty = !unavailable && state !== null && state[flag] === null;
+            return {
+              id,
+              kind: 'toggle',
+              label: t(locale, `control.${id}`),
+              pressed: state !== null && state[flag] === pressedState,
+              enabled: !unavailable && !empty,
+              reason: unavailable ? REASONS.bulkDrawings : (empty ? REASONS.noDrawings : null),
+              action: id,
+            };
+          }),
           {
             id: 'undo',
             kind: 'button',

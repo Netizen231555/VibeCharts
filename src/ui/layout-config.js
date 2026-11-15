@@ -19,7 +19,7 @@ export const REGIONS = Object.freeze(['top', 'start', 'end', 'overlay', 'bottom'
  */
 export const BUILTIN_PARTS = Object.freeze({
   topBar: Object.freeze({ regions: Object.freeze(['top', 'bottom']), controls: Object.freeze(['chartType:', 'indicator:', 'interval', 'undo', 'redo']) }),
-  drawingRail: Object.freeze({ regions: Object.freeze(['start', 'end', 'top', 'bottom', 'overlay']), controls: Object.freeze(['tool:', 'clearDrawings']) }),
+  drawingRail: Object.freeze({ regions: Object.freeze(['start', 'end', 'top', 'bottom', 'overlay']), controls: Object.freeze(['tool:', 'clearDrawings', 'hideDrawings', 'lockDrawings']) }),
   navCluster: Object.freeze({ regions: Object.freeze(['overlay', 'top', 'bottom']), controls: Object.freeze(['zoomIn', 'zoomOut', 'fitContent', 'scrollToRealTime', 'priceAuto']) }),
   settingsMenu: Object.freeze({
     regions: Object.freeze(['menu', 'top']),
@@ -53,7 +53,7 @@ export const PRESETS = Object.freeze({
     overlay: [],
     menu: ['settingsMenu'],
     bottom: ['statusLine'],
-    without: ['chartType:', 'indicator:', 'tool:', 'clearDrawings', 'undo', 'redo', 'interval', 'accessibleTable'],
+    without: ['chartType:', 'indicator:', 'tool:', 'clearDrawings', 'hideDrawings', 'lockDrawings', 'undo', 'redo', 'interval', 'accessibleTable'],
   }),
 });
 

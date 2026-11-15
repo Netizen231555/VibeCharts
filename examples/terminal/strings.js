@@ -168,6 +168,11 @@ export const en = {
   'tool.cursor': 'Cursor',
   'tool.magnet': 'Snap to OHLC prices',
   'tool.clear': 'Delete all drawings',
+  'tool.hideAll': 'Hide all drawings',
+  'tool.lockAll': 'Lock all drawings',
+  'tool.bulkEmpty': 'There are no drawings to hide or lock',
+  'tool.bulkUnavailable': 'Hiding and locking drawings is unavailable',
+  'error.bulk': 'Drawings not changed: {message}',
 
   'announce.instrument': 'Instrument {id}, {name}',
   'announce.interval': 'Interval {label}',
@@ -362,6 +367,11 @@ export const ru = {
   'tool.cursor': 'Курсор',
   'tool.magnet': 'Магнит к ценам OHLC',
   'tool.clear': 'Удалить все рисунки',
+  'tool.hideAll': 'Скрыть все рисунки',
+  'tool.lockAll': 'Заблокировать все рисунки',
+  'tool.bulkEmpty': 'Нет рисунков, которые можно скрыть или заблокировать',
+  'tool.bulkUnavailable': 'Скрытие и блокировка рисунков недоступны',
+  'error.bulk': 'Рисунки не изменены: {message}',
 
   'announce.instrument': 'Инструмент {id}, {name}',
   'announce.interval': 'Интервал {label}',

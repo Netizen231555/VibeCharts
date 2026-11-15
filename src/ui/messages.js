@@ -18,6 +18,10 @@ const MESSAGES = {
   'chart.themeUnavailable': ['Chart theme control is unavailable', 'Управление темой графика недоступно'],
   'chart.toolUnavailable': ['Tool unavailable', 'Инструмент недоступен'],
   'chart.drawingsCleared': ['Drawings cleared', 'Рисунки очищены'],
+  'chart.drawingsHidden': ['All drawings hidden', 'Все рисунки скрыты'],
+  'chart.drawingsShown': ['All drawings shown', 'Все рисунки показаны'],
+  'chart.drawingsLocked': ['All drawings locked', 'Все рисунки заблокированы'],
+  'chart.drawingsUnlocked': ['All drawings unlocked', 'Все рисунки разблокированы'],
   'chart.scaleUnavailable': ['Price scale unavailable', 'Ценовая шкала недоступна'],
   'chart.indicatorsUnavailable': ['Indicator state is unavailable.', 'Состояние индикаторов недоступно.'],
   'chart.indicatorError': [
@@ -88,6 +92,8 @@ const MESSAGES = {
   'reason.logScaleNone': ['Price scale is unavailable', 'Ценовая шкала недоступна'],
   'reason.drawingSnap': ['Drawing snapping is unavailable', 'Привязка рисунков недоступна'],
   'reason.crosshair': ['Keyboard crosshair is unavailable', 'Клавиатурное перекрестие недоступно'],
+  'reason.bulkDrawings': ['Hiding and locking all drawings is unavailable', 'Скрытие и блокировка всех рисунков недоступны'],
+  'reason.noDrawings': ['There are no drawings to hide or lock', 'Нет рисунков, которые можно скрыть или заблокировать'],
   'group.chartType': ['Chart type', 'Тип графика'],
   'group.indicators': ['Indicator', 'Индикатор'],
   'group.tools': ['Drawing tools', 'Инструменты построения'],
@@ -118,6 +124,8 @@ const MESSAGES = {
   'control.accessibleTable': ['Data table', 'Таблица данных'],
   'control.logScale': ['Logarithmic scale', 'Логарифмическая шкала'],
   'control.drawingSnap': ['Drawing snapping', 'Привязка рисунков'],
+  'control.hideDrawings': ['Hide all drawings', 'Скрыть все рисунки'],
+  'control.lockDrawings': ['Lock all drawings', 'Заблокировать все рисунки'],
   'control.interval': ['Interval', 'Интервал'],
 
   // Candle direction (theme.js)
