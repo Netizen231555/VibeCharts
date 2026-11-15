@@ -47,6 +47,10 @@ export function createDrawingStore(options) {
   const listeners = new Set();
   let transaction = null;
   let dragPreview = new Map();
+  // Ghost of the copies a clone drag would create; never part of the document, selection or history.
+  let clonePreviewState = null;
+  // The history entry that consecutive updateBatch calls with one coalesceKey keep extending.
+  let coalesceRun = null;
   const counters = { drawing: 0, group: 0, style: 0 };
 
   function normalizeContext(raw) {
@@ -382,7 +386,7 @@ export function createDrawingStore(options) {
   }
 
 
-  function command(type, ids, mutate) {
+  function command(type, ids, mutate, { coalesceKey = null } = {}) {
     assertNotReconciling();
     const before = capture();
     let after;
@@ -397,7 +401,17 @@ export function createDrawingStore(options) {
       for (const id of ids) transaction.changed.add(id);
       return;
     }
+    // Only the very next command with the same key and targets may extend the run: any other command, a
+    // selection change, undo or redo ends it, so unrelated edits never merge into one undo step.
+    const runIds = [...ids].sort().join('\u0000');
+    const joins = coalesceKey !== null && coalesceRun !== null && coalesceRun.key === coalesceKey
+      && coalesceRun.ids === runIds && undoStack[undoStack.length - 1] === coalesceRun.entry;
+    if (joins) {
+      emit(type, ids);
+      return;
+    }
     pushUndo(before);
+    coalesceRun = coalesceKey === null ? null : { key: coalesceKey, ids: runIds, entry: before };
     emit(type, ids);
   }
 
@@ -524,6 +538,7 @@ export function createDrawingStore(options) {
   function undo() {
     assertNotReconciling();
     if (transaction) fail('transaction-active', 'Cannot undo while a drag transaction is open');
+    coalesceRun = null;
     if (!undoStack.length) return false;
     const current = capture();
     const previous = undoStack[undoStack.length - 1];
@@ -537,6 +552,7 @@ export function createDrawingStore(options) {
   function redo() {
     assertNotReconciling();
     if (transaction) fail('transaction-active', 'Cannot redo while a drag transaction is open');
+    coalesceRun = null;
     if (!redoStack.length) return false;
     const current = capture();
     const next = redoStack[redoStack.length - 1];
@@ -590,6 +606,7 @@ export function createDrawingStore(options) {
     const next = [...new Set(ids)];
     if (equal(selection, next)) return [...selection];
     selection = next;
+    coalesceRun = null;
     emit('selection', selection);
     return [...selection];
   }
@@ -979,7 +996,9 @@ export function createDrawingStore(options) {
     return true;
   }
 
-  function updateBatch(updates) {
+  function updateBatch(updates, options = {}) {
+    if (!isObject(options)) fail('invalid-options', 'options must be an object', { field: 'options' });
+    const coalesceKey = options.coalesceKey === undefined ? null : requireString(options.coalesceKey, 'options.coalesceKey', { max: 128 });
     if (!Array.isArray(updates)) fail('invalid-patch', 'updates must be an array', { field: 'updates' });
     const ids = updates.map((entry, index) => {
       if (!isObject(entry)) fail('invalid-patch', 'each update must be an object', { field: `updates.${index}` });
@@ -1008,9 +1027,92 @@ export function createDrawingStore(options) {
         const drawing = currentById.get(id);
         return drawing ? effectiveVisible(drawing) : false;
       });
+    }, { coalesceKey });
+    return true;
+  }
+
+  // Copies keep the source group, flags, style and props; a locked source stays untouched because only the new
+  // drawings are written. `options.updates` ({ id, patch } by source id) places the copies, e.g. at a drop position.
+  function copiesOf(target, updates) {
+    const ids = expandTargets(target);
+    if (!ids.length) fail('invalid-target', 'duplicate requires at least one drawing', { field: 'target' });
+    const patches = new Map();
+    if (updates !== undefined) {
+      if (!Array.isArray(updates)) fail('invalid-patch', 'updates must be an array', { field: 'updates' });
+      updates.forEach((entry, index) => {
+        if (!isObject(entry)) fail('invalid-patch', 'each update must be an object', { field: `updates.${index}` });
+        const id = requireString(entry.id, `updates.${index}.id`);
+        if (!ids.includes(id)) fail('invalid-patch', `Update ${id} is not a duplicated drawing`, { field: `updates.${index}.id`, id });
+        if (patches.has(id)) fail('invalid-patch', 'drawing IDs must be unique', { field: 'updates' });
+        patches.set(id, entry.patch ?? {});
+      });
+    }
+    const wanted = new Set(ids);
+    return drawings.filter(drawing => wanted.has(drawing.id)).map(source => {
+      const candidate = buildUpdateCandidate(source, patches.get(source.id) ?? {});
+      delete candidate.id;
+      return prepareDrawing(candidate, { type: source.type });
+    });
+  }
+
+  function duplicate(target, options = {}) {
+    if (!isObject(options)) fail('invalid-options', 'options must be an object', { field: 'options' });
+    const copies = copiesOf(target, options.updates);
+    for (const copy of copies) copy.id = nextId('drawing');
+    command('duplicate', copies.map(copy => copy.id), () => {
+      drawings.push(...copies);
+      selection = copies.filter(effectiveVisible).map(copy => copy.id);
+    });
+    return clone(copies);
+  }
+
+  // The ghost is validated like a real copy so an unresolvable drop position is reported while dragging, but the
+  // previous ghost stays when validation throws; callers clear it explicitly.
+  function setClonePreview(updates) {
+    if (updates === null || (Array.isArray(updates) && updates.length === 0)) {
+      clonePreviewState = null;
+      return;
+    }
+    if (!Array.isArray(updates)) fail('invalid-patch', 'updates must be an array or null', { field: 'updates' });
+    const copies = copiesOf(updates.map(entry => entry?.id), updates);
+    copies.forEach((copy, index) => { copy.id = `clone-preview-${index}`; });
+    clonePreviewState = copies;
+  }
+
+  function clonePreview() {
+    return clonePreviewState === null ? null : clonePreviewState.map(copy => layout(copy));
+  }
+
+  function stateOf(flags) {
+    if (!flags.length) return null;
+    if (flags.every(Boolean)) return 'all';
+    return flags.some(Boolean) ? 'mixed' : 'none';
+  }
+
+  // Reads the explicit flags of every drawing and group, so hidden and locked objects inside collapsed groups count.
+  function summary() {
+    const objects = [...drawings, ...groups];
+    return {
+      drawings: drawings.length,
+      groups: groups.length,
+      visible: stateOf(objects.map(object => object.visible)),
+      locked: stateOf(objects.map(object => object.locked)),
+    };
+  }
+
+  function setAll(flag, value, type) {
+    requireBoolean(value, flag);
+    const objects = [...drawings, ...groups];
+    if (!objects.some(object => object[flag] !== value)) return false;
+    command(type, objects.map(object => object.id), () => {
+      for (const object of objects) object[flag] = value;
+      selection = selection.filter(id => effectiveVisible(requireDrawing(id)));
     });
     return true;
   }
+
+  const setAllVisible = visible => setAll('visible', visible, 'visibility');
+  const setAllLocked = locked => setAll('locked', locked, 'lock');
 
   function updateMany(target, patch) {
     return updateBatch(expandTargets(target).map(id => ({ id, patch })));
@@ -1495,6 +1597,8 @@ export function createDrawingStore(options) {
     repeatMode = document.repeatMode === true;
     undoStack.length = 0;
     redoStack.length = 0;
+    coalesceRun = null;
+    clonePreviewState = null;
     emit('import', drawings.map(drawing => drawing.id));
     return exportDocument();
   }
@@ -1547,6 +1651,10 @@ export function createDrawingStore(options) {
     list,
     update,
     updateBatch,
+    duplicate,
+    summary,
+    setAllVisible,
+    setAllLocked,
     updateMany,
     remove,
     clear,
@@ -1594,6 +1702,8 @@ export function createDrawingStore(options) {
     hitTest,
     layout,
     setDragPreview,
+    setClonePreview,
+    clonePreview,
     previewLayout,
     getGeometry,
     getMeasure,
