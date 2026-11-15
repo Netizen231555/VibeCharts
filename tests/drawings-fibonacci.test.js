@@ -309,3 +309,17 @@ test('partially visible time-zone labels are measured and cached across frames',
   const invisible = add(s, 'fibTimeZones', { levels: [{ coefficient: 1, label: 'far' }] }, [timeAnchor(230), timeAnchor(240)]);
   calls = 0; assert.equal(s.layout(invisible).labels.length, 0); assert.equal(calls, 0);
 });
+
+test('font loading invalidates cached Fibonacci widths even when font string is unchanged', () => {
+  let calls = 0, listener;
+  const fonts = { addEventListener(type, fn) { assert.equal(type, 'loadingdone'); listener = fn; } };
+  const ctx = { font: '12px DynamicFibFont', canvas: { ownerDocument: { fonts } }, measureText() { return { width: ++calls === 1 ? 144 : 226.5 }; } };
+  const g = { ...geometry, getTextContext: () => ctx };
+  const s = createDrawingStore({ context: { instrumentId: 'T', interval: 'D', sourceId: 'src' }, geometry: g, historyLimit: 10 });
+  const id = add(s, 'fibTimeZones', { levels: [{ coefficient: 1, label: 'dynamic' }] }, [{ anchorBarId: 'b2', offset: 0 }, { anchorBarId: 'b3', offset: 0 }]);
+  assert.equal(s.layout(id).labels[0].width, 144);
+  assert.equal(s.layout(id).labels[0].width, 144);
+  listener();
+  assert.equal(s.layout(id).labels[0].width, 226.5);
+  assert.equal(calls, 2);
+});

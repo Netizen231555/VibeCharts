@@ -6,11 +6,24 @@ import { buildStatsBadge } from './axis-stats.js';
 
 // Font-specific widths persist across frames; bound memory and discard stale metrics on font changes.
 const labelWidthCaches = new WeakMap();
+const fontSetGenerations = new WeakMap();
+function fontGeneration(context) {
+  const fonts = context.canvas?.ownerDocument?.fonts ?? globalThis.document?.fonts;
+  if (!fonts || typeof fonts.addEventListener !== 'function') return 0;
+  let state = fontSetGenerations.get(fonts);
+  if (!state) {
+    state = { generation: 0 };
+    fonts.addEventListener('loadingdone', () => { state.generation++; });
+    fontSetGenerations.set(fonts, state);
+  }
+  return state.generation;
+}
 function measuredLabelWidth(context, text) {
   let cache = labelWidthCaches.get(context);
   const font = [context.font, context.direction, context.fontKerning, context.fontStretch, context.fontVariantCaps, context.letterSpacing, context.wordSpacing, context.textRendering].join('\0');
-  if (!cache || cache.font !== font) {
-    cache = { font, widths: new Map() };
+  const generation = fontGeneration(context);
+  if (!cache || cache.font !== font || cache.generation !== generation) {
+    cache = { font, generation, widths: new Map() };
     labelWidthCaches.set(context, cache);
   }
   if (!cache.widths.has(text)) {
