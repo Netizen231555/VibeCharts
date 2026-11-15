@@ -1,6 +1,6 @@
 import type { ExtensionRegistry } from './extensions.js';
 import type { DrawingLayout } from './drawings.js';
-export type { DrawingAxisLabels, DrawingStats, DrawingAxisLabelEntry, DrawingLayoutLabel, DrawingLayout, DrawingCaption, DrawingTextStyle, DrawingTextProperties } from './drawings.js';
+export type { DrawingAxisLabels, DrawingStats, DrawingAxisLabelEntry, DrawingLayoutLabel, DrawingLayout, DrawingCaption, DrawingTextStyle, DrawingTextProperties, FibonacciTool, FibonacciOption, FibonacciLevel, NormalizedFibonacciLevel, FibonacciProperties } from './drawings.js';
 
 export type UnixMilliseconds = number;
 export function timeFromUnixSeconds(seconds: number): UnixMilliseconds;
@@ -1293,7 +1293,7 @@ export interface DrawingStore {
 
 export function createDrawingStore(options: {
   context: { instrumentId: string; interval: string; sourceId: string; view?: string };
-  geometry: Record<string, (...args: unknown[]) => unknown>;
+  geometry: Record<string, (...args: unknown[]) => unknown> & { getPriceScaleMode(binding: unknown): PriceScaleMode };
   historyLimit: number;
   alertEngine?: AlertEngine;
   drawingChartId?: string;

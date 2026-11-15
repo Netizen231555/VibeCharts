@@ -44,6 +44,22 @@ const FIB_FAN = [0.236, 0.382, 0.5, 0.618, 0.786, 1];
 const FIB_ARCS = [0.382, 0.5, 0.618, 1];
 const FIB_TIME_ZONES = [0.382, 0.5, 0.618, 1];
 
+const FIB_LEVEL_DEFAULTS = Object.freeze({
+  fibRetracement: FIB_RETRACEMENT,
+  fibExtension: FIB_EXTENSION,
+  fibFan: FIB_FAN,
+  fibArcs: FIB_ARCS,
+  fibTimeZones: FIB_TIME_ZONES,
+});
+
+export const FIB_TOOL_OPTIONS = Object.freeze({
+  fibRetracement: Object.freeze(['showPrices', 'showPercent', 'reverse', 'fill', 'fillOpacity', 'extend', 'labelPosition']),
+  fibExtension: Object.freeze(['showPrices', 'showPercent', 'reverse', 'fill', 'fillOpacity', 'extend', 'labelPosition']),
+  fibFan: Object.freeze(['showPrices', 'showPercent', 'reverse', 'fill', 'fillOpacity', 'extend', 'labelPosition', 'grid']),
+  fibArcs: Object.freeze(['showPercent', 'reverse', 'fill', 'fillOpacity', 'labelPosition', 'fullCircles']),
+  fibTimeZones: Object.freeze(['showPercent', 'reverse', 'fill', 'fillOpacity', 'labelPosition']),
+});
+
 // Reach, arrow heads and the midpoint marker are properties of a line-family drawing, not identities of the tool:
 // this table holds, next to the tool table, the default that reproduces the behaviour each tool had before the
 // options existed. `extend` defaults to the tool's former clip; `arrows`/`midpoint` exist only where they apply.
@@ -70,7 +86,7 @@ export const LINE_OPTIONS = Object.freeze({
 // never a silent borrow of the default (an update patch replaces the whole object at its key).
 function normalizePair(value, defaults, field, members) {
   if (value === undefined) return { ...defaults };
-  if (!isObject(value)) fail('invalid-props', `${field} must be an object`, { field });
+  if (!isObject(value)) fail('invalid-props', `${field} must be an object { ${members.join(', ')} }`, { field });
   for (const key of Object.keys(value)) {
     if (!members.includes(key)) fail('invalid-props', `Unknown property ${key} in ${field}`, { field: `${field}.${key}` });
   }
@@ -155,7 +171,7 @@ function normalizeLevels(value, defaults, { positive = false } = {}) {
   return source.map((level, index) => {
     if (!isObject(level)) fail('invalid-levels', `Level ${index} must be an object`, { field: 'props.levels', index });
     for (const key of Object.keys(level)) {
-      if (!['coefficient', 'label', 'visible'].includes(key)) {
+      if (!['coefficient', 'label', 'visible', 'color', 'opacity'].includes(key)) {
         fail('invalid-levels', `Level ${index} has unknown property ${key}`, { field: 'props.levels', index });
       }
     }
@@ -166,13 +182,66 @@ function normalizeLevels(value, defaults, { positive = false } = {}) {
       fail('invalid-levels', `Level ${index} coefficient must be positive`, { field: 'props.levels', index });
     }
     if (seen.has(level.coefficient)) {
-      fail('invalid-levels', `Duplicate coefficient ${level.coefficient}`, { field: 'props.levels', index });
+      fail('invalid-levels', `Level ${index} has duplicate coefficient ${level.coefficient}`, { field: 'props.levels', index });
     }
     seen.add(level.coefficient);
-    const result = { coefficient: normalizeZero(level.coefficient), visible: level.visible === undefined ? true : requireBoolean(level.visible, 'props.levels.visible') };
-    if (level.label !== undefined) result.label = requireString(level.label, 'props.levels.label', { nonEmpty: false, max: 200 });
+    if (level.visible !== undefined && typeof level.visible !== 'boolean') {
+      fail('invalid-levels', `Level ${index} visible must be a boolean`, { field: 'props.levels', index });
+    }
+    if (level.label !== undefined && (typeof level.label !== 'string' || level.label.length > 200)) {
+      fail('invalid-levels', `Level ${index} label must be a string of at most 200 characters`, { field: 'props.levels', index });
+    }
+    if (level.color !== undefined && !isPlainColor(level.color)) {
+      fail('invalid-levels', `Level ${index} color must be a plain CSS color`, { field: 'props.levels', index });
+    }
+    if (level.opacity !== undefined && (!isNumber(level.opacity) || level.opacity < 0 || level.opacity > 1)) {
+      fail('invalid-levels', `Level ${index} opacity must be a finite number from 0 to 1`, { field: 'props.levels', index });
+    }
+    const result = { coefficient: normalizeZero(level.coefficient), visible: level.visible ?? true, opacity: normalizeZero(level.opacity ?? 1) };
+    if (level.label !== undefined) result.label = level.label;
+    if (level.color !== undefined) result.color = level.color;
     return result;
   });
+}
+
+export function fibDefaultLevels(type) {
+  if (!Object.hasOwn(FIB_LEVEL_DEFAULTS, type)) {
+    fail('invalid-type', `Not a Fibonacci tool: ${String(type)}`, { field: 'type' });
+  }
+  return normalizeLevels(undefined, FIB_LEVEL_DEFAULTS[type], { positive: type === 'fibArcs' });
+}
+
+function fibProps(type) {
+  const options = FIB_TOOL_OPTIONS[type];
+  return {
+    allowed: ['levels', ...options],
+    normalize: props => {
+      const result = { levels: normalizeLevels(props.levels, FIB_LEVEL_DEFAULTS[type], { positive: type === 'fibArcs' }) };
+      for (const key of options) {
+        const value = props[key];
+        const field = `props.${key}`;
+        if (key === 'extend') {
+          result[key] = normalizePair(value, type === 'fibFan' ? RIGHT : NONE, field, ['left', 'right']);
+        } else if (key === 'fillOpacity') {
+          if (value !== undefined && (!isNumber(value) || value < 0 || value > 1)) {
+            fail('invalid-props', `${field} must be a finite number from 0 to 1`, { field });
+          }
+          result[key] = normalizeZero(value ?? 0.18);
+        } else if (key === 'labelPosition') {
+          if (value !== undefined && !['start', 'center', 'end'].includes(value)) {
+            fail('invalid-props', `${field} must be one of start, center, end`, { field });
+          }
+          result[key] = value ?? (type === 'fibTimeZones' ? 'start' : 'end');
+        } else {
+          if (value !== undefined && typeof value !== 'boolean') {
+            fail('invalid-props', `${field} must be a boolean`, { field });
+          }
+          result[key] = value ?? (key === 'fullCircles');
+        }
+      }
+      return result;
+    },
+  };
 }
 
 function textProp(props) {
@@ -193,26 +262,11 @@ const PROP_DEFINITIONS = {
   text: { allowed: ['text'], normalize: props => ({ text: textProp(props) }) },
   callout: { allowed: ['text'], normalize: props => ({ text: textProp(props) }) },
   flag: { allowed: ['text'], normalize: props => ({ text: textProp(props) }) },
-  fibRetracement: {
-    allowed: ['levels'],
-    normalize: props => ({ levels: normalizeLevels(props.levels, FIB_RETRACEMENT) }),
-  },
-  fibExtension: {
-    allowed: ['levels'],
-    normalize: props => ({ levels: normalizeLevels(props.levels, FIB_EXTENSION) }),
-  },
-  fibFan: withLineOptions('fibFan', {
-    allowed: ['levels'],
-    normalize: props => ({ levels: normalizeLevels(props.levels, FIB_FAN) }),
-  }),
-  fibArcs: {
-    allowed: ['levels'],
-    normalize: props => ({ levels: normalizeLevels(props.levels, FIB_ARCS, { positive: true }) }),
-  },
-  fibTimeZones: {
-    allowed: ['levels'],
-    normalize: props => ({ levels: normalizeLevels(props.levels, FIB_TIME_ZONES) }),
-  },
+  fibRetracement: fibProps('fibRetracement'),
+  fibExtension: fibProps('fibExtension'),
+  fibFan: fibProps('fibFan'),
+  fibArcs: fibProps('fibArcs'),
+  fibTimeZones: fibProps('fibTimeZones'),
   pitchfork: withLineOptions('pitchfork', {
     allowed: ['variant'],
     normalize: props => {

@@ -1,4 +1,38 @@
-import type { AlertEngine, DrawingStore } from './index.js';
+import type { AlertEngine, DrawingExtend, DrawingStore, PriceScaleMode } from './index.js';
+
+export type FibonacciTool = 'fibRetracement' | 'fibExtension' | 'fibFan' | 'fibArcs' | 'fibTimeZones';
+export type FibonacciOption = 'showPrices' | 'showPercent' | 'reverse' | 'fill' | 'fillOpacity' | 'extend' | 'labelPosition' | 'grid' | 'fullCircles';
+
+/** Level color is inherited from the drawing when omitted; opacity defaults to 1. */
+export interface FibonacciLevel {
+  coefficient: number;
+  visible?: boolean;
+  label?: string;
+  color?: string;
+  opacity?: number;
+}
+
+export interface NormalizedFibonacciLevel extends FibonacciLevel {
+  visible: boolean;
+  opacity: number;
+}
+
+/** Options are accepted only for the tools listed in FIB_TOOL_OPTIONS. */
+export interface FibonacciProperties {
+  levels?: FibonacciLevel[];
+  showPrices?: boolean;
+  showPercent?: boolean;
+  reverse?: boolean;
+  fill?: boolean;
+  fillOpacity?: number;
+  extend?: DrawingExtend;
+  labelPosition?: 'start' | 'center' | 'end';
+  grid?: boolean;
+  fullCircles?: boolean;
+}
+
+export const FIB_TOOL_OPTIONS: Readonly<Record<FibonacciTool, readonly FibonacciOption[]>>;
+export function fibDefaultLevels(type: FibonacciTool): NormalizedFibonacciLevel[];
 
 /** Both flags default to false. A tool without the corresponding coordinate rejects true. */
 export interface DrawingAxisLabels {
@@ -68,7 +102,7 @@ export class DrawingError extends Error {
 
 export function createDrawingStore(options: {
   context: { instrumentId: string; interval: string; sourceId: string; view?: string };
-  geometry: Record<string, (...args: unknown[]) => unknown>;
+  geometry: Record<string, (...args: unknown[]) => unknown> & { getPriceScaleMode(binding: unknown): PriceScaleMode };
   historyLimit: number;
   alertEngine?: AlertEngine;
   drawingChartId?: string;
