@@ -1,8 +1,5 @@
-// The settings dialog of the terminal example: tabs of colour, number, toggle and select controls that edit the
-// settings store, plus a section that restyles the selected drawings. Controls write to the store as the user drags
-// (the host applies it live); the dialog itself is re-rendered only on structural changes (tab, theme, reset, import,
-// selection), never while a colour is being dragged. It is not modal: the chart behind it stays usable, so a drawing
-// can be selected and restyled while the dialog is open.
+// The terminal settings panel keeps drawing defaults and shared styles alongside chart settings.
+// Colour controls are not rebuilt during input, so a picker remains usable while it is open.
 import { TABS, FIELDS, DRAWING_FIELDS } from './settings-model.js';
 import { planDrawingStyle } from 'vibecharts/ui';
 
@@ -126,39 +123,6 @@ export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart,
     return planDrawingStyle(drawings, { [key]: value }, { keys: [key], groups: chart.drawings.listGroups(), ...options });
   }
 
-  function selectionSection() {
-    const chart = getChart();
-    const container = element('div', { class: 'settings-selection' });
-    const ids = chart ? chart.drawings.getSelection() : [];
-    const drawings = chart ? chart.drawings.list().filter((drawing) => ids.includes(drawing.id)) : [];
-    if (drawings.length === 0) {
-      container.append(element('p', { class: 'settings-hint' }, t('settings.drawings.selectHint')));
-      return container;
-    }
-    // A style chosen here is an individual choice: it is written with ownStyle, so shared edits leave it alone.
-    const individual = { includeOwn: true, ownStyle: true };
-    const keys = DRAWING_FIELDS.map((field) => field.key).filter((key) => drawings.every((drawing) => key in drawing.style));
-    for (const field of DRAWING_FIELDS.filter((entry) => keys.includes(entry.key))) {
-      const first = drawings[0].style[field.key];
-      container.append(control(field, t(`settings.d.${field.key}`), first, {
-        // A live preview while dragging; one undoable change when the control is released.
-        onInput: (value) => {
-          chart.drawings.setDragPreview(planFor(chart, drawings, field.key, value, individual).updates);
-          chart.requestRender();
-        },
-        onChange: (value) => {
-          chart.drawings.setDragPreview(null);
-          try {
-            const plan = planFor(chart, drawings, field.key, value, individual);
-            if (plan.skippedLocked.length > 0) throw new Error(t('settings.drawings.lockedSelection'));
-            if (plan.updates.length > 0) chart.drawings.updateBatch(plan.updates);
-          } catch (error) { fail('settings.error.save')(error); }
-          chart.requestRender();
-        },
-      }));
-    }
-    return container;
-  }
 
   // A shared control edit reaches the default of new drawings and every existing drawing that has no individual
   // style and is not locked, as one undo step; the preview and the commit filter exactly the same way.
@@ -191,7 +155,6 @@ export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart,
       onChange: (value) => sharedCommit(field.key, value),
     }));
     body.replaceChildren(
-      section(t('settings.drawings.selected'), selectionSection()),
       section(t('settings.drawings.new'), element('p', { class: 'settings-hint' }, t('settings.drawings.sharedHint')), ...defaults),
     );
   }
@@ -294,16 +257,4 @@ export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart,
   dialog.addEventListener('keydown', (event) => { if (event.key === 'Escape') { event.stopPropagation(); closeDialog(); } });
   button.addEventListener('click', () => (dialog.hidden ? open() : closeDialog()));
 
-  return {
-    /** Re-renders the selected-drawing section when the selection or a style changes while it is on screen. */
-    refreshSelection() {
-      if (dialog.hidden || activeTab !== 'drawings') return;
-      const focusedKey = document.activeElement?.dataset?.key;
-      const holder = body.querySelector('.settings-selection');
-      if (!holder) return;
-      holder.replaceWith(selectionSection());
-      if (focusedKey) body.querySelector(`.settings-selection [data-key="${focusedKey}"]`)?.focus();
-    },
-    get isOpen() { return !dialog.hidden; },
-  };
 }

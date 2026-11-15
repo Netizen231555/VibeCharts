@@ -657,7 +657,7 @@ function build() {
   }));
   s.unsubscribe.push(chart.subscribe('error', ({ operation, error }) => showNotice(`${operation}: ${error?.message ?? error}`)));
   s.unsubscribe.push(chart.alerts.subscribe(onAlertEvent));
-  s.unsubscribe.push(chart.drawings.subscribe(() => { syncHistoryButtons(); syncDrawingStateButtons(); settingsPanel.refreshSelection(); }));
+  s.unsubscribe.push(chart.drawings.subscribe(() => { syncHistoryButtons(); syncDrawingStateButtons(); }));
   s.unsubscribe.push(chart.interaction.subscribe('toolChange', ({ toolId }) => { state.tool = toolId; syncToolButtons(); }));
   state.tool = null;
   syncToolButtons();
@@ -817,7 +817,7 @@ function setTheme(name) {
   try { settings.setActiveTheme(name); } catch (error) { showNotice(t('settings.error.save', { message: error.message })); }
 }
 $('theme').addEventListener('click', () => setTheme(state.theme === 'dark' ? 'light' : 'dark'));
-const settingsPanel = createSettingsPanel({
+createSettingsPanel({
   settings, t, getTheme: () => state.theme, setTheme, getChart: () => chart, button: $('settings'),
   onError: (message) => showNotice(message), onAnnounce: announce,
 });
