@@ -8,6 +8,7 @@
  */
 import { InteractionError } from '../interaction/errors.js';
 import { createElement, append, clearElement, on, focusElement, contains } from '../interaction/dom.js';
+import { enhanceSelects } from './custom-select.js';
 import { fibDefaultLevels } from '../drawings/tools.js';
 import { t, localeOf } from './messages.js';
 import {
@@ -48,6 +49,7 @@ export function createDrawingSettingsDialog({ chart, doc, host, interaction = nu
   let session = null;
   let unsubscribeStore = null;
   let applying = false;
+  let disposeSelects = () => {};
   let destroyed = false;
   let uid = 0;
   const nextId = (kind) => `${prefix}-${kind}-${(uid += 1)}`;
@@ -154,6 +156,7 @@ export function createDrawingSettingsDialog({ chart, doc, host, interaction = nu
   }
 
   function render() {
+    disposeSelects();
     const focusKey = dialog && doc.activeElement && contains(dialog, doc.activeElement) ? doc.activeElement.getAttribute?.('data-field') : null;
     const { description, missing, drawings } = describe();
     titleNode.textContent = titleFor(description);
@@ -191,6 +194,7 @@ export function createDrawingSettingsDialog({ chart, doc, host, interaction = nu
     }
     for (const group of active?.groups ?? []) append(panel, renderGroup(group));
     if (active?.id === 'style') append(panel, renderStyleTools(description, drawings));
+    disposeSelects = enhanceSelects(panel);
     if (description.locked) applyButton.setAttribute('disabled', ''); else applyButton.removeAttribute('disabled');
     if (focusKey) {
       focusElement(findField(focusKey));
@@ -531,6 +535,7 @@ export function createDrawingSettingsDialog({ chart, doc, host, interaction = nu
   function onClosed() {
     // A queued close event can arrive after the same dialog has been reopened.
     if (dialog?.open) return;
+    disposeSelects();
     const invoker = session?.invoker;
     unsubscribeStore?.();
     unsubscribeStore = null;
@@ -546,6 +551,7 @@ export function createDrawingSettingsDialog({ chart, doc, host, interaction = nu
 
   function destroy() {
     if (destroyed) return;
+    disposeSelects();
     destroyed = true;
     unsubscribeStore?.();
     unsubscribeStore = null;

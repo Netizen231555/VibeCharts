@@ -30,6 +30,32 @@
 .chart-drawing-settings-saved > label { display: block; margin: 6px 0 4px; }
 .chart-drawing-settings-saved > select, .chart-drawing-settings-saved > input[type="text"] { display: block; width: 100%; box-sizing: border-box; }
 .chart-drawing-settings-saved > button { margin-top: 6px; max-width: 100%; white-space: normal; }
+.chart-custom-select { position: relative; display: block; min-width: 0; }
+.chart-custom-select-button {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  box-sizing: border-box; width: 100%; min-height: 42px; padding: 8px 12px;
+  border: 1px solid var(--chart-ui-border, #d3dae0); border-radius: 10px;
+  background: var(--chart-ui-bg, #fff); color: var(--chart-ui-text, #1d2630);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.chart-custom-select-button::after {
+  content: ""; flex: none; width: 7px; height: 7px;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px);
+}
+.chart-custom-select-button:disabled { color: var(--chart-ui-muted, #56626e); cursor: not-allowed; }
+.chart-custom-select-list {
+  position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0;
+  display: block; max-height: 200px; overflow-y: auto; padding: 4px;
+  border: 1px solid var(--chart-ui-border, #d3dae0); border-radius: 10px;
+  background: var(--chart-ui-menu-bg, #fff); color: var(--chart-ui-text, #1d2630);
+  box-shadow: var(--chart-ui-shadow, 0 6px 20px rgba(16, 22, 28, .18));
+}
+.chart-custom-select-list[hidden] { display: none; }
+.chart-custom-select-option { display: block; padding: 9px 10px; border-radius: 6px; cursor: pointer; }
+.chart-custom-select-option:hover, .chart-custom-select-option.is-active { background: var(--chart-ui-hover, #e9edf0); }
+.chart-custom-select-option[aria-disabled="true"] { color: var(--chart-ui-muted, #56626e); cursor: not-allowed; }
+.chart-custom-select-button:focus-visible { outline: 2px solid var(--chart-ui-focus, #1b6f99); outline-offset: 2px; }
+.settings-dialog .field .chart-custom-select { flex: 0 1 170px; }
 .chart-drawing-settings-footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--chart-ui-border, #d3dae0); }
 .chart-drawing-settings-tab:focus-visible, .chart-drawing-settings-frame :focus-visible { outline: var(--chart-ui-focus-width, 2px) solid var(--chart-ui-focus, #1b6f99); outline-offset: 1px; }
 

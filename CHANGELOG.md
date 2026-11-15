@@ -2,6 +2,7 @@
 
 ## 0.1.0 — unreleased
 
+- Use keyboard-accessible custom dropdowns in chart and drawing settings.
 - Refine the terminal's chart and drawing settings dialog spacing, tabs and controls across light and dark themes.
 - Load the drawing-dialog styles in the terminal and arrange saved-style controls for narrow screens.
 - The terminal's drawing settings tab shows only the shared style; edit an individual drawing through its settings dialog.

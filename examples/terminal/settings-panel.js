@@ -2,6 +2,7 @@
 // Colour controls are not rebuilt during input, so a picker remains usable while it is open.
 import { TABS, FIELDS, DRAWING_FIELDS } from './settings-model.js';
 import { planDrawingStyle } from 'vibecharts/ui';
+import { enhanceSelects } from '../../src/ui/custom-select.js';
 
 const PRESETS = {
   classic: { up: '#3fa77f', down: '#d9645a', volumeUp: '#089981', volumeDown: '#f23645' },
@@ -29,6 +30,7 @@ function element(tag, props = {}, ...children) {
 }
 
 export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart, button, onError, onAnnounce }) {
+  let disposeSelects = () => {};
   let activeTab = 'chart';
   const dialog = element('div', { class: 'settings-dialog', role: 'dialog', 'aria-label': t('settings.title'), hidden: true });
   const themeGroup = element('div', { class: 'settings-themes', role: 'group', 'aria-label': t('settings.theme') });
@@ -164,10 +166,12 @@ export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart,
 
   /* -------------------------------- layout -------------------------------- */
   function renderBody() {
+    disposeSelects();
     // Discard a transient drawing preview when its controls are replaced.
     const chart = getChart();
     if (chart) { chart.drawings.setDragPreview(null); chart.requestRender(); }
     if (activeTab === 'drawings') renderDrawingsTab(); else renderThemeTab(activeTab);
+    disposeSelects = enhanceSelects(body);
     for (const tab of tablist.children) {
       const selected = tab.dataset.tab === activeTab;
       tab.setAttribute('aria-selected', String(selected));
@@ -247,6 +251,7 @@ export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart,
   }
   function closeDialog() {
     if (dialog.hidden) return;
+    disposeSelects();
     dialog.hidden = true;
     button.setAttribute('aria-expanded', 'false');
     const chart = getChart();
