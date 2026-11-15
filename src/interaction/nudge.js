@@ -44,7 +44,9 @@ function scalePriceStep(chart, binding) {
 export function planNudge({ chart, store, adapter, ids, action }) {
   const { axis, sign, amount } = NUDGE_ACTIONS[action];
   const surface = chart.surface;
-  const drawings = ids.map(id => store.get(id));
+  // One list() instead of a get() per id: get() looks the drawing up linearly.
+  const byId = new Map(store.list().map(drawing => [drawing.id, drawing]));
+  const drawings = ids.map(id => byId.get(id) ?? store.get(id));
   if (drawings.some(drawing => isLocked(store, drawing))) return { refusal: 'locked' };
   const updates = [];
   const steps = new Map();

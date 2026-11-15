@@ -614,6 +614,8 @@ export function createDrawingStore(options) {
   function expandTargets(target, { groupVisibleOnly = false } = {}) {
     const rawIds = Array.isArray(target) ? target : [target];
     const ids = [];
+    // One id set per call: a large selection would otherwise scan the drawing list once per id.
+    let known = null;
     for (const id of rawIds) {
       if (typeof id !== 'string' || id === '') fail('invalid-target', 'selection target must be a non-empty id', { id });
       if (groupById(id)) {
@@ -622,7 +624,8 @@ export function createDrawingStore(options) {
           if (!groupVisibleOnly || effectiveVisible(drawing)) ids.push(drawing.id);
         }
       } else {
-        requireDrawing(id);
+        known ??= new Set(drawings.map(drawing => drawing.id));
+        if (!known.has(id)) requireDrawing(id);
         ids.push(id);
       }
     }
@@ -1036,13 +1039,14 @@ export function createDrawingStore(options) {
   function copiesOf(target, updates) {
     const ids = expandTargets(target);
     if (!ids.length) fail('invalid-target', 'duplicate requires at least one drawing', { field: 'target' });
+    const targeted = new Set(ids);
     const patches = new Map();
     if (updates !== undefined) {
       if (!Array.isArray(updates)) fail('invalid-patch', 'updates must be an array', { field: 'updates' });
       updates.forEach((entry, index) => {
         if (!isObject(entry)) fail('invalid-patch', 'each update must be an object', { field: `updates.${index}` });
         const id = requireString(entry.id, `updates.${index}.id`);
-        if (!ids.includes(id)) fail('invalid-patch', `Update ${id} is not a duplicated drawing`, { field: `updates.${index}.id`, id });
+        if (!targeted.has(id)) fail('invalid-patch', `Update ${id} is not a duplicated drawing`, { field: `updates.${index}.id`, id });
         if (patches.has(id)) fail('invalid-patch', 'drawing IDs must be unique', { field: 'updates' });
         patches.set(id, entry.patch ?? {});
       });
@@ -1106,7 +1110,8 @@ export function createDrawingStore(options) {
     if (!objects.some(object => object[flag] !== value)) return false;
     command(type, objects.map(object => object.id), () => {
       for (const object of objects) object[flag] = value;
-      selection = selection.filter(id => effectiveVisible(requireDrawing(id)));
+      const byId = new Map(drawings.map(drawing => [drawing.id, drawing]));
+      selection = selection.filter(id => effectiveVisible(byId.get(id)));
     });
     return true;
   }
