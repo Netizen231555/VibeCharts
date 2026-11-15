@@ -316,8 +316,8 @@ const PROP_DEFINITIONS = {
   rectangle: withLineOptions('rectangle'),
 };
 
-const LABEL_TOOLS = ['segment', 'ray', 'line', 'horizontalLevel', 'horizontalRay', 'verticalLine', 'arrow', 'parallelChannel', 'regressionChannel', 'rectangle', 'ellipse', 'triangle'];
-const TEXT_STYLE_TOOLS = ['text', 'callout', 'flag', 'priceLabel'];
+export const LABEL_TOOLS = ['segment', 'ray', 'line', 'horizontalLevel', 'horizontalRay', 'verticalLine', 'arrow', 'parallelChannel', 'regressionChannel', 'rectangle', 'ellipse', 'triangle'];
+export const TEXT_STYLE_TOOLS = ['text', 'callout', 'flag', 'priceLabel'];
 
 function normalizeTypography(value, field, label) {
   if (!isObject(value)) fail('invalid-props', `${field} must be an object`, { field });

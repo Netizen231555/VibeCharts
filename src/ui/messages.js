@@ -5,6 +5,7 @@
  * the translator are derived from them. A missing key throws, see `i18n.js`.
  */
 import { createTranslator } from '../i18n.js';
+import { DRAWING_SETTINGS_MESSAGES } from './drawing-settings/messages.js';
 
 const MESSAGES = {
   // Chart shell and controller
@@ -323,7 +324,12 @@ const MESSAGES = {
   'top.history': ['Drawing history', 'История рисунков'],
 };
 
-const entries = Object.entries(MESSAGES);
+const entries = Object.entries({ ...MESSAGES, ...DRAWING_SETTINGS_MESSAGES });
+
+/** Whether a key has both an English and a Russian text; the settings registry checks every label with it. */
+export function hasMessage(key) {
+  return Object.hasOwn(MESSAGES, key) || Object.hasOwn(DRAWING_SETTINGS_MESSAGES, key);
+}
 
 export const t = createTranslator({
   en: Object.fromEntries(entries.map(([key, [en]]) => [key, en])),
