@@ -278,13 +278,22 @@ const PROP_DEFINITIONS = {
     },
   }),
   regressionChannel: {
-    allowed: ['seriesId', 'k'],
+    allowed: ['seriesId', 'upperK', 'lowerK', 'showR', 'extend'],
     normalize: props => {
       const seriesId = requireString(props.seriesId, 'props.seriesId');
-      if (!isNumber(props.k) || props.k < 0) {
-        fail('invalid-props', 'props.k must be a finite non-negative number', { field: 'props.k' });
+      for (const key of ['upperK', 'lowerK']) {
+        if (!isNumber(props[key]) || props[key] < 0) {
+          fail('invalid-props', `props.${key} must be a finite non-negative number`, { field: `props.${key}` });
+        }
       }
-      return { seriesId, k: normalizeZero(props.k) };
+      const showR = props.showR === undefined ? false : props.showR;
+      if (typeof showR !== 'boolean') fail('invalid-props', 'props.showR must be a boolean', { field: 'props.showR' });
+      const extend = props.extend === undefined ? { left: false, right: false } : props.extend;
+      if (!isObject(extend) || Object.keys(extend).some(key => key !== 'left' && key !== 'right')
+          || typeof extend.left !== 'boolean' || typeof extend.right !== 'boolean') {
+        fail('invalid-props', 'props.extend must be an object with boolean left and right', { field: 'props.extend' });
+      }
+      return { seriesId, upperK: normalizeZero(props.upperK), lowerK: normalizeZero(props.lowerK), showR, extend: { left: extend.left, right: extend.right } };
     },
   },
   anchoredVwap: withAxisStats('anchoredVwap', withLineOptions('anchoredVwap', {
@@ -351,6 +360,9 @@ for (const type of [...LABEL_TOOLS, ...TEXT_STYLE_TOOLS]) {
 }
 
 export function normalizeProps(type, props = {}) {
+  if (type === 'regressionChannel' && isObject(props) && Object.hasOwn(props, 'k')) {
+    fail('invalid-props', 'props.k was replaced by props.upperK and props.lowerK', { field: 'props.k' });
+  }
   assertKnownProps(type, props, PROP_DEFINITIONS[type]?.allowed ?? []);
   return PROP_DEFINITIONS[type] ? PROP_DEFINITIONS[type].normalize(props) : {};
 }

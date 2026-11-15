@@ -42,7 +42,7 @@ export function anchorTime(anchor, adapter, binding) {
   return slot.time;
 }
 
-export function computeRegression({ x1, x2, series, k }) {
+export function computeRegression({ x1, x2, series }) {
   if (!Array.isArray(series)) return { available: false, reason: 'missing-series' };
   const from = Math.min(x1, x2);
   const to = Math.max(x1, x2);
@@ -64,9 +64,11 @@ export function computeRegression({ x1, x2, series, k }) {
   const ybar = points.reduce((sum, p) => sum + p.y, 0) / n;
   let sxx = 0;
   let sxy = 0;
+  let syy = 0;
   for (const p of points) {
     sxx += (p.x - xbar) ** 2;
     sxy += (p.x - xbar) * (p.y - ybar);
+    syy += (p.y - ybar) ** 2;
   }
   if (!(sxx > 0)) return { available: false, reason: 'insufficient-points', range: { from, to } };
   const b = sxy / sxx;
@@ -74,7 +76,10 @@ export function computeRegression({ x1, x2, series, k }) {
   let residuals = 0;
   for (const p of points) residuals += (p.y - (a + b * p.x)) ** 2;
   const sigma = Math.sqrt(residuals / n);
-  return { available: true, a, b, sigma, k, n, points, range: { from, to } };
+  const correlation = n < 3 ? { available: false, reason: 'insufficient-points' }
+    : syy === 0 ? { available: false, reason: 'zero-variance' }
+      : { available: true, value: Math.max(-1, Math.min(1, sxy / Math.sqrt(sxx * syy))) };
+  return { available: true, a, b, sigma, n, points, range: { from, to }, correlation };
 }
 
 export function computeVwap({ anchorX, priceSeries, volumeSeries, count }) {

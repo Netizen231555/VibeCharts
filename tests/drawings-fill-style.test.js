@@ -124,14 +124,14 @@ test('a path with fewer than three distinct points has no interior and no error'
   assert.equal(primitives[0].fillable, true);
 });
 
-test('the export document is version 2 and round-trips filled styles', () => {
-  assert.equal(DRAWINGS_SCHEMA_VERSION, 2);
+test('the export document is version 3 and round-trips filled styles', () => {
+  assert.equal(DRAWINGS_SCHEMA_VERSION, 3);
   const store = makeStore();
   const rect = add(store, 'rectangle', [ANCHOR(1, 20), ANCHOR(5, 60)], { fill: true, fillOpacity: 0.3 });
   add(store, 'polyline', [ANCHOR(2, 20), ANCHOR(8, 90), ANCHOR(14, 20)], { fill: true });
   store.saveStyle({ name: 'filled', type: 'rectangle', style: store.get(rect).style });
   const document = store.export();
-  assert.equal(document.schemaVersion, 2);
+  assert.equal(document.schemaVersion, 3);
 
   const fresh = makeStore();
   fresh.import(document);
@@ -152,7 +152,7 @@ test('a version 1 document is rejected naming fillColor and leaves the store unc
   assert.deepEqual(store.list().map(drawing => drawing.id), [mine]);
 });
 
-test('a version 2 document carrying fillColor is rejected and nothing is imported', () => {
+test('a current-version document carrying fillColor is rejected and nothing is imported', () => {
   const store = makeStore();
   add(store, 'rectangle', [ANCHOR(1, 20), ANCHOR(5, 60)], {});
   const document = store.export();

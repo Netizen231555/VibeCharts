@@ -17,7 +17,7 @@ const drawing = { type: 'segment', paneId: 'main', scaleId: 'right', anchors: [{
 
 test('caption and text style support, defaults and field errors', () => {
   for (const type of ['segment', 'ray', 'line', 'horizontalLevel', 'horizontalRay', 'verticalLine', 'arrow', 'parallelChannel', 'regressionChannel', 'rectangle', 'ellipse', 'triangle']) {
-    const props = { label: { text: 'Support' }, ...(type === 'regressionChannel' ? { seriesId: 's', k: 1 } : {}) };
+    const props = { label: { text: 'Support' }, ...(type === 'regressionChannel' ? { seriesId: 's', upperK: 1, lowerK: 1 } : {}) };
     assert.deepEqual(normalizeProps(type, props).label, { text: 'Support', size: 12, bold: false, italic: false, align: 'center' });
   }
   for (const type of ['text', 'callout', 'flag', 'priceLabel']) {
@@ -104,7 +104,7 @@ test('supported geometry families expose captions in their layouts', () => {
       : type === 'verticalLine' ? [{ anchorBarId: 'b1', offset: 0 }]
         : type === 'horizontalRay' ? [a]
           : ['triangle', 'parallelChannel'].includes(type) ? [a, b, c] : [a, b];
-    const props = { label: { text: 'first\nsecond' }, ...(type === 'regressionChannel' ? { seriesId: 's', k: 1 } : {}) };
+    const props = { label: { text: 'first\nsecond' }, ...(type === 'regressionChannel' ? { seriesId: 's', upperK: 1, lowerK: 1 } : {}) };
     const d = s.add({ type, paneId: 'main', scaleId: 'right', anchors, props });
     const layout = s.layout(d.id);
     assert.ok(layout.labels.some(label => label.text === 'first\nsecond'), type);

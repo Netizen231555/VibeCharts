@@ -34,6 +34,21 @@ export interface FibonacciProperties {
 export const FIB_TOOL_OPTIONS: Readonly<Record<FibonacciTool, readonly FibonacciOption[]>>;
 export function fibDefaultLevels(type: FibonacciTool): NormalizedFibonacciLevel[];
 
+/** Regression bands use independently specified non-negative finite residual-deviation multipliers. */
+export interface RegressionChannelProperties {
+  seriesId: string;
+  upperK: number;
+  lowerK: number;
+  /** Defaults to false. */
+  showR?: boolean;
+  /** Defaults to { left: false, right: false }. */
+  extend?: DrawingExtend;
+}
+
+export type RegressionCorrelation =
+  | { available: true; value: number }
+  | { available: false; reason: 'insufficient-points' | 'zero-variance' };
+
 /** Both flags default to false. A tool without the corresponding coordinate rejects true. */
 export interface DrawingAxisLabels {
   price?: boolean;
@@ -92,6 +107,8 @@ export interface DrawingLayoutLabel {
 export interface DrawingLayout {
   axisLabels?: DrawingAxisLabelEntry[];
   labels: DrawingLayoutLabel[];
+  /** Present when a regression channel has an available fit. */
+  regression?: { correlation: RegressionCorrelation; [key: string]: unknown };
   [key: string]: unknown;
 }
 
@@ -114,7 +131,7 @@ export function completeStyle(input: Record<string, unknown>): Record<string, un
 export function defaultStyle(type: string): Record<string, unknown>;
 
 export const DRAWINGS_FORMAT: string;
-export const DRAWINGS_SCHEMA_VERSION: number;
+export const DRAWINGS_SCHEMA_VERSION: 3;
 export const DRAWINGS_PITCHFORK_VARIANTS: readonly string[];
 export const DRAWING_TOOLS: Readonly<Record<string, unknown>>;
 export const DRAWING_TOOL_TYPES: readonly string[];

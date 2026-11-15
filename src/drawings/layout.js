@@ -609,37 +609,56 @@ const BUILDERS = {
       }],
     };
   },
-  regressionChannel({ a, b, drawing, adapter, binding }) {
+  regressionChannel({ a, b, drawing, adapter, binding, rect }) {
     // Regression runs over source series indexes, which a derived x axis does not share.
     if (adapter.paneKind?.(binding) === 'derived') return { primitives: [], available: false, reason: 'derived-pane' };
     const series = adapter.getSeriesValues(drawing.props.seriesId);
-    const regression = computeRegression({ x1: a.logical, x2: b.logical, series, k: drawing.props.k });
+    const regression = computeRegression({ x1: a.logical, x2: b.logical, series });
     if (!regression.available) return { primitives: [], regression, available: false, reason: regression.reason };
-    const { a: intercept, b: slope, sigma, k, range } = regression;
+    const { a: intercept, b: slope, sigma, range, correlation } = regression;
     const xStart = adapter.logicalToX(range.from, binding);
     const xEnd = adapter.logicalToX(range.to, binding);
     const middleStart = intercept + slope * range.from;
     const middleEnd = intercept + slope * range.to;
-    const band = k * sigma;
-    const upperStart = adapter.priceToY(middleStart + band, binding);
-    const upperEnd = adapter.priceToY(middleEnd + band, binding);
-    const lowerStart = adapter.priceToY(middleStart - band, binding);
-    const lowerEnd = adapter.priceToY(middleEnd - band, binding);
+    const upperBand = drawing.props.upperK * sigma;
+    const lowerBand = drawing.props.lowerK * sigma;
+    const upperStart = adapter.priceToY(middleStart + upperBand, binding);
+    const upperEnd = adapter.priceToY(middleEnd + upperBand, binding);
+    const lowerStart = adapter.priceToY(middleStart - lowerBand, binding);
+    const lowerEnd = adapter.priceToY(middleEnd - lowerBand, binding);
     const startY = adapter.priceToY(middleStart, binding);
     const endY = adapter.priceToY(middleEnd, binding);
     if (![xStart, xEnd, upperStart, upperEnd, lowerStart, lowerEnd, startY, endY].every(isNumber)) {
       return { primitives: [], regression, available: false, reason: 'projection-unavailable' };
     }
+    const line = (role, y1, y2) => {
+      let leftX = xStart, rightX = xEnd, leftY = y1, rightY = y2;
+      if (leftX > rightX) {
+        [leftX, rightX] = [rightX, leftX];
+        [leftY, rightY] = [rightY, leftY];
+      }
+      if (leftX !== rightX) {
+        const dy = (rightY - leftY) / (rightX - leftX);
+        if (drawing.props.extend.left) { leftY += (rect.x - leftX) * dy; leftX = rect.x; }
+        if (drawing.props.extend.right) { rightY += (rect.x + rect.width - rightX) * dy; rightX = rect.x + rect.width; }
+      }
+      return { kind: 'segment', role, x1: leftX, y1: leftY, x2: rightX, y2: rightY };
+    };
+    const middle = line('regression-middle', startY, endY);
+    const upper = line('regression-upper', upperStart, upperEnd);
+    const lower = line('regression-lower', lowerStart, lowerEnd);
+    const labelX = xStart > xEnd ? xStart : xEnd;
+    const labelY = xStart > xEnd ? upperStart : upperEnd;
     return {
       primitives: [
-        { kind: 'segment', role: 'regression-middle', x1: xStart, y1: startY, x2: xEnd, y2: endY },
-        polygon('regression-band', [
-          { x: xStart, y: upperStart },
-          { x: xEnd, y: upperEnd },
-          { x: xEnd, y: lowerEnd },
-          { x: xStart, y: lowerStart },
-        ]),
+        { ...polygon('regression-fill', [
+          { x: upper.x1, y: upper.y1 }, { x: upper.x2, y: upper.y2 },
+          { x: lower.x2, y: lower.y2 }, { x: lower.x1, y: lower.y1 },
+        ]), stroke: false },
+        middle, upper, lower,
       ],
+      labels: drawing.props.showR ? [{ x: labelX, y: labelY - 4,
+        text: correlation.available ? `r = ${correlation.value.toFixed(2)}` : 'r —' }] : [],
       regression,
       available: true,
     };

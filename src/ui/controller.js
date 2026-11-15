@@ -240,7 +240,7 @@ export function createUiController(chart, options = {}) {
     const series = typeof chart?.series?.list === 'function' ? chart.series.list().filter((entry) => entry.visible) : [];
     const price = series.find((entry) => ['candlestick', 'bar', 'line', 'area', 'baseline'].includes(entry.type));
     if (!price) return { refusal: tr('tool.needsPriceSeries', { tool: label }) };
-    if (id === 'regressionChannel') return { props: { seriesId: price.id, k: 2 } };
+    if (id === 'regressionChannel') return { props: { seriesId: price.id, upperK: 2, lowerK: 2 } };
     const volume = series.find((entry) => entry.type === 'histogram');
     if (!volume) return { refusal: tr('tool.needsVolumeSeries', { tool: label }) };
     return { props: { priceSeriesId: price.id, volumeSeriesId: volume.id } };

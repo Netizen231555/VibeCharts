@@ -4,7 +4,7 @@ import { buildLayout, resolveAnchor, validateDrawingGeometry } from './layout.js
 import { measureAnchors } from './analytics.js';
 import { clone, equal, fail, isNumber, isObject, normalizeZero, requireBoolean, requireString } from './values.js';
 
-export const DRAWINGS_SCHEMA_VERSION = 2;
+export const DRAWINGS_SCHEMA_VERSION = 3;
 export const DRAWINGS_FORMAT = 'vibecharts/drawings';
 export const DRAWING_TOOL_TYPES = Object.freeze(Object.keys(DRAWING_TOOLS));
 export const DRAWING_RESTORE_HOOKS = Symbol('drawingRestoreHooks');
@@ -1401,7 +1401,11 @@ export function createDrawingStore(options) {
       const legacy = document.schemaVersion === 1
         ? ' (the style property fillColor no longer exists; fill uses color and fillOpacity)'
         : '';
-      fail('unsupported-version', `Unsupported drawings schema version: ${String(document.schemaVersion)}${legacy}`, {
+      const oldChannels = Array.isArray(document.drawings) ? document.drawings.flatMap((drawing, index) =>
+        drawing?.type === 'regressionChannel' && isObject(drawing.props) && Object.hasOwn(drawing.props, 'k')
+          ? [`drawings[${index}].props.k`] : []) : [];
+      const channels = oldChannels.length ? `; ${oldChannels.join(', ')} replaced by props.upperK and props.lowerK` : '';
+      fail('unsupported-version', `Unsupported drawings schemaVersion: received ${String(document.schemaVersion)}, expected ${DRAWINGS_SCHEMA_VERSION}${legacy}${channels}`, {
         field: 'schemaVersion',
         expected: DRAWINGS_SCHEMA_VERSION,
       });
