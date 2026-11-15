@@ -12,10 +12,11 @@ function fontGeneration(context) {
   if (!fonts || typeof fonts.addEventListener !== 'function') return 0;
   let state = fontSetGenerations.get(fonts);
   if (!state) {
-    state = { generation: 0 };
+    state = { generation: 0, size: fonts.size };
     fonts.addEventListener('loadingdone', () => { state.generation++; });
     fontSetGenerations.set(fonts, state);
   }
+  if (state.size !== fonts.size) { state.size = fonts.size; state.generation++; }
   return state.generation;
 }
 function measuredLabelWidth(context, text) {

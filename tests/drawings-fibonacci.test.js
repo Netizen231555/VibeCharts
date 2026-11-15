@@ -312,8 +312,8 @@ test('partially visible time-zone labels are measured and cached across frames',
 
 test('font loading invalidates cached Fibonacci widths even when font string is unchanged', () => {
   let calls = 0, listener;
-  const fonts = { addEventListener(type, fn) { assert.equal(type, 'loadingdone'); listener = fn; } };
-  const ctx = { font: '12px DynamicFibFont', canvas: { ownerDocument: { fonts } }, measureText() { return { width: ++calls === 1 ? 144 : 226.5 }; } };
+  const fonts = { size: 0, addEventListener(type, fn) { assert.equal(type, 'loadingdone'); listener = fn; } };
+  const ctx = { font: '12px DynamicFibFont', canvas: { ownerDocument: { fonts } }, measureText() { return { width: [144, 226.5, 180, 144][calls++] }; } };
   const g = { ...geometry, getTextContext: () => ctx };
   const s = createDrawingStore({ context: { instrumentId: 'T', interval: 'D', sourceId: 'src' }, geometry: g, historyLimit: 10 });
   const id = add(s, 'fibTimeZones', { levels: [{ coefficient: 1, label: 'dynamic' }] }, [{ anchorBarId: 'b2', offset: 0 }, { anchorBarId: 'b3', offset: 0 }]);
@@ -322,4 +322,9 @@ test('font loading invalidates cached Fibonacci widths even when font string is 
   listener();
   assert.equal(s.layout(id).labels[0].width, 226.5);
   assert.equal(calls, 2);
+  fonts.size = 1;
+  assert.equal(s.layout(id).labels[0].width, 180);
+  fonts.size = 0;
+  assert.equal(s.layout(id).labels[0].width, 144);
+  assert.equal(calls, 4);
 });
