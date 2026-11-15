@@ -266,7 +266,7 @@ test('offscreen Fibonacci families avoid canvas measurement and keep visible tim
     let calls = 0;
     const g = { ...geometry, getTextContext: () => ({ measureText() { calls++; return { width: 50 }; } }) };
     const s = createDrawingStore({ context: { instrumentId: 'T', interval: 'D', sourceId: 'src' }, geometry: g, historyLimit: 10 });
-    const xy = [anchor(-4, 100), anchor(-3, 100)];
+    const xy = type === 'fibTimeZones' ? [anchor(23, 100), anchor(24, 100)] : [anchor(-4, 100), anchor(-3, 100)];
     const anchors = type === 'fibTimeZones' ? xy.map(({ anchorBarId, offset }) => ({ anchorBarId, offset }))
       : type === 'fibExtension' ? [...xy, anchor(-3, 100)] : xy;
     const props = { levels: [{ coefficient: 1, label: 'foo' }], ...(type === 'fibFan' ? { extend: { left: false, right: false } } : {}) };
@@ -279,4 +279,33 @@ test('offscreen Fibonacci families avoid canvas measurement and keep visible tim
   const s = store();
   const id = add(s, 'fibTimeZones', { levels: [{ coefficient: 1, label: 'foo' }] }, [{ anchorBarId: 'b2', offset: 0 }, { anchorBarId: 'b3', offset: 0 }]);
   assert.equal(s.layout(id).labels[0].text, 'foo');
+});
+
+test('partially visible time-zone labels are measured and cached across frames', () => {
+  let calls = 0;
+  const context = { font: '10px sans-serif', measureText() { calls++; return { width: 40 }; } };
+  const g = { ...geometry, getTextContext: () => context };
+  const s = createDrawingStore({ context: { instrumentId: 'T', interval: 'D', sourceId: 'src' }, geometry: g, historyLimit: 10 });
+  const timeAnchor = x => ({ anchorBarId: 'b0', offset: x / 10 });
+  const left = add(s, 'fibTimeZones', { levels: [{ coefficient: 1, label: 'foo' }] }, [timeAnchor(-20), timeAnchor(-1)]);
+  calls = 0;
+  let label = s.layout(left).labels[0];
+  assert.ok(Math.abs(label.x - 1) < 1e-9); assert.equal(label.width, 40); assert.equal(calls, 1);
+  s.layout(left); assert.equal(calls, 1);
+  context.font = '20px sans-serif';
+  s.layout(left); assert.equal(calls, 2);
+  const ambiguous = add(s, 'fibTimeZones', { levels: [{ coefficient: 1, label: 'far-left' }] }, [timeAnchor(-40), timeAnchor(-30)]);
+  calls = 0;
+  s.layout(ambiguous); assert.equal(calls, 1);
+  s.layout(ambiguous); assert.equal(calls, 1);
+  context.measureText = () => { calls++; return { width: 200 }; };
+  const wide = add(s, 'fibTimeZones', { levels: [{ coefficient: 1, label: 'wide' }] }, [timeAnchor(-120), timeAnchor(-100)]);
+  const wideLabel = s.layout(wide).labels[0];
+  assert.equal(wideLabel.width, 200);
+  assert.ok(wideLabel.x + wideLabel.width > 0);
+  const right = add(s, 'fibTimeZones', { levels: [{ coefficient: 1, label: 'bar' }] }, [timeAnchor(180), timeAnchor(201)]);
+  label = s.layout(right).labels[0];
+  assert.equal(label.align, 'right'); assert.ok(label.x <= 200);
+  const invisible = add(s, 'fibTimeZones', { levels: [{ coefficient: 1, label: 'far' }] }, [timeAnchor(230), timeAnchor(240)]);
+  calls = 0; assert.equal(s.layout(invisible).labels.length, 0); assert.equal(calls, 0);
 });

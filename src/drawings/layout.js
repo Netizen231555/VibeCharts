@@ -4,6 +4,22 @@ import { DrawingError, equal, isNumber, normalizeZero } from './values.js';
 import { anchorTime, computeRegression, computeVwap, measureAnchors } from './analytics.js';
 import { buildStatsBadge } from './axis-stats.js';
 
+// Font-specific widths persist across frames; bound memory and discard stale metrics on font changes.
+const labelWidthCaches = new WeakMap();
+function measuredLabelWidth(context, text) {
+  let cache = labelWidthCaches.get(context);
+  const font = [context.font, context.direction, context.fontKerning, context.fontStretch, context.fontVariantCaps, context.letterSpacing, context.wordSpacing, context.textRendering].join('\0');
+  if (!cache || cache.font !== font) {
+    cache = { font, widths: new Map() };
+    labelWidthCaches.set(context, cache);
+  }
+  if (!cache.widths.has(text)) {
+    if (cache.widths.size >= 1024) cache.widths.delete(cache.widths.keys().next().value);
+    cache.widths.set(text, context.measureText(text).width);
+  }
+  return cache.widths.get(text);
+}
+
 const EPS = 1e-9;
 
 export function resolveAnchor(anchor, adapter, binding) {
@@ -729,7 +745,7 @@ const BUILDERS = {
     for (const { level, logical, x } of levels) {
       primitives.push({ kind: 'line', role: 'time-zone', coefficient: level.coefficient, logical,
         x1: x, y1: rect.y, x2: x, y2: rect.y + rect.height, ...fibStyle(level, drawing) });
-      if (x < rect.x || x > rect.x + rect.width) continue;
+      if (x > rect.x + rect.width + 4) continue;
       const y = drawing.props.labelPosition === 'start' ? rect.y + 12 :
         drawing.props.labelPosition === 'center' ? rect.y + rect.height / 2 : rect.y + rect.height - 2;
       const edge = Math.abs(x - rect.x - rect.width) <= 4;
@@ -945,12 +961,13 @@ function materialize(type, drawing, adapter) {
     for (const label of result.labels) positionLineLabel(label, drawing.props.labelPosition, result.fibLabelSpan, rect);
   }
   const estimated = computeBounds(layout.primitives, layout.labels, layout.handles);
-  if (estimated && rect && estimated.x <= rect.x + rect.width && estimated.x + estimated.width >= rect.x &&
-      estimated.y <= rect.y + rect.height && estimated.y + estimated.height >= rect.y) {
+  const ambiguousTimeLabel = drawing.type === 'fibTimeZones' && layout.labels.some(label => label.x < rect.x && label.align === 'left');
+  if (ambiguousTimeLabel || (estimated && rect && estimated.x <= rect.x + rect.width && estimated.x + estimated.width >= rect.x &&
+      estimated.y <= rect.y + rect.height && estimated.y + estimated.height >= rect.y)) {
     for (const label of layout.labels) {
       if (label.align) {
         textContext ??= adapter.getTextContext?.();
-        if (textContext?.measureText) label.width = textContext.measureText(String(label.text)).width;
+        if (textContext?.measureText) label.width = measuredLabelWidth(textContext, String(label.text));
       }
     }
   }
