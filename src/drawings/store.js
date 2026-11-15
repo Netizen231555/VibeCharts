@@ -9,7 +9,7 @@ export const DRAWINGS_FORMAT = 'vibecharts/drawings';
 export const DRAWING_TOOL_TYPES = Object.freeze(Object.keys(DRAWING_TOOLS));
 export const DRAWING_RESTORE_HOOKS = Symbol('drawingRestoreHooks');
 
-const ADAPTER_METHODS = ['resolveX', 'logicalToX', 'priceToY', 'yToPrice', 'getVisibleRect', 'getIndexCount', 'getSlot', 'indexOf', 'getSeriesValues'];
+const ADAPTER_METHODS = ['resolveX', 'logicalToX', 'priceToY', 'yToPrice', 'getVisibleRect', 'getPriceScaleMode', 'getIndexCount', 'getSlot', 'indexOf', 'getSeriesValues'];
 
 export function createDrawingStore(options) {
   if (!isObject(options)) fail('invalid-options', 'options must be an object');
@@ -1237,6 +1237,8 @@ export function createDrawingStore(options) {
         }
         return fill === true && pointInPolygon(point.x, point.y, primitive.points);
       }
+      case 'zone':
+        return pointInPolygon(point.x, point.y, primitive.points);
       case 'polygon': {
         const points = primitive.points;
         for (let i = 0; i < points.length; i += 1) {
@@ -1257,12 +1259,17 @@ export function createDrawingStore(options) {
         return Math.abs(Math.hypot(point.x - primitive.cx, point.y - primitive.cy) - primitive.r) <= radius;
       case 'arc': {
         const angle = Math.atan2(point.y - primitive.cy, point.x - primitive.cx);
-        let delta = angle - primitive.startAngle;
-        const sweep = primitive.endAngle - primitive.startAngle;
-        while (delta > Math.PI) delta -= Math.PI * 2;
-        while (delta < -Math.PI) delta += Math.PI * 2;
-        const within = sweep >= 0 ? delta >= 0 && delta <= sweep : delta <= 0 && delta >= sweep;
-        return within && Math.abs(Math.hypot(point.x - primitive.cx, point.y - primitive.cy) - primitive.r) <= radius;
+        const delta = ((angle - primitive.startAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+        return delta <= primitive.endAngle - primitive.startAngle &&
+          Math.abs(Math.hypot(point.x - primitive.cx, point.y - primitive.cy) - primitive.r) <= radius;
+      }
+      case 'ring': {
+        const dx = point.x - primitive.cx, dy = point.y - primitive.cy;
+        const distance = Math.hypot(dx, dy);
+        if (distance < primitive.innerRadius || distance > primitive.r) return false;
+        if (primitive.full) return true;
+        const delta = ((Math.atan2(dy, dx) - primitive.startAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+        return delta <= primitive.endAngle - primitive.startAngle;
       }
       case 'text': {
         if (primitive.textLayout) {
@@ -1270,8 +1277,9 @@ export function createDrawingStore(options) {
           return bounds !== null && point.x >= bounds.x - radius && point.x <= bounds.x + bounds.width + radius
             && point.y >= bounds.y - radius && point.y <= bounds.y + bounds.height + radius;
         }
-        const width = Math.max(4, String(primitive.text).length * 7);
-        return point.x >= primitive.x - radius && point.x <= primitive.x + width + radius
+        const width = primitive.width ?? Math.max(4, String(primitive.text).length * 7);
+        const left = primitive.align === 'right' ? primitive.x - width : primitive.align === 'center' ? primitive.x - width / 2 : primitive.x;
+        return point.x >= left - radius && point.x <= left + width + radius
           && point.y >= primitive.y - 12 - radius && point.y <= primitive.y + 4 + radius;
       }
       default:

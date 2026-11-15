@@ -11,6 +11,7 @@ const geometry = {
   hasBinding: () => true, getVisibleRect: () => ({ x: 0, y: 0, width: 200, height: 200 }),
   resolveX: a => Number(a.anchorBarId.slice(1)) + a.offset, logicalToX: x => x * 10,
   priceToY: p => 200 - p * 2, yToPrice: y => (200 - y) / 2,
+  getPriceScaleMode: () => 'linear',
   getIndexCount: () => 20, getSlot: i => ({ time: i * 3600000 }), indexOf: id => Number(id.slice(1)),
   getSeriesValues: () => null,
 };

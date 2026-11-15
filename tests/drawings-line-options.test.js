@@ -9,6 +9,7 @@ const geometry = {
   resolveX: anchor => Number(anchor.anchorBarId.slice(1)) + anchor.offset,
   logicalToX: value => value * 10,
   priceToY: price => 200 - price * 2,
+  getPriceScaleMode: () => 'linear',
   yToPrice: y => (200 - y) / 2,
   getIndexCount: () => 20,
   getSlot: () => 10,

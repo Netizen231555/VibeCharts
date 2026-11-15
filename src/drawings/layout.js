@@ -205,11 +205,8 @@ function lineBetween(role, x1, y1, x2, y2) {
   return { kind: 'segment', role, x1, y1, x2, y2 };
 }
 
-function horizontalSpan(a, b, rect) {
-  let x1 = Math.min(a.x, b.x);
-  let x2 = Math.max(a.x, b.x);
-  if (x1 === x2) x2 = Math.max(x2, rect.x + rect.width);
-  return { x1, x2 };
+function horizontalSpan(a, b) {
+  return { x1: Math.min(a.x, b.x), x2: Math.max(a.x, b.x) };
 }
 
 function formatPriceLabel(adapter, price, binding) {
@@ -222,8 +219,119 @@ function formatPriceLabel(adapter, price, binding) {
 
 
 
-function labelText(level) {
-  return level.label === undefined ? String(level.coefficient) : level.label;
+function fibText(level, props, adapter, binding, price) {
+  const base = level.label !== undefined ? level.label : props.showPercent
+    ? `${Number((level.coefficient * 100).toPrecision(12))}%` : String(level.coefficient);
+  return props.showPrices && price !== undefined ? `${base} (${formatPriceLabel(adapter, price, binding)})` : base;
+}
+
+function fibStyle(level, drawing, fill = false) {
+  return { color: level.color ?? drawing.style.color,
+    opacity: drawing.style.opacity * level.opacity * (fill ? drawing.props.fillOpacity : 1) };
+}
+
+function fibPrice(a, b, base, coefficient, mode) {
+  if (mode === 'log') {
+    if (a <= 0 || b <= 0 || base <= 0) return null;
+    const price = Math.exp(Math.log(base) + coefficient * (Math.log(b) - Math.log(a)));
+    return Number.isFinite(price) && price > 0 ? price : null;
+  }
+  const price = base + coefficient * (b - a);
+  return Number.isFinite(price) ? price : null;
+}
+
+function fibLabel(level, drawing, adapter, binding, price, x, y, align = 'left') {
+  return { x, y, align, text: fibText(level, drawing.props, adapter, binding, price),
+    coefficient: level.coefficient, ...fibStyle(level, drawing) };
+}
+
+function lineLabel(level, drawing, adapter, binding, price, span, y, rect) {
+  const position = drawing.props.labelPosition;
+  if (position === 'center') return fibLabel(level, drawing, adapter, binding, price, (span.x1 + span.x2) / 2, y - 2, 'center');
+  if (position === 'start') {
+    const edge = Math.abs(span.x1 - rect.x) <= 4;
+    return fibLabel(level, drawing, adapter, binding, price, edge ? rect.x + 4 : span.x1 - 4, y - 2, edge ? 'left' : 'right');
+  }
+  const edge = Math.abs(span.x2 - (rect.x + rect.width)) <= 4;
+  return fibLabel(level, drawing, adapter, binding, price, edge ? rect.x + rect.width - 4 : span.x2 + 4, y - 2, edge ? 'right' : 'left');
+}
+// Pick the requested point when it is visible; otherwise use the nearest visible arc/rectangle
+// intersection. This keeps a clipped arc's label on the visible portion rather than outside the pane.
+function visibleArcPoint(center, radius, angle, startAngle, full, rect) {
+  const tau = Math.PI * 2;
+  const normalize = value => ((value % tau) + tau) % tau;
+  const candidates = [angle, startAngle, startAngle + Math.PI];
+  for (const x of [rect.x, rect.x + rect.width]) {
+    const ratio = (x - center.x) / radius;
+    if (ratio >= -1 && ratio <= 1) {
+      const a = Math.acos(ratio);
+      candidates.push(a, -a);
+    }
+  }
+  for (const y of [rect.y, rect.y + rect.height]) {
+    const ratio = (y - center.y) / radius;
+    if (ratio >= -1 && ratio <= 1) {
+      const a = Math.asin(ratio);
+      candidates.push(a, Math.PI - a);
+    }
+  }
+  let best = null, bestDistance = Infinity;
+  for (const candidate of candidates) {
+    if (!full && normalize(candidate - startAngle) > Math.PI + EPS) continue;
+    const x = center.x + radius * Math.cos(candidate);
+    const y = center.y + radius * Math.sin(candidate);
+    if (x < rect.x - EPS || x > rect.x + rect.width + EPS ||
+        y < rect.y - EPS || y > rect.y + rect.height + EPS) continue;
+    const delta = normalize(candidate - angle);
+    const distance = Math.min(delta, tau - delta);
+    if (distance < bestDistance) {
+      best = { x, y };
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+
+function fibZone(points, level, drawing) {
+  return { kind: 'zone', points, stroke: false, ...fibStyle(level, drawing, true) };
+}
+
+function fibLines({ a, b, c, drawing, adapter, binding, rect }) {
+  const first = drawing.props.reverse ? b : a;
+  const second = drawing.props.reverse ? a : b;
+  const mode = adapter.getPriceScaleMode(binding);
+  const span = horizontalSpan(a, c ?? b);
+  if (drawing.props.extend.left) span.x1 = Math.min(span.x1, rect.x);
+  if (drawing.props.extend.right) span.x2 = Math.max(span.x2, rect.x + rect.width);
+  if ((drawing.props.extend.left || drawing.props.extend.right) && span.x1 <= rect.x + rect.width && span.x2 >= rect.x) {
+    span.x1 = Math.max(span.x1, rect.x);
+    span.x2 = Math.min(span.x2, rect.x + rect.width);
+  }
+  const levels = [];
+  for (const level of drawing.props.levels) {
+    if (!level.visible) continue;
+    const price = fibPrice(first.price, second.price, (c ?? first).price, level.coefficient, mode);
+    if (price === null) continue;
+    const y = adapter.priceToY(price, binding);
+    if (!isNumber(y)) continue;
+    levels.push({ level, price, y });
+  }
+  const primitives = [], labels = [];
+  if (drawing.props.fill) {
+    const sorted = [...levels].sort((x, y) => x.level.coefficient - y.level.coefficient);
+    for (let i = 1; i < sorted.length; i++) {
+      const prev = sorted[i - 1], next = sorted[i];
+      primitives.push(fibZone([{ x: span.x1, y: prev.y }, { x: span.x2, y: prev.y },
+        { x: span.x2, y: next.y }, { x: span.x1, y: next.y }], next.level, drawing));
+    }
+  }
+  for (const { level, price, y } of levels) {
+    primitives.push({ kind: 'segment', role: c ? 'fib-extension-level' : 'fib-level', coefficient: level.coefficient,
+      price, x1: span.x1, y1: y, x2: span.x2, y2: y, ...fibStyle(level, drawing) });
+    labels.push(lineLabel(level, drawing, adapter, binding, price, span, y, rect));
+  }
+  return { primitives, labels };
 }
 
 function arrowHead(tip, from) {
@@ -345,21 +453,7 @@ const BUILDERS = {
     const cy = (a.y + b.y) / 2;
     return { primitives: [{ kind: 'ellipse', cx, cy, rx: Math.abs(b.x - a.x) / 2, ry: Math.abs(b.y - a.y) / 2, fillable: true }] };
   },
-  fibRetracement({ a, b, drawing, adapter, binding }) {
-    const primitives = [];
-    const labels = [];
-    const span = horizontalSpan(a, b, adapter.getVisibleRect(binding));
-    for (const level of drawing.props.levels) {
-      if (!level.visible) continue;
-      const price = a.price + level.coefficient * (b.price - a.price);
-      const y = adapter.priceToY(price, binding);
-      if (!isNumber(y)) continue;
-      const text = labelText(level);
-      primitives.push({ kind: 'segment', role: 'fib-level', coefficient: level.coefficient, price, x1: span.x1, y1: y, x2: span.x2, y2: y });
-      labels.push({ x: span.x2 + 4, y: y - 2, text, coefficient: level.coefficient });
-    }
-    return { primitives, labels };
-  },
+  fibRetracement: fibLines,
   text({ a, drawing }) {
     return { primitives: [{ kind: 'text', x: a.x, y: a.y, text: drawing.props.text }] };
   },
@@ -492,65 +586,125 @@ const BUILDERS = {
       available: true,
     };
   },
-  fibExtension({ a, b, c, drawing, adapter, binding }) {
-    const primitives = [];
-    const labels = [];
-    const span = horizontalSpan(a, c, adapter.getVisibleRect(binding));
-    for (const level of drawing.props.levels) {
-      if (!level.visible) continue;
-      const price = c.price + level.coefficient * (b.price - a.price);
-      const y = adapter.priceToY(price, binding);
-      if (!isNumber(y)) continue;
-      primitives.push({ kind: 'segment', role: 'fib-extension-level', coefficient: level.coefficient, price, x1: span.x1, y1: y, x2: span.x2, y2: y });
-      labels.push({ x: span.x2 + 4, y: y - 2, text: labelText(level), coefficient: level.coefficient });
-    }
-    return { primitives, labels };
-  },
+  fibExtension: fibLines,
   fibFan({ a, b, drawing, adapter, binding, rect }) {
-    const primitives = [];
-    const labels = [];
-    if (a.x === b.x) return { primitives: [] };
+    const first = drawing.props.reverse ? b : a;
+    const second = drawing.props.reverse ? a : b;
+    const dx = second.x - first.x;
+    if (dx === 0) return { primitives: [] };
+    const mode = adapter.getPriceScaleMode(binding);
+    const extend = drawing.props.extend;
+    const minX = Math.max(rect.x, Math.min(extend.left ? (dx > 0 ? rect.x : rect.x + rect.width) : first.x,
+      extend.right ? (dx > 0 ? rect.x + rect.width : rect.x) : second.x));
+    const maxX = Math.min(rect.x + rect.width, Math.max(extend.left ? (dx > 0 ? rect.x : rect.x + rect.width) : first.x,
+      extend.right ? (dx > 0 ? rect.x + rect.width : rect.x) : second.x));
+    const levels = [], primitives = [], labels = [];
     for (const level of drawing.props.levels) {
       if (!level.visible) continue;
-      const price = a.price + level.coefficient * (b.price - a.price);
+      const price = fibPrice(first.price, second.price, first.price, level.coefficient, mode);
+      if (price === null) continue;
       const y = adapter.priceToY(price, binding);
       if (!isNumber(y)) continue;
-      // The ray runs from the origin through the level point: `right` (the default) continues it to the plot
-      // edge, otherwise it ends at the second anchor's x; `left` continues it backwards past the origin.
-      const stroke = strokeFor(drawing.props.extend, a, { x: b.x, y }, rect);
-      if (!stroke) continue;
-      primitives.push({ kind: stroke.kind, role: 'fib-fan-ray', coefficient: level.coefficient, x1: stroke.x1, y1: stroke.y1, x2: stroke.x2, y2: stroke.y2 });
-      labels.push({ x: stroke.x2 + 4, y: stroke.y2, text: labelText(level), coefficient: level.coefficient });
+      const stroke = strokeFor(extend, first, { x: second.x, y }, rect);
+      levels.push({ level, price, y, stroke });
+    }
+    if (drawing.props.fill && minX <= maxX) {
+      const sorted = [...levels].sort((x, y) => x.level.coefficient - y.level.coefficient);
+      for (let i = 1; i < sorted.length; i++) {
+        const prev = sorted[i - 1], next = sorted[i];
+        const at = (item, x) => first.y + (item.y - first.y) * ((x - first.x) / dx);
+        const points = [{ x: minX, y: at(prev, minX) }, { x: maxX, y: at(prev, maxX) },
+          { x: maxX, y: at(next, maxX) }, { x: minX, y: at(next, minX) }];
+        if (points.every(point => isNumber(point.y))) primitives.push(fibZone(points, next.level, drawing));
+      }
+    }
+    for (const { level, price, y, stroke } of levels) {
+      const style = fibStyle(level, drawing);
+      if (stroke) {
+        primitives.push({ ...stroke, role: 'fib-fan-ray', coefficient: level.coefficient, price, ...style });
+        const visible = clipLine(stroke.x1, stroke.y1, stroke.x2, stroke.y2, rect, { left: false, right: false });
+        if (visible) {
+          const t = drawing.props.labelPosition === 'start' ? 0.15 : drawing.props.labelPosition === 'center' ? 0.5 : 1;
+          const x = visible.x1 + (visible.x2 - visible.x1) * t;
+          const ly = visible.y1 + (visible.y2 - visible.y1) * t;
+          const edge = x >= rect.x + rect.width - 4;
+          labels.push(fibLabel(level, drawing, adapter, binding, price,
+            Math.max(rect.x + 4, Math.min(rect.x + rect.width - 4, x + (edge ? -4 : 4))),
+            Math.max(rect.y + 12, Math.min(rect.y + rect.height - 2, ly - 2)), edge ? 'right' : 'left'));
+        }
+      }
+      if (drawing.props.grid) {
+        const x = first.x + level.coefficient * dx;
+        if (y >= Math.min(first.y, second.y) && y <= Math.max(first.y, second.y))
+          primitives.push({ kind: 'segment', role: 'fib-fan-grid', x1: first.x, y1: y, x2: second.x, y2: y, ...style });
+        if (isNumber(x) && x >= Math.min(first.x, second.x) && x <= Math.max(first.x, second.x))
+          primitives.push({ kind: 'segment', role: 'fib-fan-grid', x1: x, y1: first.y, x2: x, y2: second.y, ...style });
+      }
     }
     return { primitives, labels };
   },
-  fibArcs({ a, b, drawing, rect }) {
-    const distance = Math.hypot(b.x - a.x, b.y - a.y);
-    if (distance <= EPS) return { primitives: [] };
-    const primitives = [];
-    const labels = [];
+  fibArcs({ a, b, drawing, adapter, binding, rect }) {
+    const center = drawing.props.reverse ? b : a;
+    const other = drawing.props.reverse ? a : b;
+    const distance = Math.hypot(other.x - center.x, other.y - center.y);
+    if (distance <= EPS || !Number.isFinite(distance)) return { primitives: [] };
+    const direction = Math.atan2(other.y - center.y, other.x - center.x);
+    const startAngle = direction - Math.PI / 2;
+    const endAngle = direction + Math.PI / 2;
+    const levels = [], primitives = [], labels = [];
     for (const level of drawing.props.levels) {
-      if (!level.visible) continue;
-      const radius = Math.abs(level.coefficient) * distance;
-      const bounds = { x: a.x - radius, y: a.y - radius, width: radius * 2, height: radius * 2 };
-      const visible = bounds.x <= rect.x + rect.width && bounds.x + bounds.width >= rect.x
-        && bounds.y <= rect.y + rect.height && bounds.y + bounds.height >= rect.y;
-      if (!visible) continue;
-      primitives.push({ kind: 'circle', role: 'fib-arc', cx: a.x, cy: a.y, r: radius, coefficient: level.coefficient });
-      labels.push({ x: a.x + radius * Math.SQRT1_2 + 2, y: a.y - radius * Math.SQRT1_2, text: labelText(level), coefficient: level.coefficient });
+      const r = level.coefficient * distance;
+      if (level.visible && Number.isFinite(r) && r > 0) levels.push({ level, r });
+    }
+    if (drawing.props.fill) {
+      const sorted = [...levels].sort((x, y) => x.level.coefficient - y.level.coefficient);
+      for (let i = 1; i < sorted.length; i++) {
+        primitives.push({ kind: 'ring', cx: center.x, cy: center.y, innerRadius: sorted[i - 1].r,
+          r: sorted[i].r, startAngle, endAngle, full: drawing.props.fullCircles, stroke: false,
+          ...fibStyle(sorted[i].level, drawing, true) });
+      }
+    }
+    for (const { level, r } of levels) {
+      const common = { role: 'fib-arc', cx: center.x, cy: center.y, r, coefficient: level.coefficient, ...fibStyle(level, drawing) };
+      primitives.push(drawing.props.fullCircles ? { kind: 'circle', ...common } : { kind: 'arc', ...common, startAngle, endAngle });
+      const angle = drawing.props.fullCircles
+        ? (drawing.props.labelPosition === 'start' ? -Math.PI / 2 : drawing.props.labelPosition === 'center' ? -3 * Math.PI / 8 : -Math.PI / 4)
+        : (drawing.props.labelPosition === 'start' ? startAngle : drawing.props.labelPosition === 'center' ? direction : endAngle);
+      const point = visibleArcPoint(center, r, angle, startAngle, drawing.props.fullCircles, rect);
+      if (point) {
+        const right = point.x > rect.x + rect.width / 2;
+        const x = Math.max(rect.x + 4, Math.min(rect.x + rect.width - 4, point.x + (right ? -2 : 2)));
+        const y = Math.max(rect.y + 12, Math.min(rect.y + rect.height - 2, point.y - 2));
+        labels.push(fibLabel(level, drawing, adapter, binding, undefined, x, y, right ? 'right' : 'left'));
+      }
     }
     return { primitives, labels };
   },
   fibTimeZones({ a, b, drawing, adapter, rect, binding }) {
-    const primitives = [];
-    const labels = [];
+    const first = drawing.props.reverse ? b : a, second = drawing.props.reverse ? a : b;
+    const levels = [], primitives = [], labels = [];
     for (const level of drawing.props.levels) {
       if (!level.visible) continue;
-      const logical = a.logical + level.coefficient * (b.logical - a.logical);
+      const logical = first.logical + level.coefficient * (second.logical - first.logical);
+      if (!Number.isFinite(logical)) continue;
       const x = adapter.logicalToX(logical, binding);
-      if (!isNumber(x)) continue;
-      primitives.push({ kind: 'line', role: 'time-zone', coefficient: level.coefficient, logical, x1: x, y1: rect.y, x2: x, y2: rect.y + rect.height });
-      labels.push({ x: x + 2, y: rect.y + 12, text: labelText(level), coefficient: level.coefficient });
+      if (isNumber(x)) levels.push({ level, logical, x });
+    }
+    if (drawing.props.fill) {
+      const sorted = [...levels].sort((x, y) => x.level.coefficient - y.level.coefficient);
+      for (let i = 1; i < sorted.length; i++) {
+        const prev = sorted[i - 1], next = sorted[i];
+        primitives.push(fibZone([{ x: prev.x, y: rect.y }, { x: next.x, y: rect.y },
+          { x: next.x, y: rect.y + rect.height }, { x: prev.x, y: rect.y + rect.height }], next.level, drawing));
+      }
+    }
+    for (const { level, logical, x } of levels) {
+      primitives.push({ kind: 'line', role: 'time-zone', coefficient: level.coefficient, logical,
+        x1: x, y1: rect.y, x2: x, y2: rect.y + rect.height, ...fibStyle(level, drawing) });
+      const y = drawing.props.labelPosition === 'start' ? rect.y + 12 :
+        drawing.props.labelPosition === 'center' ? rect.y + rect.height / 2 : rect.y + rect.height - 2;
+      const edge = Math.abs(x - rect.x - rect.width) <= 4;
+      labels.push(fibLabel(level, drawing, adapter, binding, undefined, edge ? rect.x + rect.width - 4 : x + 2, y, edge ? 'right' : 'left'));
     }
     return { primitives, labels };
   },
@@ -754,6 +908,20 @@ function materialize(type, drawing, adapter) {
     }
   }
   if (caption) caption.textLayout = layoutText(caption, rect, textContext ?? adapter.getTextContext?.());
+  // A conservative text estimate keeps offscreen layouts free of canvas calls.
+  for (const label of layout.labels) {
+    if (label.align) label.width = Math.max(4, String(label.text).length * 16);
+  }
+  const estimated = computeBounds(layout.primitives, layout.labels, layout.handles);
+  if (estimated && rect && estimated.x <= rect.x + rect.width && estimated.x + estimated.width >= rect.x &&
+      estimated.y <= rect.y + rect.height && estimated.y + estimated.height >= rect.y) {
+    for (const label of layout.labels) {
+      if (label.align) {
+        textContext ??= adapter.getTextContext?.();
+        if (textContext?.measureText) label.width = textContext.measureText(String(label.text)).width;
+      }
+    }
+  }
   for (const key of ['measure', 'regression', 'vwap', 'angleDegrees', 'available', 'reason', 'waiting', 'error', 'origin', 'direction', 'variant']) {
     if (result[key] !== undefined) layout[key] = result[key];
   }
@@ -778,11 +946,11 @@ function materialize(type, drawing, adapter) {
     });
     if (axisLabels.length > 0) layout.axisLabels = axisLabels;
   }
-  layout.bounds = computeBounds(layout.primitives, layout.labels);
+  layout.bounds = computeBounds(layout.primitives, layout.labels, layout.handles);
   return layout;
 }
 
-function computeBounds(primitives, labels) {
+function computeBounds(primitives, labels, handles = []) {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
@@ -794,6 +962,10 @@ function computeBounds(primitives, labels) {
     if (x > maxX) maxX = x;
     if (y > maxY) maxY = y;
   };
+  for (const handle of handles) {
+    add(handle.x - 4, handle.y - 4);
+    add(handle.x + 4, handle.y + 4);
+  }
   for (const primitive of primitives) {
     switch (primitive.kind) {
       case 'segment':
@@ -808,6 +980,7 @@ function computeBounds(primitives, labels) {
         for (const point of primitive.points) add(point.x, point.y);
         break;
       case 'polygon':
+      case 'zone':
         for (const point of primitive.points) add(point.x, point.y);
         break;
       case 'ellipse':
@@ -819,6 +992,7 @@ function computeBounds(primitives, labels) {
         add(primitive.cx + primitive.r, primitive.cy + primitive.r);
         break;
       case 'arc':
+      case 'ring':
         add(primitive.cx - primitive.r, primitive.cy - primitive.r);
         add(primitive.cx + primitive.r, primitive.cy + primitive.r);
         break;
@@ -837,8 +1011,10 @@ function computeBounds(primitives, labels) {
       const b = label.textLayout.bounds;
       if (b) { add(b.x, b.y); add(b.x + b.width, b.y + b.height); }
     } else {
-      add(label.x, label.y - 12);
-      add(label.x + Math.max(4, String(label.text).length * 7), label.y + 4);
+      const width = label.width ?? Math.max(4, String(label.text).length * 7);
+      const left = label.align === 'right' ? label.x - width : label.align === 'center' ? label.x - width / 2 : label.x;
+      add(left, label.y - 12);
+      add(left + width, label.y + 4);
     }
   }
   if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
@@ -849,4 +1025,4 @@ export function buildLayout(drawing, adapter) {
   return materialize(drawing.type, drawing, adapter);
 }
 
-export const HIT_KINDS = Object.freeze(['segment', 'line', 'ray', 'polyline', 'marker', 'polygon', 'ellipse', 'circle', 'arc', 'text', 'bezier']);
+export const HIT_KINDS = Object.freeze(['segment', 'line', 'ray', 'polyline', 'marker', 'polygon', 'ellipse', 'circle', 'arc', 'zone', 'ring', 'text', 'bezier']);

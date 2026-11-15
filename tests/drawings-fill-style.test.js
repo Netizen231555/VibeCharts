@@ -19,6 +19,7 @@ const adapter = {
   },
   logicalToX: logical => logical * 10,
   priceToY: price => 200 - price * 2,
+  getPriceScaleMode: () => 'linear',
   yToPrice: y => (200 - y) / 2,
   getIndexCount: () => BARS.length,
   getSlot: () => 10,

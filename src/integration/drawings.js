@@ -29,6 +29,7 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
     logicalToX: (logical, binding) => surface.logicalToX(logical, { paneId: binding?.paneId }),
     priceToY: (price, binding) => surface.priceToY(price, binding),
     yToPrice: (y, binding) => surface.yToPrice(y, binding),
+    getPriceScaleMode: binding => chart.priceScale(binding.paneId, binding.scaleId).mode,
     getVisibleRect: binding => surface.getVisibleRect(binding ?? activeBinding),
     getTextContext: () => chart._host.getContext?.(),
     paneKind: binding => paneContext(binding).kind,
@@ -137,7 +138,11 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
           // Hidden and unresolved drawings paint nothing on the axes either; the flags are one property read.
           if (layout.visible && layout.resolved && layout.axisLabels) axisEntries.push({ layout, selected: selected.has(drawing.id) });
           if (!layout.visible || !layout.resolved) continue;
-          drawLayout(ctx, layout, surface.getVisibleRect(activeBinding), false, selected.has(drawing.id));
+          const rect = surface.getVisibleRect(activeBinding);
+          const bounds = layout.bounds;
+          if (!rect || !bounds || bounds.x > rect.x + rect.width || bounds.x + bounds.width < rect.x ||
+              bounds.y > rect.y + rect.height || bounds.y + bounds.height < rect.y) continue;
+          drawLayout(ctx, layout, rect, false, selected.has(drawing.id));
         }
         if (axisEntries.length > 0 && frameLayout) {
           // Drawing order with the selected drawings last; the pass culls and formats what survives.

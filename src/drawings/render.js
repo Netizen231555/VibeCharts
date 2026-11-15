@@ -24,18 +24,29 @@ export function drawPrimitive(ctx, primitive, fill, plain = false, fillAlpha = 1
     switch (p.kind) {
       case 'segment': case 'line': case 'ray':
         ctx.moveTo(p.x1, p.y1); ctx.lineTo(p.x2, p.y2); break;
-      case 'polygon': case 'polyline': case 'marker': case 'bezier':
+      case 'zone': case 'polygon': case 'polyline': case 'marker': case 'bezier':
         if (!p.points.length) return;
         ctx.moveTo(p.points[0].x, p.points[0].y);
         for (let i = 1; i < p.points.length; i += 1) ctx.lineTo(p.points[i].x, p.points[i].y);
-        if (p.kind === 'polygon') ctx.closePath();
+        if (p.kind === 'polygon' || p.kind === 'zone') ctx.closePath();
         break;
       case 'ellipse': ctx.ellipse(p.cx, p.cy, p.rx, p.ry, 0, 0, Math.PI * 2); break;
       case 'circle': ctx.arc(p.cx, p.cy, p.r, 0, Math.PI * 2); break;
       case 'arc': ctx.arc(p.cx, p.cy, p.r, p.startAngle, p.endAngle); break;
+      case 'ring': {
+        const start = p.full ? 0 : p.startAngle;
+        const end = p.full ? Math.PI * 2 : p.endAngle;
+        ctx.arc(p.cx, p.cy, p.r, start, end);
+        ctx.lineTo(p.cx + p.innerRadius * Math.cos(end), p.cy + p.innerRadius * Math.sin(end));
+        ctx.arc(p.cx, p.cy, p.innerRadius, end, start, true);
+        ctx.closePath();
+        break;
+      }
       default: throw new Error(`Unsupported drawing primitive: ${p.kind}`);
     }
-    if (tone) {
+    if (p.kind === 'zone' || p.kind === 'ring') {
+      ctx.fill();
+    } else if (tone) {
       if (p.kind === 'polygon') ctx.fill();
     } else if (fill && p.fillable === true) {
       // Fill pass at its own alpha (canvas closes an open path with an implicit chord); the stroke keeps the base alpha.
@@ -104,10 +115,26 @@ export function drawLayout(ctx, layout, rect, preview = false, selected = false)
       }
       ctx.restore();
     }
-    for (const primitive of layout.primitives) drawPrimitive(ctx, primitive, layout.style.fill === true, false, fillAlpha);
+    for (const primitive of layout.primitives) {
+      if (primitive.color !== undefined || primitive.opacity !== undefined) {
+        ctx.save();
+        ctx.strokeStyle = primitive.color ?? layout.style.color;
+        ctx.fillStyle = primitive.color ?? layout.style.color;
+        ctx.globalAlpha = primitive.opacity ?? layout.style.opacity;
+        drawPrimitive(ctx, primitive, layout.style.fill === true, false, fillAlpha);
+        ctx.restore();
+      } else drawPrimitive(ctx, primitive, layout.style.fill === true, false, fillAlpha);
+    }
     for (const label of layout.labels) {
       if (label.selectedOnly === true && !selected) continue;
-      drawLabel(ctx, label, rect);
+      if (label.color !== undefined || label.opacity !== undefined || label.align) {
+        ctx.save();
+        ctx.fillStyle = label.color ?? layout.style.color;
+        ctx.globalAlpha = label.opacity ?? layout.style.opacity;
+        ctx.textAlign = label.align ?? 'left';
+        drawLabel(ctx, label, rect);
+        ctx.restore();
+      } else drawLabel(ctx, label, rect);
     }
     if (selected) {
       ctx.globalAlpha = 1;
