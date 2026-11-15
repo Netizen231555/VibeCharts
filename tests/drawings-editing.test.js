@@ -216,3 +216,26 @@ test('undo after a coalesced run starts a fresh run and keeps the redo stack hon
   store.undo();
   assert.equal(store.get(a.id).anchors[0].offset, 0);
 });
+
+test('an in-place command after a coalesced run leaves the run snapshot intact', () => {
+  const store = makeStore();
+  const a = store.add(segment());
+  const b = store.add(segment({ anchors: anchors(3, 8) }));
+  store.selectMany([a.id, b.id]);
+  const original = store.export();
+  const step = () => store.updateBatch([a, b].map(item => ({ id: item.id, patch: { anchors: store.get(item.id).anchors.map(anchor => ({ ...anchor, offset: anchor.offset + 1 })) } })), { coalesceKey: 'nudge' });
+  step(); step(); step();
+  // The joined commands share live objects with nothing in the history; an in-place edit must not leak into it.
+  store.setVisibility(b.id, false);
+  store.setLocked(a.id, true);
+  assert.equal(store.undo(), true);
+  assert.equal(store.undo(), true);
+  assert.equal(store.get(a.id).anchors[0].offset, 3);
+  assert.equal(store.get(b.id).visible, true);
+  assert.equal(store.get(a.id).locked, false);
+  assert.equal(store.undo(), true);
+  assert.deepEqual(store.export(), original);
+  assert.equal(store.redo(), true);
+  assert.equal(store.get(a.id).anchors[0].offset, 3);
+  assert.equal(store.get(b.id).anchors[0].offset, 3);
+});

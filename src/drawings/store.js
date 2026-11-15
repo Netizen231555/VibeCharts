@@ -386,13 +386,23 @@ export function createDrawingStore(options) {
   }
 
 
+  // `mutate` of a command with a `coalesceKey` must replace drawings and groups rather than edit them in place.
+  // That is what lets a command that joins a run skip both document clones: nothing is pushed to the undo stack, so
+  // the live objects are not shared with a snapshot, and the shallow before/after states only feed the alert
+  // reconciliation and the rollback. Only the first command of a run pays for the clones.
   function command(type, ids, mutate, { coalesceKey = null } = {}) {
     assertNotReconciling();
-    const before = capture();
+    // Only the very next command with the same key and targets may extend the run: any other command, a
+    // selection change, undo or redo ends it, so unrelated edits never merge into one undo step.
+    const runIds = [...ids].sort().join('\u0000');
+    const joins = transaction === null && coalesceKey !== null && coalesceRun !== null && coalesceRun.key === coalesceKey
+      && coalesceRun.ids === runIds && undoStack[undoStack.length - 1] === coalesceRun.entry;
+    const snapshot = joins ? () => ({ drawings, groups, selection: [...selection] }) : capture;
+    const before = snapshot();
     let after;
     try {
       mutate();
-      after = capture();
+      after = snapshot();
     } finally {
       restore(before);
     }
@@ -401,11 +411,6 @@ export function createDrawingStore(options) {
       for (const id of ids) transaction.changed.add(id);
       return;
     }
-    // Only the very next command with the same key and targets may extend the run: any other command, a
-    // selection change, undo or redo ends it, so unrelated edits never merge into one undo step.
-    const runIds = [...ids].sort().join('\u0000');
-    const joins = coalesceKey !== null && coalesceRun !== null && coalesceRun.key === coalesceKey
-      && coalesceRun.ids === runIds && undoStack[undoStack.length - 1] === coalesceRun.entry;
     if (joins) {
       emit(type, ids);
       return;
