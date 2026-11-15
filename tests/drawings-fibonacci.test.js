@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createDrawingStore, FIB_TOOL_OPTIONS, fibDefaultLevels } from '../src/drawings/index.js';
 import { drawLayout } from '../src/drawings/render.js';
+import { drawingIntersectsRect } from '../src/integration/drawings.js';
 
 let mode = 'linear';
 const geometry = {
@@ -188,4 +189,59 @@ test('per-level styles do not leak to following primitives or labels', () => {
     { text: 'two', x: 0, y: 0 },
   ], handles: [] }, { x: 0, y: 0, width: 100, height: 100 });
   assert.deepEqual(calls, [['stroke', 'red', .4], ['stroke', 'blue', .8], ['text', 'red', .4, 'right'], ['text', 'blue', .8, 'left']]);
+});
+
+test('retracement labels fit the visible line at clipped and near pane edges', () => {
+  mode = 'linear';
+  for (const [anchors, position] of [
+    [[anchor(5, 100), anchor(25, 200)], 'end'],
+    [[anchor(-5, 100), anchor(15, 200)], 'start'],
+    [[anchor(.3, 100), anchor(19.7, 200)], 'end'],
+    [[anchor(.3, 100), anchor(19.7, 200)], 'start'],
+  ]) {
+    const s = store(), id = add(s, 'fibRetracement', { levels: [{ coefficient: .5, label: 'Visible label' }], labelPosition: position }, anchors);
+    const l = s.layout(id).labels[0];
+    const left = l.align === 'right' ? l.x - l.width : l.align === 'center' ? l.x - l.width / 2 : l.x;
+    assert.ok(left >= 0 && left + l.width <= 200, JSON.stringify(l));
+  }
+});
+
+test('coincident Fibonacci x anchors retain the rightward line span', () => {
+  const s = store();
+  for (const type of ['fibRetracement', 'fibExtension']) {
+    const anchors = type === 'fibExtension'
+      ? [anchor(5, 100), anchor(8, 200), anchor(5, 150)]
+      : [anchor(5, 100), anchor(5, 200)];
+    const id = add(s, type, { levels: [{ coefficient: .5 }] }, anchors);
+    const line = s.layout(id).primitives.find(p => p.coefficient === .5);
+    assert.equal(line.x1, 50); assert.equal(line.x2, 200);
+  }
+});
+
+test('fully offscreen Fibonacci labels do not measure text', () => {
+  let measured = 0;
+  const g = { ...geometry, getTextContext: () => ({ measureText() { measured++; return { width: 30 }; } }) };
+  const s = createDrawingStore({ context: { instrumentId: 'T', interval: 'D', sourceId: 'src' }, geometry: g, historyLimit: 10 });
+  add(s, 'fibRetracement', { levels: [{ coefficient: .5 }] }, [anchor(-4, 100), anchor(-3, 200)]);
+  measured = 0;
+  s.layout(s.list()[0].id);
+  assert.equal(measured, 0);
+});
+
+test('negative angle sweep is hit as the clockwise canvas arc', () => {
+  const s = store();
+  const id = add(s, 'angle', {}, [anchor(15, 150), anchor(10, 150), anchor(10, 200)]);
+  const arc = s.layout(id).primitives.find(p => p.kind === 'arc');
+  assert.ok(arc && arc.endAngle < arc.startAngle);
+  assert.equal(s.hitTest({ x: arc.cx - arc.r, y: arc.cy }, { radius: 0 })?.id, id);
+});
+
+test('render culling retains thick strokes and selection highlights at pane edges', () => {
+  const rect = { x: 0, y: 0, width: 200, height: 200 };
+  const layout = { bounds: { x: 0, y: -14, width: 200, height: 8 }, style: { width: 40 }, primitives: [] };
+  assert.equal(drawingIntersectsRect(layout, rect, false), true);
+  layout.style.width = 1;
+  assert.equal(drawingIntersectsRect(layout, rect, false), false);
+  layout.bounds.y = -8;
+  assert.equal(drawingIntersectsRect(layout, rect, true), true);
 });

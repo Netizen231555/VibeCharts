@@ -17,6 +17,18 @@ function scaleMetadata(chart, binding) {
   return entries.length > 0 ? chart.series(entries[0].id).metadata() : null;
 }
 
+export function drawingIntersectsRect(layout, rect, selected) {
+  const bounds = layout.bounds;
+  if (!rect || !bounds) return false;
+  let margin = ((layout.style.width ?? 1) + (selected ? 5 : 0)) / 2;
+  if (selected) margin = Math.max(margin, 5);
+  for (const primitive of layout.primitives) {
+    if (primitive.kind === 'marker') margin = Math.max(margin, primitive.width / 2);
+  }
+  return !(bounds.x - margin > rect.x + rect.width || bounds.x + bounds.width + margin < rect.x ||
+    bounds.y - margin > rect.y + rect.height || bounds.y + bounds.height + margin < rect.y);
+}
+
 export function attachDrawings(chart, { context, historyLimit = 100, alertEngine = null, drawingChartId } = {}) {
   const surface = chart.surface;
   let activeBinding = {};
@@ -136,13 +148,12 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
           activeBinding = { paneId: drawing.paneId, scaleId: drawing.scaleId };
           const layout = store.layout(drawing.id);
           // Hidden and unresolved drawings paint nothing on the axes either; the flags are one property read.
-          if (layout.visible && layout.resolved && layout.axisLabels) axisEntries.push({ layout, selected: selected.has(drawing.id) });
+          const isSelected = selected.has(drawing.id);
+          if (layout.visible && layout.resolved && layout.axisLabels) axisEntries.push({ layout, selected: isSelected });
           if (!layout.visible || !layout.resolved) continue;
           const rect = surface.getVisibleRect(activeBinding);
-          const bounds = layout.bounds;
-          if (!rect || !bounds || bounds.x > rect.x + rect.width || bounds.x + bounds.width < rect.x ||
-              bounds.y > rect.y + rect.height || bounds.y + bounds.height < rect.y) continue;
-          drawLayout(ctx, layout, rect, false, selected.has(drawing.id));
+          if (!drawingIntersectsRect(layout, rect, isSelected)) continue;
+          drawLayout(ctx, layout, rect, false, isSelected);
         }
         if (axisEntries.length > 0 && frameLayout) {
           // Drawing order with the selected drawings last; the pass culls and formats what survives.

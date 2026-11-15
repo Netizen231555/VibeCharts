@@ -52,8 +52,8 @@ function extendOf(drawing) {
 
 
 const TWO_ANCHOR_STROKE = new Set(['arrow', 'measure', 'segment', 'fibRetracement']);
-const THREE_ANCHOR_STROKE = new Set(['triangle', 'angle', 'andrewsPitchfork', 'fibExtension']);
-const RECT_TYPES = new Set(['rectangle', 'fibZones']);
+const THREE_ANCHOR_STROKE = new Set(['triangle', 'angle', 'fibExtension']);
+const RECT_TYPES = new Set(['rectangle']);
 const POINT_LISTS = new Set(['polyline', 'brush', 'marker', 'bezier']);
 const TEXT_TYPES = new Set(['text', 'callout', 'flag', 'priceLabel', 'anchoredVwap']);
 
@@ -191,9 +191,6 @@ function bodyDistance(resolved, point, plot) {
       if (resolved.extend.right) r.right = plot.x + plot.width;
       r.width = r.right - r.x;
     }
-    if (type === 'fibZones') {
-      return point.x >= r.x && point.x <= r.right && point.y >= plot.y && point.y <= plot.y + plot.height ? 0 : Infinity;
-    }
     if (pointInRect(point, r)) return 0;
     return distanceToRectBorder(point, r);
   }
@@ -248,7 +245,7 @@ function bodyDistance(resolved, point, plot) {
     const points = anchors.map((anchor) => ({ x: anchor.x, y: anchor.y }));
     let best = Infinity;
     for (let i = 1; i < points.length; i += 1) best = Math.min(best, distanceToSegment(point, points[i - 1], points[i]));
-    if (type === 'fibExtension' || type === 'andrewsPitchfork') {
+    if (type === 'fibExtension') {
       best = Math.min(best, distanceToSegment(point, points[0], points[2]));
     }
     if (type === 'angle' && resolved.extend) {

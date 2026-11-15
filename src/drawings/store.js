@@ -1259,8 +1259,11 @@ export function createDrawingStore(options) {
         return Math.abs(Math.hypot(point.x - primitive.cx, point.y - primitive.cy) - primitive.r) <= radius;
       case 'arc': {
         const angle = Math.atan2(point.y - primitive.cy, point.x - primitive.cx);
-        const delta = ((angle - primitive.startAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
-        return delta <= primitive.endAngle - primitive.startAngle &&
+        const turn = Math.PI * 2;
+        const delta = ((angle - primitive.startAngle) % turn + turn) % turn;
+        const rawSweep = primitive.endAngle - primitive.startAngle;
+        const sweep = rawSweep >= turn ? turn : ((rawSweep % turn) + turn) % turn;
+        return delta <= sweep &&
           Math.abs(Math.hypot(point.x - primitive.cx, point.y - primitive.cy) - primitive.r) <= radius;
       }
       case 'ring': {
@@ -1301,7 +1304,12 @@ export function createDrawingStore(options) {
       if (point.x < rect.x || point.x > rect.x + rect.width || point.y < rect.y || point.y > rect.y + rect.height) continue;
       const geometry = buildLayout(drawing, adapter);
       if (!geometry.resolved) continue;
-      if (!geometry.bounds || !boundsIntersect(geometry.bounds, rect)) continue;
+      let margin = radius;
+      for (const primitive of geometry.primitives) {
+        if (primitive.kind === 'marker') margin = Math.max(margin, radius + (primitive.width ?? 0) / 2);
+      }
+      const expandedRect = { x: rect.x - margin, y: rect.y - margin, width: rect.width + margin * 2, height: rect.height + margin * 2 };
+      if (!geometry.bounds || !boundsIntersect(geometry.bounds, expandedRect)) continue;
       const handleRadius = radius;
       for (const handle of geometry.handles) {
         if (Math.hypot(point.x - handle.x, point.y - handle.y) <= handleRadius) {

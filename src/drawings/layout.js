@@ -245,15 +245,35 @@ function fibLabel(level, drawing, adapter, binding, price, x, y, align = 'left')
     coefficient: level.coefficient, ...fibStyle(level, drawing) };
 }
 
-function lineLabel(level, drawing, adapter, binding, price, span, y, rect) {
-  const position = drawing.props.labelPosition;
-  if (position === 'center') return fibLabel(level, drawing, adapter, binding, price, (span.x1 + span.x2) / 2, y - 2, 'center');
-  if (position === 'start') {
-    const edge = Math.abs(span.x1 - rect.x) <= 4;
-    return fibLabel(level, drawing, adapter, binding, price, edge ? rect.x + 4 : span.x1 - 4, y - 2, edge ? 'left' : 'right');
+function positionLineLabel(label, position, span, rect) {
+  const left = rect.x, right = rect.x + rect.width;
+  const width = label.width;
+  if (position === 'center') {
+    label.align = 'center';
+    label.x = width <= rect.width
+      ? Math.max(left + width / 2, Math.min(right - width / 2, (span.x1 + span.x2) / 2))
+      : (left + right) / 2;
+  } else if (position === 'start') {
+    if (span.x1 - 4 - width >= left) {
+      label.align = 'right';
+      label.x = span.x1 - 4;
+    } else {
+      label.align = 'left';
+      label.x = Math.max(left, Math.min(span.x1 + 4, right - width));
+    }
+  } else if (span.x2 + 4 + width <= right) {
+    label.align = 'left';
+    label.x = span.x2 + 4;
+  } else {
+    label.align = 'right';
+    label.x = Math.min(right, Math.max(span.x2 - 4, left + width));
   }
-  const edge = Math.abs(span.x2 - (rect.x + rect.width)) <= 4;
-  return fibLabel(level, drawing, adapter, binding, price, edge ? rect.x + rect.width - 4 : span.x2 + 4, y - 2, edge ? 'right' : 'left');
+}
+
+function lineLabel(level, drawing, adapter, binding, price, span, y) {
+  const position = drawing.props.labelPosition;
+  const x = position === 'center' ? (span.x1 + span.x2) / 2 : position === 'start' ? span.x1 : span.x2;
+  return fibLabel(level, drawing, adapter, binding, price, x, y - 2, position === 'center' ? 'center' : 'left');
 }
 // Pick the requested point when it is visible; otherwise use the nearest visible arc/rectangle
 // intersection. This keeps a clipped arc's label on the visible portion rather than outside the pane.
@@ -302,12 +322,19 @@ function fibLines({ a, b, c, drawing, adapter, binding, rect }) {
   const second = drawing.props.reverse ? a : b;
   const mode = adapter.getPriceScaleMode(binding);
   const span = horizontalSpan(a, c ?? b);
+  if (span.x1 === span.x2) {
+    span.x1 = Math.min(span.x1, rect.x + rect.width);
+    span.x2 = Math.max(span.x2, rect.x + rect.width);
+  }
   if (drawing.props.extend.left) span.x1 = Math.min(span.x1, rect.x);
   if (drawing.props.extend.right) span.x2 = Math.max(span.x2, rect.x + rect.width);
   if ((drawing.props.extend.left || drawing.props.extend.right) && span.x1 <= rect.x + rect.width && span.x2 >= rect.x) {
     span.x1 = Math.max(span.x1, rect.x);
     span.x2 = Math.min(span.x2, rect.x + rect.width);
   }
+  const visibleSpan = span.x1 <= rect.x + rect.width && span.x2 >= rect.x
+    ? { x1: Math.max(span.x1, rect.x), x2: Math.min(span.x2, rect.x + rect.width) }
+    : null;
   const levels = [];
   for (const level of drawing.props.levels) {
     if (!level.visible) continue;
@@ -329,9 +356,11 @@ function fibLines({ a, b, c, drawing, adapter, binding, rect }) {
   for (const { level, price, y } of levels) {
     primitives.push({ kind: 'segment', role: c ? 'fib-extension-level' : 'fib-level', coefficient: level.coefficient,
       price, x1: span.x1, y1: y, x2: span.x2, y2: y, ...fibStyle(level, drawing) });
-    labels.push(lineLabel(level, drawing, adapter, binding, price, span, y, rect));
+    if (visibleSpan && y - 14 <= rect.y + rect.height && y + 2 >= rect.y) {
+      labels.push(lineLabel(level, drawing, adapter, binding, price, visibleSpan, y));
+    }
   }
-  return { primitives, labels };
+  return { primitives, labels, fibLabelSpan: visibleSpan };
 }
 
 function arrowHead(tip, from) {
@@ -912,6 +941,9 @@ function materialize(type, drawing, adapter) {
   for (const label of layout.labels) {
     if (label.align) label.width = Math.max(4, String(label.text).length * 16);
   }
+  if (result.fibLabelSpan) {
+    for (const label of result.labels) positionLineLabel(label, drawing.props.labelPosition, result.fibLabelSpan, rect);
+  }
   const estimated = computeBounds(layout.primitives, layout.labels, layout.handles);
   if (estimated && rect && estimated.x <= rect.x + rect.width && estimated.x + estimated.width >= rect.x &&
       estimated.y <= rect.y + rect.height && estimated.y + estimated.height >= rect.y) {
@@ -920,6 +952,12 @@ function materialize(type, drawing, adapter) {
         textContext ??= adapter.getTextContext?.();
         if (textContext?.measureText) label.width = textContext.measureText(String(label.text)).width;
       }
+    }
+  }
+  if (result.fibLabelSpan) {
+    for (const label of result.labels) {
+      if (!textContext?.measureText) label.width = Math.max(4, String(label.text).length * 7);
+      positionLineLabel(label, drawing.props.labelPosition, result.fibLabelSpan, rect);
     }
   }
   for (const key of ['measure', 'regression', 'vwap', 'angleDegrees', 'available', 'reason', 'waiting', 'error', 'origin', 'direction', 'variant']) {

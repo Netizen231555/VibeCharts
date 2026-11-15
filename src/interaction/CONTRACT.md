@@ -136,9 +136,9 @@ one at attach time.
   type: string;                       // segment, ray, line, horizontalLevel,
                                       // horizontalRay, verticalLine, rectangle,
                                       // ellipse, fibRetracement, fibExtension,
-                                      // fibFan, fibArcs, fibZones, polyline,
+                                      // fibFan, fibArcs, polyline,
                                       // bezier, brush, marker, arrow, measure,
-                                      // angle, triangle, andrewsPitchfork, text,
+                                      // angle, triangle, text,
                                       // priceLabel, callout, flag, anchoredVwap
   paneId: string;
   scaleId: string;
