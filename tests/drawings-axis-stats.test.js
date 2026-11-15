@@ -83,14 +83,35 @@ function axisFixture() {
   const pane = { id: 'main', visible: true, priceScales: new Map([['right', scale]]) };
   const frameLayout = computeLayout({ width: 300, height: 200, panes: [pane] });
   const painted = [];
-  const ctx = { save() {}, restore() {}, fillRect() {}, strokeRect() {}, fillText(text, x, y) { painted.push({ text, x, y }); }, measureText(text) { return { width: text.length * 5 }; } };
+  const clips = [], strokes = [];
+  const ctx = { save() {}, restore() {}, beginPath() {}, rect(...args) { clips.push(args); }, clip() {}, fillRect() {}, strokeRect() { strokes.push(this.strokeStyle); }, fillText(text, x, y) { painted.push({ text, x, y }); }, measureText(text) { return { width: text.length * 5 }; } };
   let formats = 0;
 
   const adapter = { priceToY: p => p, logicalToX: x => x, getSlot: () => ({ time: 3600000 }), formatPrice: p => { formats++; return p.toFixed(2); } };
   const layout = { paneId: 'main', scaleId: 'right', style: { color: '#123' }, axisLabels: [{ axis: 'price', price: 50 }, { axis: 'time', logical: 80 }] };
   const options = { entries: [{ layout, selected: false }], frameLayout, width: 300, theme: { lastValueBackground: '#000', lastValueText: '#fff' }, options: {}, adapter };
-  return { ctx, options, painted, formats: () => formats };
+  return { ctx, options, painted, clips, strokes, formats: () => formats };
 }
+
+test('price plates at pane edges are clipped rather than discarded', () => {
+  for (const price of [3, 175]) {
+    const f = axisFixture();
+    f.options.entries[0].layout.axisLabels = [{ axis: 'price', price }];
+    drawAxisLabels(f.ctx, f.options);
+    assert.equal(f.painted.length, 1);
+    assert.deepEqual(f.clips, [[236, 0, 64, 178]]);
+    assert.equal(f.painted[0].y, price);
+  }
+});
+
+test('selected coincident plates paint over unselected plates', () => {
+  const f = axisFixture();
+  const layout = f.options.entries[0].layout;
+  layout.axisLabels = [{ axis: 'price', price: 50 }, { axis: 'time', logical: 80 }];
+  f.options.entries.push({ layout: { ...layout, style: { color: '#f00' } }, selected: true });
+  drawAxisLabels(f.ctx, f.options);
+  assert.deepEqual(f.strokes, ['#123', '#123', '#f00', '#f00']);
+});
 
 test('time plates use absolute plot coordinates when a left axis is present', () => {
   const f = axisFixture();

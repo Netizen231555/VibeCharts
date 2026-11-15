@@ -22,7 +22,7 @@ export function drawAxisLabels(ctx, {
   const fontSize = options.fontSize ?? 12;
   const half = Math.max(18, fontSize + 6) / 2;
   const paneRects = new Map(frameLayout.panes.map(rect => [rect.pane.id, rect]));
-  const seen = new Set();
+  const seen = new Map();
   const reported = new Set();
   const priceTexts = new Map();
   const timeTexts = new Map();
@@ -59,7 +59,7 @@ function drawPricePlate(ctx, { label, layout, binding, paneRect, frameLayout, wi
   const column = axisColumns(pane, scale.side, frameLayout, width).find(candidate => candidate.scale === scale);
   if (!column) return;
   const y = adapter.priceToY(label.price, binding);
-  if (y === null || y - half < paneRect.y || y + half > paneRect.y + paneRect.height) return;
+  if (y === null || y < paneRect.y || y > paneRect.y + paneRect.height) return;
   let paneTexts = priceTexts.get(layout.paneId);
   if (!paneTexts) priceTexts.set(layout.paneId, paneTexts = new Map());
   let scaleTexts = paneTexts.get(layout.scaleId);
@@ -74,13 +74,20 @@ function drawPricePlate(ctx, { label, layout, binding, paneRect, frameLayout, wi
   // The live price is the more important number; a selected drawing is what the user edits, so it wins.
   if (!entry.selected && axisPlates.some(plate => plate.paneId === layout.paneId && plate.side === scale.side && intersects(rect, plate))) return;
   const key = `price:${scale.side}:${column.x}:${Math.round(top)}:${text}`;
-  if (seen.has(key)) return;
-  seen.add(key);
-  paintPlate(ctx, { rect, text, theme, color: layout.style.color, fontSize });
+  if (seen.has(key) && (!entry.selected || seen.get(key))) return;
+  seen.set(key, entry.selected);
+  ctx.save();
+  try {
+    ctx.beginPath();
+    ctx.rect(column.x, paneRect.y, column.width, paneRect.height);
+    ctx.clip();
+    paintPlate(ctx, { rect, text, theme, color: layout.style.color, fontSize });
+  } finally {
+    ctx.restore();
+  }
 }
 
 function drawTimePlate(ctx, { label, layout, binding, paneRect, frameLayout, theme, adapter, timeFormatter, presentation, reportError, reported, entry, fontSize, half, seen, timeTexts, textWidth }) {
-  void entry;
   // A derived pane reads ordinals in its own strip, exactly like its index strip.
   const derived = paneRect.axisStrip !== null && paneRect.axisStrip !== undefined;
   const axis = derived ? paneRect.axisStrip : frameLayout.timeAxis;
@@ -97,8 +104,8 @@ function drawTimePlate(ctx, { label, layout, binding, paneRect, frameLayout, the
   const left = Math.max(axis.x, Math.min(x - plateWidth / 2, axis.x + axis.width - plateWidth));
   const rect = { left, top: axis.y, width: plateWidth, height: 2 * half };
   const key = `time:${axis.y}:${Math.round(left)}:${text}`;
-  if (seen.has(key)) return;
-  seen.add(key);
+  if (seen.has(key) && (!entry.selected || seen.get(key))) return;
+  seen.set(key, entry.selected);
   paintPlate(ctx, { rect, text, theme, color: layout.style.color, fontSize });
 }
 
