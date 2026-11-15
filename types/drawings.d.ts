@@ -16,6 +16,28 @@ export interface DrawingStats {
   always?: boolean;
 }
 
+/** Caption text is limited to 200 characters and three lines. */
+export interface DrawingCaption {
+  text: string;
+  color?: string;
+  size?: number;
+  bold?: boolean;
+  italic?: boolean;
+  align?: 'start' | 'center' | 'end';
+}
+
+export interface DrawingTextStyle {
+  size?: number;
+  bold?: boolean;
+  italic?: boolean;
+  align?: 'start' | 'center' | 'end';
+}
+
+export interface DrawingTextProperties {
+  label?: DrawingCaption | null;
+  textStyle?: DrawingTextStyle;
+}
+
 export interface DrawingAxisLabelEntry {
   axis: 'price' | 'time';
   anchorIndex: number;

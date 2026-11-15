@@ -1,6 +1,6 @@
 import type { ExtensionRegistry } from './extensions.js';
 import type { DrawingLayout } from './drawings.js';
-export type { DrawingAxisLabels, DrawingStats, DrawingAxisLabelEntry, DrawingLayoutLabel, DrawingLayout } from './drawings.js';
+export type { DrawingAxisLabels, DrawingStats, DrawingAxisLabelEntry, DrawingLayoutLabel, DrawingLayout, DrawingCaption, DrawingTextStyle, DrawingTextProperties } from './drawings.js';
 
 export type UnixMilliseconds = number;
 export function timeFromUnixSeconds(seconds: number): UnixMilliseconds;

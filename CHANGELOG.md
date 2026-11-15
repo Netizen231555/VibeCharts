@@ -2,6 +2,7 @@
 
 ## 0.1.0 — unreleased
 
+- Line, channel and shape drawings support multiline styled captions through `props.label`; text, callout, flag and price-label annotations support `props.textStyle`. Captions follow visible geometry and text selection follows rendered bounds. Drawing controls offer localized keyboard-accessible creation and editing with undoable apply and cancellation.
 - Supported line drawings and anchored VWAP can show per-anchor price or time axis plates with `props.axisLabels`; two-point line tools and `measure` accept `props.stats` for selectable figures, position and visibility. Plates follow drawing state and yield to last-price labels unless selected; statistics are announced on selection. Measure's bar and duration words now follow the chart language rather than fixed English. Price and axis time formatters are cached, and the axis pass reuses repeated formatted values and text widths per frame.
 - Line-family drawings now support `props.extend`, `props.arrows` and `props.midpoint` where applicable; channels, rectangles, Fibonacci fans, pitchforks and anchored VWAP also support extension. The arrow tool's formerly constant head is now the default `arrows.end` option. An alerted segment or ray rejects non-default extension with `alert-drawing-mismatch`.
 - Drawing rendering reuses its detached drawing list until the store changes, and layout lookup indexes drawing order between edits, avoiding repeated copying and linear scans for large drawing sets.
