@@ -1,7 +1,8 @@
-// The settings drawer of the terminal example: tabs of colour, number, toggle and select controls that edit the
+// The settings dialog of the terminal example: tabs of colour, number, toggle and select controls that edit the
 // settings store, plus a section that restyles the selected drawings. Controls write to the store as the user drags
-// (the host applies it live); the drawer itself is re-rendered only on structural changes (tab, theme, reset, import,
-// selection), never while a colour is being dragged.
+// (the host applies it live); the dialog itself is re-rendered only on structural changes (tab, theme, reset, import,
+// selection), never while a colour is being dragged. It is not modal: the chart behind it stays usable, so a drawing
+// can be selected and restyled while the dialog is open.
 import { TABS, FIELDS, DRAWING_FIELDS } from './settings-model.js';
 
 const PRESETS = {
@@ -31,7 +32,7 @@ function element(tag, props = {}, ...children) {
 
 export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart, button, onError, onAnnounce }) {
   let activeTab = 'chart';
-  const drawer = element('aside', { class: 'settings-drawer', role: 'dialog', 'aria-label': t('settings.title'), hidden: true });
+  const dialog = element('div', { class: 'settings-dialog', role: 'dialog', 'aria-label': t('settings.title'), hidden: true });
   const themeGroup = element('div', { class: 'settings-themes', role: 'group', 'aria-label': t('settings.theme') });
   const tablist = element('div', { class: 'settings-tabs', role: 'tablist' });
   const body = element('div', { class: 'settings-body', role: 'tabpanel' });
@@ -232,37 +233,37 @@ export function createSettingsPanel({ settings, t, getTheme, setTheme, getChart,
 
   const header = element('header', {}, element('h2', {}, t('settings.title')), close);
   const footer = element('footer', {}, resetTab, resetAll, exportButton, importButton, fileInput);
-  drawer.append(header, themeGroup, tablist, body, footer);
-  document.body.append(drawer);
+  dialog.append(header, themeGroup, tablist, body, footer);
+  document.body.append(dialog);
 
   function open() {
-    drawer.hidden = false;
+    dialog.hidden = false;
     button.setAttribute('aria-expanded', 'true');
     renderThemes();
     renderBody();
     tablist.querySelector('[aria-selected="true"]').focus();
   }
-  function closeDrawer() {
-    if (drawer.hidden) return;
-    drawer.hidden = true;
+  function closeDialog() {
+    if (dialog.hidden) return;
+    dialog.hidden = true;
     button.setAttribute('aria-expanded', 'false');
     getChart()?.drawings.setDragPreview(null);
     button.focus();
   }
-  close.addEventListener('click', closeDrawer);
-  drawer.addEventListener('keydown', (event) => { if (event.key === 'Escape') { event.stopPropagation(); closeDrawer(); } });
-  button.addEventListener('click', () => (drawer.hidden ? open() : closeDrawer()));
+  close.addEventListener('click', closeDialog);
+  dialog.addEventListener('keydown', (event) => { if (event.key === 'Escape') { event.stopPropagation(); closeDialog(); } });
+  button.addEventListener('click', () => (dialog.hidden ? open() : closeDialog()));
 
   return {
     /** Re-renders the selected-drawing section when the selection or a style changes while it is on screen. */
     refreshSelection() {
-      if (drawer.hidden || activeTab !== 'drawings') return;
+      if (dialog.hidden || activeTab !== 'drawings') return;
       const focusedKey = document.activeElement?.dataset?.key;
       const holder = body.querySelector('.settings-selection');
       if (!holder) return;
       holder.replaceWith(selectionSection());
       if (focusedKey) body.querySelector(`.settings-selection [data-key="${focusedKey}"]`)?.focus();
     },
-    get isOpen() { return !drawer.hidden; },
+    get isOpen() { return !dialog.hidden; },
   };
 }

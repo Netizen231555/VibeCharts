@@ -71,10 +71,10 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus)
 .menu button[aria-checked="true"]:not(:has(.check)) { background: var(--active); color: var(--accent); }
 .menu hr { margin: 6px 0; border: 0; border-top: 1px solid var(--border); }
 .menu h3 { margin: 4px 14px 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-/* Settings drawer: a non-modal panel over the side column, scrolling inside its own height. */
-.settings-drawer { position: fixed; z-index: 35; top: 46px; right: 0; bottom: 0; width: min(380px, 100vw); display: flex; flex-direction: column; background: var(--panel-2); border-left: 1px solid var(--border); box-shadow: -8px 0 28px rgba(0, 0, 0, .4); }
-.settings-drawer header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 6px; }
-.settings-drawer h2 { margin: 0; font-size: 14px; color: var(--text-strong); }
+/* Settings dialog: centred, non-modal (the chart behind stays usable), a fixed height so tabs do not make it jump. */
+.settings-dialog { position: fixed; z-index: 35; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100vw - 24px)); height: min(640px, calc(100vh - 24px)); display: flex; flex-direction: column; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 16px 48px rgba(0, 0, 0, .5); }
+.settings-dialog header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 6px; }
+.settings-dialog h2 { margin: 0; font-size: 14px; color: var(--text-strong); }
 .settings-close { width: 30px; height: 30px; padding: 0; background: transparent; border: 0; border-radius: 6px; font-size: 20px; line-height: 1; }
 .settings-close:hover { background: var(--hover); }
 .settings-themes { display: flex; gap: 6px; padding: 4px 14px 8px; }
@@ -87,17 +87,17 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus)
 .settings-section h3 { margin: 12px 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .settings-selection { margin-bottom: 4px; }
 .settings-hint { margin: 0; color: var(--muted); }
-.settings-drawer .field { display: flex; align-items: center; gap: 10px; min-height: 34px; }
-.settings-drawer .field > span { flex: 1 1 auto; }
-.settings-drawer .field input[type="color"] { flex: none; width: 44px; height: 26px; padding: 0; background: transparent; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
-.settings-drawer .field input[type="range"] { flex: 0 0 120px; accent-color: var(--accent); }
-.settings-drawer .field output { flex: none; width: 38px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
-.settings-drawer .field input[type="checkbox"] { flex: none; width: 16px; height: 16px; accent-color: var(--accent); }
-.settings-drawer .field select { flex: 0 0 150px; height: 28px; background: var(--chip); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font: inherit; }
-.settings-drawer input:focus-visible, .settings-drawer select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.settings-drawer footer { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-top: 1px solid var(--border); }
-.settings-drawer footer button { height: 30px; padding: 0 10px; background: var(--chip); border: 1px solid var(--border); border-radius: 6px; }
-.settings-drawer footer button:hover { background: var(--hover); }
+.settings-dialog .field { display: flex; align-items: center; gap: 10px; min-height: 34px; }
+.settings-dialog .field > span { flex: 1 1 auto; }
+.settings-dialog .field input[type="color"] { flex: none; width: 44px; height: 26px; padding: 0; background: transparent; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; }
+.settings-dialog .field input[type="range"] { flex: 0 0 160px; accent-color: var(--accent); }
+.settings-dialog .field output { flex: none; width: 38px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.settings-dialog .field input[type="checkbox"] { flex: none; width: 16px; height: 16px; accent-color: var(--accent); }
+.settings-dialog .field select { flex: 0 0 170px; height: 28px; background: var(--chip); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font: inherit; }
+.settings-dialog input:focus-visible, .settings-dialog select:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.settings-dialog footer { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-top: 1px solid var(--border); }
+.settings-dialog footer button { height: 30px; padding: 0 10px; background: var(--chip); border: 1px solid var(--border); border-radius: 6px; }
+.settings-dialog footer button:hover { background: var(--hover); }
 
 .drawbar { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; border-right: 1px solid var(--border); overflow-y: auto; scrollbar-width: none; }
 .drawbar .tool-btn { width: 38px; height: 38px; }
