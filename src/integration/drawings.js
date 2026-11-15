@@ -32,6 +32,7 @@ export function drawingIntersectsRect(layout, rect, selected) {
 export function attachDrawings(chart, { context, historyLimit = 100, alertEngine = null, drawingChartId } = {}) {
   const surface = chart.surface;
   let activeBinding = {};
+  let frameSeries = null;
   const paneContext = binding => binding?.paneId === undefined || binding?.paneId === null
     ? { kind: 'source', scale: chart.indexScale() }
     : chart._paneXContext(binding.paneId);
@@ -54,7 +55,12 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
     },
     indexOf: (id, binding) => paneContext(binding).scale.barIdToIndex(id),
     // Drawing analytics consume {index, value}; a barId without a timeline index stays null so the analytics reports an invalid series.
-    getSeriesValues: id => chart.series(id).data().map(point => ({ index: chart.timeline.indexOf(point.barId), value: point.value ?? point.close })),
+    getSeriesValues: id => {
+      if (frameSeries?.has(id)) return frameSeries.get(id);
+      const values = chart.series(id).data().map(point => ({ index: chart.timeline.indexOf(point.barId), value: point.value ?? point.close }));
+      frameSeries?.set(id, values);
+      return values;
+    },
     formatPrice: (price, binding) => formatPrice(price, {
       priceScale: chart.priceScale(binding.paneId, binding.scaleId), metadata: scaleMetadata(chart, binding), locale: surface.locale
     }),
@@ -144,6 +150,8 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
         const drawings = renderDrawings ??= store.list();
         const selected = new Set(store.getSelection());
         const axisEntries = [];
+        frameSeries = new Map();
+        try {
         for (const drawing of drawings) {
           activeBinding = { paneId: drawing.paneId, scaleId: drawing.scaleId };
           const layout = store.layout(drawing.id);
@@ -154,6 +162,9 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
           const rect = surface.getVisibleRect(activeBinding);
           if (!drawingIntersectsRect(layout, rect, isSelected)) continue;
           drawLayout(ctx, layout, rect, false, isSelected);
+        }
+        } finally {
+          frameSeries = null;
         }
         if (axisEntries.length > 0 && frameLayout) {
           // Drawing order with the selected drawings last; the pass culls and formats what survives.
