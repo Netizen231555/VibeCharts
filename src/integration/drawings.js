@@ -68,7 +68,8 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
     chart.container.appendChild(alertRegion);
   }
   let alertOverlays = null;
-  const invalidate = () => { alertOverlays = null; if (!chart._destroyed) chart.requestRender(); };
+  let renderDrawings = null;
+  const invalidate = () => { alertOverlays = null; renderDrawings = null; if (!chart._destroyed) chart.requestRender(); };
   function overlays(drawings) {
     if (alertOverlays) return alertOverlays;
     const byId = new Map(drawings.map(drawing => [drawing.id, drawing]));
@@ -117,7 +118,7 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
         return { drawings: [...plan.drawings, ...store.list().filter(drawing => drawing.anchors.some(anchor => removed.has(anchor.anchorBarId))).map(drawing => ({ id: drawing.id }))] };
       },
       onRender({ ctx }) {
-        const drawings = store.list();
+        const drawings = renderDrawings ??= store.list();
         const selected = new Set(store.getSelection());
         for (const drawing of drawings) {
           activeBinding = { paneId: drawing.paneId, scaleId: drawing.scaleId };
