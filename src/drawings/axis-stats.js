@@ -30,6 +30,19 @@ const AXIS_KEYS = ['price', 'time'];
 const STAT_FLAGS = ['priceRange', 'percent', 'bars', 'time', 'always'];
 const STAT_POSITIONS = ['start', 'center', 'end'];
 
+const statsTools = Object.freeze(Object.keys(STATS_TOOLS));
+const axisTools = axis => Object.freeze(Object.keys(AXIS_LABEL_TOOLS).filter(type => AXIS_LABEL_TOOLS[type][axis]));
+const field = (path, kind, tools, values) => Object.freeze({
+  path, kind, labelKey: `drawings.settings.${path}`, tools,
+  ...(values ? { values: Object.freeze(values) } : {})
+});
+
+export const AXIS_STATS_FIELDS = Object.freeze([
+  ...AXIS_KEYS.map(axis => field(`axisLabels.${axis}`, 'boolean', axisTools(axis))),
+  ...STAT_FLAGS.map(flag => field(`stats.${flag}`, 'boolean', statsTools)),
+  field('stats.position', 'enum', statsTools, [...STAT_POSITIONS])
+]);
+
 // A missing `axisLabels` normalizes to both flags false; a missing key inside normalizes to false. `true`
 // for an axis the tool has no coordinate on, an unknown key or a non-boolean value is rejected naming the
 // field, so `drawings.add`, `update` and `import` all fail identically.
