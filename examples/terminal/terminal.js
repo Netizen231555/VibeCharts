@@ -152,15 +152,18 @@ document.addEventListener('keydown', (event) => {
     items[(index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
   }
 });
-function menuItem(parent, label, { checked, icon, iconNode, onClick }) {
+function menuItem(parent, label, { checked, mark, icon, iconNode, onClick }) {
   const item = document.createElement('button');
   item.type = 'button';
   item.setAttribute('role', checked === undefined ? 'menuitem' : 'menuitemcheckbox');
   if (checked !== undefined) item.setAttribute('aria-checked', String(checked));
-  const mark = document.createElement('span');
-  mark.className = 'check';
-  mark.textContent = checked ? '✓' : '';
-  item.append(mark);
+  // The armed tool of a flyout is shown by the item's highlight, so it needs no empty column for a check mark.
+  if (mark !== false) {
+    const checkMark = document.createElement('span');
+    checkMark.className = 'check';
+    checkMark.textContent = checked ? '✓' : '';
+    item.append(checkMark);
+  }
   if (icon) { const i = document.createElement('span'); i.className = 'icon'; i.innerHTML = svg(icon); item.append(i); }
   if (iconNode) { const i = document.createElement('span'); i.className = 'icon'; i.append(iconNode); item.append(i); }
   const text = document.createElement('span');
@@ -847,7 +850,7 @@ for (const group of TOOL_GROUPS) {
     heading.textContent = group.label;
     panel.append(heading);
     for (const tool of group.tools) {
-      menuItem(panel, tool.label, { checked: state.tool === tool.value, iconNode: createIcon(document, tool.value, { size: 18 }), onClick: () => { close(); setActiveTool(tool.value); } });
+      menuItem(panel, tool.label, { checked: state.tool === tool.value, mark: false, iconNode: createIcon(document, tool.value, { size: 18 }), onClick: () => { close(); setActiveTool(tool.value); } });
     }
   }, { placement: 'right' }));
   groupButtons.set(group.id, button);

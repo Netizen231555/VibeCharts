@@ -68,6 +68,7 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus)
 .menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 14px; background: transparent; border: 0; text-align: left; }
 .menu button:hover, .menu button:focus-visible { background: var(--hover); }
 .menu .check { width: 14px; color: var(--accent); font-weight: 700; }
+.menu button[aria-checked="true"]:not(:has(.check)) { background: var(--active); color: var(--accent); }
 .menu hr { margin: 6px 0; border: 0; border-top: 1px solid var(--border); }
 .menu h3 { margin: 4px 14px 6px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .menu.settings { width: 280px; padding: 8px 0 10px; }
