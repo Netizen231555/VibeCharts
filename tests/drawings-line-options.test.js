@@ -54,3 +54,18 @@ test('degenerate extension is rejected without changing the drawing', () => {
   assert.throws(() => s.update(id, { props: { extend: { left: false, right: true } } }), error => error.code === 'degenerate-direction');
   assert.deepEqual(s.get(id), before);
 });
+
+test('layout lookup follows updates, removal and undo', () => {
+  const s = store();
+  const first = add(s, 'segment', [anchor(2, 50), anchor(8, 50)]);
+  const second = add(s, 'segment', [anchor(3, 40), anchor(9, 40)]);
+  assert.equal(s.layout(second).order, 1);
+  s.update(second, { props: { midpoint: true } });
+  assert.ok(s.layout(second).primitives.some(p => p.role === 'midpoint'));
+  s.remove(first);
+  assert.equal(s.layout(second).order, 0);
+  assert.throws(() => s.layout(first), error => error.code === 'unknown-drawing');
+  s.undo();
+  assert.equal(s.layout(second).order, 1);
+  assert.equal(s.layout(first).order, 0);
+});

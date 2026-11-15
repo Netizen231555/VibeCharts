@@ -36,6 +36,7 @@ export function createDrawingStore(options) {
   let reconciling = false;
 
   let drawings = [];
+  let layoutIndex = null;
   let groups = [];
   let selection = [];
   let styles = [];
@@ -182,6 +183,7 @@ export function createDrawingStore(options) {
 
   function restore(snapshot) {
     drawings = snapshot.drawings;
+    layoutIndex = null;
     groups = snapshot.groups;
     selection = [...snapshot.selection];
   }
@@ -1136,9 +1138,12 @@ export function createDrawingStore(options) {
   }
 
   function layout(target) {
+    if (layoutIndex === null) layoutIndex = new Map(drawings.map((drawing, index) => [drawing.id, index]));
     let drawing;
     if (typeof target === 'string') {
-      drawing = requireDrawing(target);
+      const index = layoutIndex.get(target);
+      if (index === undefined) fail('unknown-drawing', `Unknown drawing: ${String(target)}`, { id: target });
+      drawing = drawings[index];
       // A drag in progress shows the drawing at its pending position without touching the document or the undo stack.
       const pending = dragPreview.get(target);
       if (pending) drawing = normalizeDrawing({ ...drawing, ...pending });
@@ -1154,7 +1159,7 @@ export function createDrawingStore(options) {
     result.locked = effectiveLocked(drawing);
     result.style = clone(drawing.style);
     result.props = clone(drawing.props);
-    const order = drawings.findIndex(item => item.id === drawing.id);
+    const order = layoutIndex.get(drawing.id) ?? -1;
     if (order >= 0) result.order = order;
     return result;
   }
