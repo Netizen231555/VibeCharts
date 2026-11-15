@@ -43,15 +43,27 @@ export function validateDrawingGeometry(drawing, adapter) {
   const [a, b, c] = anchors;
   const type = drawing.type;
   switch (type) {
+    case 'segment':
+      // A zero-length segment stays valid unless it is extended: extension needs a direction to run along.
+      if ((drawing.props.extend.left || drawing.props.extend.right) && samePoint(a, b)) {
+        throwGeometry('degenerate-direction', 'An extended segment requires a direction');
+      }
+      break;
     case 'ray':
     case 'line':
     case 'parallelChannel':
       if (samePoint(a, b)) throwGeometry('degenerate-direction', `${type} anchors must define a direction`);
       break;
     case 'arrow':
+      if ((drawing.props.extend.left || drawing.props.extend.right) && samePoint(a, b)) {
+        throwGeometry('degenerate-direction', 'An extended arrow requires a direction');
+      }
       if (samePoint(a, b)) throwGeometry('degenerate-arrow', 'Arrow endpoints must not coincide');
       break;
     case 'angle':
+      if ((drawing.props.extend.left && samePoint(a, b)) || (drawing.props.extend.right && samePoint(c, b))) {
+        throwGeometry('degenerate-direction', 'An extended angle ray requires a direction');
+      }
       if (samePoint(a, b) || samePoint(c, b)) throwGeometry('degenerate-angle', 'Angle vertex must not coincide with a ray endpoint');
       break;
     case 'triangle': {
@@ -121,11 +133,13 @@ function pitchforkFrame(anchors, variant) {
   return { origin, direction, mid };
 }
 
-function clipLine(x0, y0, x1, y1, rect, mode) {
+// Extension is a parameter interval, not a mode: the drawn piece of the a -> b line is t in
+// [left ? -Infinity : 0, right ? Infinity : 1] clipped against the plot rectangle.
+function clipLine(x0, y0, x1, y1, rect, extend) {
   const dx = x1 - x0;
   const dy = y1 - y0;
-  let tmin = mode === 'ray' ? 0 : -Infinity;
-  let tmax = Infinity;
+  let tmin = extend.left ? -Infinity : 0;
+  let tmax = extend.right ? Infinity : 1;
   const p = [-dx, dx, -dy, dy];
   const q = [x0 - rect.x, rect.x + rect.width - x0, y0 - rect.y, rect.y + rect.height - y0];
   for (let i = 0; i < 4; i += 1) {
@@ -144,6 +158,37 @@ function clipLine(x0, y0, x1, y1, rect, mode) {
   }
   if (!Number.isFinite(tmin) || !Number.isFinite(tmax) || tmin > tmax) return null;
   return { x1: x0 + dx * tmin, y1: y0 + dy * tmin, x2: x0 + dx * tmax, y2: y0 + dy * tmax };
+}
+
+// The drawn piece of a two-anchor line for its `extend` prop. With neither side extended it is the exact
+// a -> b piece without clipping (a finite segment far off screen keeps its bounds, as before the options);
+// the primitive kind is the geometry class — segment, ray or line — by the number of extended sides.
+function strokeFor(extend, a, b, rect) {
+  if (!extend.left && !extend.right) {
+    return { kind: 'segment', x1: a.x, y1: a.y, x2: b.x, y2: b.y };
+  }
+  const clipped = clipLine(a.x, a.y, b.x, b.y, rect, extend);
+  return clipped ? { kind: extend.left && extend.right ? 'line' : 'ray', ...clipped } : null;
+}
+
+function arrowheadPrimitive(tip, from) {
+  return { kind: 'polygon', role: 'arrowhead', points: arrowHead(tip, from), closed: true };
+}
+
+// Screen-space centre: on a logarithmic scale the visual halfway point is the readable middle, not the
+// geometric mean of the prices. The marker is decorative — never a handle, never a pick target.
+function midpointPrimitive(p, q) {
+  return { kind: 'circle', role: 'midpoint', cx: (p.x + q.x) / 2, cy: (p.y + q.y) / 2, r: 4 };
+}
+
+// Heads sit at the ends of the drawn geometry: the anchor when that side is not extended, the clipped
+// plot-edge point when it is (a head at the anchor of an extended side would point nowhere).
+function decorateLine(primitives, stroke, a, b, arrows, midpoint) {
+  const first = { x: stroke.x1, y: stroke.y1 };
+  const last = { x: stroke.x2, y: stroke.y2 };
+  if (arrows.start) primitives.push(arrowheadPrimitive(first, last));
+  if (arrows.end) primitives.push(arrowheadPrimitive(last, first));
+  if (midpoint) primitives.push(midpointPrimitive(a, b));
 }
 
 function shapePoints(points) {
@@ -230,18 +275,33 @@ function arcPrimitive(center, radius, startAngle, endAngle) {
   return { kind: 'arc', cx: center.x, cy: center.y, r: radius, startAngle, endAngle };
 }
 
+function lineFamily({ a, b, drawing, rect }) {
+  const stroke = strokeFor(drawing.props.extend, a, b, rect);
+  if (!stroke) return { primitives: [] };
+  const primitives = [{ kind: stroke.kind, x1: stroke.x1, y1: stroke.y1, x2: stroke.x2, y2: stroke.y2 }];
+  decorateLine(primitives, stroke, a, b, drawing.props.arrows, drawing.props.midpoint);
+  return { primitives };
+}
+
+// Grows one end of a VWAP piece along the direction of its edge segment, up to the plot edge; the appended
+// point makes the extension part of the same polyline, so rendering, picking and bounds follow it.
+function continueVwapSegment(points, side, rect) {
+  if (!points || points.length < 2) return;
+  const tip = side === 'right' ? points[points.length - 1] : points[0];
+  const before = side === 'right' ? points[points.length - 2] : points[1];
+  const grown = clipLine(tip.x, tip.y, tip.x + (tip.x - before.x), tip.y + (tip.y - before.y), rect, { left: false, right: true });
+  if (!grown) return;
+  const end = { x: grown.x2, y: grown.y2 };
+  if (side === 'right') points.push(end); else points.unshift(end);
+}
+
 const BUILDERS = {
-  segment({ a, b }) {
-    return { primitives: [{ kind: 'segment', x1: a.x, y1: a.y, x2: b.x, y2: b.y }] };
-  },
-  ray({ a, b, rect }) {
-    const clipped = clipLine(a.x, a.y, b.x, b.y, rect, 'ray');
-    return { primitives: clipped ? [{ kind: 'ray', ...clipped }] : [] };
-  },
-  line({ a, b, rect }) {
-    const clipped = clipLine(a.x, a.y, b.x, b.y, rect, 'line');
-    return { primitives: clipped ? [{ kind: 'line', ...clipped }] : [] };
-  },
+  // The four two-point tools share one geometry: only the default of props.extend (and of arrows) tells
+  // them apart, so a segment can run to infinity and a line can stop at its anchors.
+  segment: lineFamily,
+  ray: lineFamily,
+  line: lineFamily,
+  arrow: lineFamily,
   horizontalLevel({ a, rect }) {
     return {
       primitives: [{ kind: 'line', x1: rect.x, y1: a.y, x2: rect.x + rect.width, y2: a.y }],
@@ -260,27 +320,31 @@ const BUILDERS = {
       handles: [{ x: a.x, y: rect.y + rect.height, anchorIndex: 0 }],
     };
   },
-  parallelChannel({ a, b, c, rect }) {
-    const base = clipLine(a.x, a.y, b.x, b.y, rect, 'line');
+  parallelChannel({ a, b, c, drawing, rect }) {
+    const extend = drawing.props.extend;
+    const base = strokeFor(extend, a, b, rect);
     const dx = b.x - a.x;
     const dy = b.y - a.y;
-    const second = a.x === b.x && a.y === b.y ? null : clipLine(c.x, c.y, c.x + dx, c.y + dy, rect, 'line');
+    const second = a.x === b.x && a.y === b.y ? null : strokeFor(extend, c, { x: c.x + dx, y: c.y + dy }, rect);
     const primitives = [];
-    // The fill is the quad between the two clipped lines; it is fill-only so the channel keeps its two-line outline.
+    // The fill is the quad between the two drawn lines; it is fill-only so the channel keeps its two-line outline.
     if (base && second) primitives.push({ ...polygon('channel-fill', [
       { x: base.x1, y: base.y1 },
       { x: base.x2, y: base.y2 },
       { x: second.x2, y: second.y2 },
       { x: second.x1, y: second.y1 },
     ]), stroke: false });
-    if (base) primitives.push({ kind: 'line', role: 'channel-base', ...base });
-    if (second) primitives.push({ kind: 'line', role: 'channel-parallel', ...second });
+    if (base) primitives.push({ kind: base.kind, role: 'channel-base', x1: base.x1, y1: base.y1, x2: base.x2, y2: base.y2 });
+    if (second) primitives.push({ kind: second.kind, role: 'channel-parallel', x1: second.x1, y1: second.y1, x2: second.x2, y2: second.y2 });
     if (a.resolved && b.resolved) primitives.push({ kind: 'segment', role: 'channel-anchor-line', x1: a.x, y1: a.y, x2: b.x, y2: b.y });
     return { primitives };
   },
-  rectangle({ a, b }) {
-    const x1 = Math.min(a.x, b.x);
-    const x2 = Math.max(a.x, b.x);
+  rectangle({ a, b, drawing, rect }) {
+    // Extension is horizontal only, in screen sides (the box has no anchor order after normalization);
+    // vertices and handles stay at the anchors, the polygon's x range runs to the plot edge.
+    const extend = drawing.props.extend;
+    const x1 = extend.left ? rect.x : Math.min(a.x, b.x);
+    const x2 = extend.right ? rect.x + rect.width : Math.max(a.x, b.x);
     const y1 = Math.min(a.y, b.y);
     const y2 = Math.max(a.y, b.y);
     return {
@@ -340,15 +404,7 @@ const BUILDERS = {
     const labels = [{ x: midX, y: tone === 'up' ? top - 8 : bottom + 8, text: lines[0], lines, box: { tone }, placement: tone === 'up' ? 'above' : 'below' }];
     return { primitives, labels, measure };
   },
-  arrow({ a, b }) {
-    return {
-      primitives: [
-        { kind: 'segment', x1: a.x, y1: a.y, x2: b.x, y2: b.y },
-        { kind: 'polygon', role: 'arrowhead', points: arrowHead(b, a), closed: true },
-      ],
-    };
-  },
-  angle({ a, b, c }) {
+  angle({ a, b, c, drawing, rect }) {
     const u = { x: a.x - b.x, y: a.y - b.y };
     const v = { x: c.x - b.x, y: c.y - b.y };
     const dot = u.x * v.x + u.y * v.y;
@@ -361,14 +417,22 @@ const BUILDERS = {
     while (sweep > Math.PI) sweep -= Math.PI * 2;
     while (sweep < -Math.PI) sweep += Math.PI * 2;
     endAngle = startAngle + sweep;
-    return {
-      primitives: [
-        lineBetween('angle-ray', b.x, b.y, a.x, a.y),
-        lineBetween('angle-ray', b.x, b.y, c.x, c.y),
-        arcPrimitive(b, radius, startAngle, endAngle),
-      ],
-      angleDegrees,
-    };
+    // The options act on the two rays: `left` extends vertex -> first anchor beyond it, `right` vertex -> third
+    // anchor; heads mark the far ends and the midpoint sits between the vertex and each outer anchor.
+    const extend = drawing.props.extend;
+    const rays = [
+      [strokeFor({ left: false, right: extend.left }, b, a, rect), a, drawing.props.arrows.start],
+      [strokeFor({ left: false, right: extend.right }, b, c, rect), c, drawing.props.arrows.end],
+    ];
+    const primitives = [];
+    for (const [stroke, outer, head] of rays) {
+      if (!stroke) continue;
+      primitives.push({ kind: stroke.kind, role: 'angle-ray', x1: stroke.x1, y1: stroke.y1, x2: stroke.x2, y2: stroke.y2 });
+      if (head) primitives.push(arrowheadPrimitive({ x: stroke.x2, y: stroke.y2 }, { x: stroke.x1, y: stroke.y1 }));
+      if (drawing.props.midpoint) primitives.push(midpointPrimitive(b, outer));
+    }
+    primitives.push(arcPrimitive(b, radius, startAngle, endAngle));
+    return { primitives, angleDegrees };
   },
   triangle({ a, b, c }) {
     return { primitives: [polygon('triangle', [a, b, c])] };
@@ -459,10 +523,12 @@ const BUILDERS = {
       const price = a.price + level.coefficient * (b.price - a.price);
       const y = adapter.priceToY(price, binding);
       if (!isNumber(y)) continue;
-      const clipped = clipLine(a.x, a.y, b.x, y, rect, 'ray');
-      if (!clipped) continue;
-      primitives.push({ kind: 'ray', role: 'fib-fan-ray', coefficient: level.coefficient, ...clipped });
-      labels.push({ x: clipped.x2 + 4, y: clipped.y2, text: labelText(level), coefficient: level.coefficient });
+      // The ray runs from the origin through the level point: `right` (the default) continues it to the plot
+      // edge, otherwise it ends at the second anchor's x; `left` continues it backwards past the origin.
+      const stroke = strokeFor(drawing.props.extend, a, { x: b.x, y }, rect);
+      if (!stroke) continue;
+      primitives.push({ kind: stroke.kind, role: 'fib-fan-ray', coefficient: level.coefficient, x1: stroke.x1, y1: stroke.y1, x2: stroke.x2, y2: stroke.y2 });
+      labels.push({ x: stroke.x2 + 4, y: stroke.y2, text: labelText(level), coefficient: level.coefficient });
     }
     return { primitives, labels };
   },
@@ -500,12 +566,17 @@ const BUILDERS = {
     const { origin, direction } = pitchforkFrame([a, b, c], drawing.props.variant);
     const length = Math.hypot(direction.x, direction.y);
     if (length <= EPS) return { primitives: [], available: false, reason: 'degenerate-direction' };
+    // All three tines share props.extend, anchor-ordered: `right` continues each past the fork (its former
+    // constant 'ray' clip, now the default), `left` backwards before the origin and the side anchors, and with
+    // neither set each tine is the finite t in [0, 1] piece — the median from the origin to the side-anchor
+    // midpoint and each side as long as the handle.
+    const extend = drawing.props.extend;
     const primitives = [];
-    const median = clipLine(origin.x, origin.y, origin.x + direction.x, origin.y + direction.y, rect, 'ray');
-    if (median) primitives.push({ kind: 'ray', role: 'pitchfork-median', ...median });
+    const median = strokeFor(extend, origin, { x: origin.x + direction.x, y: origin.y + direction.y }, rect);
+    if (median) primitives.push({ kind: median.kind, role: 'pitchfork-median', x1: median.x1, y1: median.y1, x2: median.x2, y2: median.y2 });
     for (const side of [b, c]) {
-      const clipped = clipLine(side.x, side.y, side.x + direction.x, side.y + direction.y, rect, 'ray');
-      if (clipped) primitives.push({ kind: 'ray', role: 'pitchfork-side', ...clipped });
+      const tine = strokeFor(extend, side, { x: side.x + direction.x, y: side.y + direction.y }, rect);
+      if (tine) primitives.push({ kind: tine.kind, role: 'pitchfork-side', x1: tine.x1, y1: tine.y1, x2: tine.x2, y2: tine.y2 });
     }
     return { primitives, origin, direction, variant: drawing.props.variant };
   },
@@ -529,7 +600,7 @@ const BUILDERS = {
       ],
     };
   },
-  anchoredVwap({ a, drawing, adapter, binding }) {
+  anchoredVwap({ a, drawing, adapter, binding, rect }) {
     if (adapter.paneKind?.(binding) === 'derived') return { primitives: [], available: false, reason: 'derived-pane' };
     const priceSeries = adapter.getSeriesValues(drawing.props.priceSeriesId);
     const volumeSeries = adapter.getSeriesValues(drawing.props.volumeSeriesId);
@@ -550,6 +621,11 @@ const BUILDERS = {
       current.push({ x, y, index: point.index, value: point.value });
     }
     if (current.length) segments.push(current);
+    // The polyline itself always follows the data; an extension continues its first or last visible segment
+    // straight to the plot edge instead of clipping the data away from the anchors.
+    const extend = drawing.props.extend;
+    if (extend.left) continueVwapSegment(segments[0], 'left', rect);
+    if (extend.right) continueVwapSegment(segments[segments.length - 1], 'right', rect);
     return {
       primitives: segments.map(points => ({ kind: 'polyline', role: 'vwap', points })),
       vwap,
