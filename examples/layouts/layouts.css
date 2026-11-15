@@ -28,6 +28,3 @@ pre[data-code] { margin: 0; padding: 12px; overflow: auto; font: 12px/1.5 ui-mon
   .example-grid { grid-template-columns: minmax(0, 1fr); }
 }
 .header-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
-.language-switch { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
-.language-switch select { min-height: 36px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
-.language-switch select:focus-visible { outline: 2px solid #5db0de; outline-offset: 2px; }

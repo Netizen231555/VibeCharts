@@ -49,29 +49,44 @@ export function createI18n(dictionaries) {
   return { lang, locale: info.locale, t, apply };
 }
 
-/** A labelled language `<select>` appended to `container`; choosing a language stores it and reloads the page. */
+const SWITCH_STYLE = `
+.language-switch { display: inline-flex; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius: 6px; overflow: hidden; font-size: 12px; line-height: 1; }
+.language-switch button { margin: 0; padding: 7px 9px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; letter-spacing: .04em; cursor: pointer; opacity: .6; }
+.language-switch button + button { border-left: 1px solid color-mix(in srgb, currentColor 35%, transparent); }
+.language-switch button:hover { opacity: .9; }
+.language-switch button[aria-pressed="true"] { opacity: 1; background: color-mix(in srgb, currentColor 18%, transparent); cursor: default; }
+.language-switch button:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+`;
+
+/** A compact EN | RU switch appended to `container`; choosing a language stores it and reloads the page. */
 export function mountLanguageSwitch(container) {
   const lang = resolveLanguage();
-  const label = document.createElement('label');
-  label.className = 'language-switch';
-  const text = document.createElement('span');
-  text.textContent = lang === 'ru' ? 'Язык' : 'Language';
-  const select = document.createElement('select');
-  select.setAttribute('aria-label', 'Language / Язык');
-  for (const entry of LANGUAGES) {
-    const option = document.createElement('option');
-    option.value = entry.id;
-    option.textContent = entry.label;
-    option.selected = entry.id === lang;
-    select.append(option);
+  if (!document.getElementById('language-switch-style')) {
+    const style = document.createElement('style');
+    style.id = 'language-switch-style';
+    style.textContent = SWITCH_STYLE;
+    document.head.append(style);
   }
-  select.addEventListener('change', () => {
-    try { localStorage.setItem(STORAGE_KEY, select.value); } catch { /* storage unavailable: the query parameter still carries the choice */ }
-    const url = new URL(location.href);
-    url.searchParams.set('lang', select.value);
-    location.replace(url);
-  });
-  label.append(text, select);
-  container.append(label);
-  return select;
+  const group = document.createElement('div');
+  group.className = 'language-switch';
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', 'Language / Язык');
+  for (const entry of LANGUAGES) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = entry.id.toUpperCase();
+    button.lang = entry.id;
+    button.title = entry.label;
+    button.setAttribute('aria-pressed', String(entry.id === lang));
+    button.addEventListener('click', () => {
+      if (entry.id === lang) return;
+      try { localStorage.setItem(STORAGE_KEY, entry.id); } catch { /* storage unavailable: the query parameter still carries the choice */ }
+      const url = new URL(location.href);
+      url.searchParams.set('lang', entry.id);
+      location.replace(url);
+    });
+    group.append(button);
+  }
+  container.append(group);
+  return group;
 }

@@ -5,4 +5,3 @@
 @media(max-width:760px){.split{grid-template-columns:minmax(0,1fr)}.instrument{min-width:0}.instrument dl{flex-wrap:wrap}}
 .eyebrow .lead,h1 .lead{color:inherit;font-weight:inherit}
 .header-controls{display:flex;align-items:center;gap:12px}
-.language-switch{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}

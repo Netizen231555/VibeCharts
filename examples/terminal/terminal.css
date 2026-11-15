@@ -61,9 +61,6 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus)
 .chip[aria-pressed="true"] .live-dot { background: var(--up); box-shadow: 0 0 0 0 rgba(8, 153, 129, .6); animation: pulse 1.6s infinite; }
 @keyframes pulse { 70% { box-shadow: 0 0 0 6px rgba(8, 153, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(8, 153, 129, 0); } }
 .demo-badge { margin: 0 8px; padding: 3px 8px; border: 1px solid var(--warn); border-radius: 4px; color: var(--warn); font-size: 11px; font-weight: 600; white-space: nowrap; }
-.language-switch { display: inline-flex; align-items: center; gap: 6px; margin: 0 4px; color: var(--muted); font-size: 12px; white-space: nowrap; }
-.language-switch select { height: 28px; padding: 0 6px; background: var(--chip); color: var(--text); border: 1px solid var(--border); border-radius: 6px; font: inherit; cursor: pointer; }
-.language-switch select:hover { background: var(--hover); }
 .watchlist tbody tr { cursor: pointer; }
 .narrow-only { display: none; }
 
@@ -151,7 +148,6 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus)
 .status-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 @media (max-width: 1100px) { .terminal { grid-template-columns: 48px minmax(0, 1fr) 290px; } }
-@media (max-width: 1500px) { .language-switch span { display: none; } }
 @media (max-width: 800px) {
   .terminal { grid-template-columns: 44px minmax(0, 1fr); }
   .sidepanel { position: fixed; z-index: 40; top: 46px; right: 0; bottom: 0; width: min(320px, 92vw); transform: translateX(100%); transition: transform .18s; box-shadow: -8px 0 24px rgba(0, 0, 0, .4); }
