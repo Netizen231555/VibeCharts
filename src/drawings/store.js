@@ -4,7 +4,7 @@ import { buildLayout, resolveAnchor, validateDrawingGeometry } from './layout.js
 import { measureAnchors } from './analytics.js';
 import { clone, equal, fail, isNumber, isObject, normalizeZero, requireBoolean, requireString } from './values.js';
 
-export const DRAWINGS_SCHEMA_VERSION = 1;
+export const DRAWINGS_SCHEMA_VERSION = 2;
 export const DRAWINGS_FORMAT = 'vibecharts/drawings';
 export const DRAWING_TOOL_TYPES = Object.freeze(Object.keys(DRAWING_TOOLS));
 export const DRAWING_RESTORE_HOOKS = Symbol('drawingRestoreHooks');
@@ -1190,7 +1190,7 @@ export function createDrawingStore(options) {
     return a.x <= b.x + b.width && a.x + a.width >= b.x && a.y <= b.y + b.height && a.y + a.height >= b.y;
   }
 
-  function primitiveHit(primitive, point, radius) {
+  function primitiveHit(primitive, point, radius, fill = false) {
     switch (primitive.kind) {
       case 'segment':
       case 'line':
@@ -1202,7 +1202,8 @@ export function createDrawingStore(options) {
           const current = primitive.points[i];
           if (distanceToSegment(point.x, point.y, previous.x, previous.y, current.x, current.y) <= radius) return true;
         }
-        return false;
+        // A filled path is selectable inside its interior; the polygon closes the path with an implicit chord.
+        return fill === true && pointInPolygon(point.x, point.y, primitive.points);
       }
       case 'marker': {
         const effective = radius + (primitive.width ?? 0) / 2;
@@ -1219,7 +1220,7 @@ export function createDrawingStore(options) {
           const current = primitive.points[i];
           if (distanceToSegment(point.x, point.y, previous.x, previous.y, current.x, current.y) <= radius) return true;
         }
-        return false;
+        return fill === true && pointInPolygon(point.x, point.y, primitive.points);
       }
       case 'polygon': {
         const points = primitive.points;
@@ -1279,7 +1280,9 @@ export function createDrawingStore(options) {
         }
       }
       for (const primitive of geometry.primitives) {
-        if (primitiveHit(primitive, point, radius)) return { id: drawing.id, part: 'body', primitive: primitive.kind };
+        if (primitiveHit(primitive, point, radius, drawing.style?.fill === true && primitive.fillable === true)) {
+          return { id: drawing.id, part: 'body', primitive: primitive.kind };
+        }
       }
       for (const label of geometry.labels) {
         if (primitiveHit({ kind: 'text', ...label }, point, radius)) return { id: drawing.id, part: 'body', primitive: 'text' };
@@ -1356,7 +1359,10 @@ export function createDrawingStore(options) {
     if (transaction) fail('transaction-active', 'Cannot import while a drag transaction is open');
     if (!isObject(document)) fail('invalid-import', 'document must be an object');
     if (document.schemaVersion !== DRAWINGS_SCHEMA_VERSION) {
-      fail('unsupported-version', `Unsupported drawings schema version: ${String(document.schemaVersion)}`, {
+      const legacy = document.schemaVersion === 1
+        ? ' (the style property fillColor no longer exists; fill uses color and fillOpacity)'
+        : '';
+      fail('unsupported-version', `Unsupported drawings schema version: ${String(document.schemaVersion)}${legacy}`, {
         field: 'schemaVersion',
         expected: DRAWINGS_SCHEMA_VERSION,
       });

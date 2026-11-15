@@ -2,7 +2,7 @@ import { fail, isObject, isNumber } from './values.js';
 
 export const STYLE_FAMILIES = Object.freeze({
   line: ['color', 'width', 'dash', 'opacity'],
-  filled: ['color', 'width', 'dash', 'fill', 'fillColor', 'opacity'],
+  filled: ['color', 'width', 'dash', 'opacity', 'fill', 'fillOpacity'],
   text: ['color', 'opacity'],
   marker: ['color', 'width', 'opacity'],
 });
@@ -19,7 +19,6 @@ function color(value, property) {
 
 const VALIDATORS = {
   color: value => color(value, 'color'),
-  fillColor: value => color(value, 'fillColor'),
   width: value => {
     if (!isNumber(value) || value <= 0 || value > 1000) {
       fail('invalid-style', 'width must be a finite number greater than 0 and at most 1000', { property: 'width' });
@@ -32,6 +31,12 @@ const VALIDATORS = {
   },
   fill: value => {
     if (typeof value !== 'boolean') fail('invalid-style', 'fill must be a boolean', { property: 'fill' });
+    return value;
+  },
+  fillOpacity: value => {
+    if (!isNumber(value) || value < 0 || value > 1) {
+      fail('invalid-style', 'fillOpacity must be a finite number between 0 and 1', { property: 'fillOpacity' });
+    }
     return value;
   },
   opacity: value => {
@@ -50,7 +55,7 @@ export function defaultStyle(family) {
     style.width = 1;
     style.dash = 'solid';
     style.fill = false;
-    style.fillColor = '#4a9fd0';
+    style.fillOpacity = 0.18;
   }
   if (family === 'line') style.dash = 'solid';
   return style;

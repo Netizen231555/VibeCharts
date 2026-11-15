@@ -4,7 +4,7 @@ const TONES = {
   down: { line: '#d0555b', area: 'rgba(208, 85, 91, 0.16)', box: '#b8434a' },
 };
 
-export function drawPrimitive(ctx, primitive, fill, plain = false) {
+export function drawPrimitive(ctx, primitive, fill, plain = false, fillAlpha = 1) {
   const p = primitive;
   if (p.kind === 'text') { ctx.fillText(String(p.text), p.x, p.y); return; }
   const tone = plain ? undefined : TONES[p.tone];
@@ -30,9 +30,17 @@ export function drawPrimitive(ctx, primitive, fill, plain = false) {
       case 'arc': ctx.arc(p.cx, p.cy, p.r, p.startAngle, p.endAngle); break;
       default: throw new Error(`Unsupported drawing primitive: ${p.kind}`);
     }
-    if (p.kind === 'polygon' && (fill || tone)) ctx.fill();
+    if (tone) {
+      if (p.kind === 'polygon') ctx.fill();
+    } else if (fill && p.fillable === true) {
+      // Fill pass at its own alpha (canvas closes an open path with an implicit chord); the stroke keeps the base alpha.
+      const base = ctx.globalAlpha;
+      ctx.globalAlpha = fillAlpha;
+      ctx.fill();
+      ctx.globalAlpha = base;
+    }
     if (p.kind === 'marker') ctx.lineWidth = p.width;
-    ctx.stroke();
+    if (p.stroke !== false) ctx.stroke();
   } finally {
     if (tone) ctx.restore();
   }
@@ -73,9 +81,10 @@ export function drawLayout(ctx, layout, rect, preview = false, selected = false)
   ctx.save();
   try {
     ctx.beginPath(); ctx.rect(rect.x, rect.y, rect.width, rect.height); ctx.clip();
-    ctx.strokeStyle = layout.style.color; ctx.fillStyle = layout.style.fillColor ?? layout.style.color;
+    ctx.strokeStyle = layout.style.color; ctx.fillStyle = layout.style.color;
     ctx.globalAlpha = layout.style.opacity; ctx.lineWidth = layout.style.width ?? 1;
     ctx.setLineDash(preview || layout.style.dash === 'dashed' ? [6, 4] : layout.style.dash === 'dotted' ? [2, 3] : []);
+    const fillAlpha = layout.style.opacity * (layout.style.fillOpacity ?? 1);
     if (selected) {
       ctx.save();
       ctx.strokeStyle = '#2962ff';
@@ -83,11 +92,13 @@ export function drawLayout(ctx, layout, rect, preview = false, selected = false)
       ctx.globalAlpha = 0.45;
       ctx.lineWidth = (layout.style.width ?? 1) + 5;
       ctx.setLineDash([]);
-      for (const primitive of layout.primitives) drawPrimitive(ctx, primitive, false, true);
+      for (const primitive of layout.primitives) {
+        if (primitive.stroke === false) continue;
+        drawPrimitive(ctx, primitive, false, true);
+      }
       ctx.restore();
     }
-    for (const primitive of layout.primitives) drawPrimitive(ctx, primitive, layout.style.fill === true);
-    ctx.fillStyle = layout.style.color;
+    for (const primitive of layout.primitives) drawPrimitive(ctx, primitive, layout.style.fill === true, false, fillAlpha);
     for (const label of layout.labels) drawLabel(ctx, label, rect);
     if (selected) {
       ctx.globalAlpha = 1;

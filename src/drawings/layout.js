@@ -151,7 +151,7 @@ function shapePoints(points) {
 }
 
 function polygon(role, points) {
-  return { kind: 'polygon', role, points: shapePoints(points) };
+  return { kind: 'polygon', role, points: shapePoints(points), fillable: true };
 }
 
 function lineBetween(role, x1, y1, x2, y2) {
@@ -266,6 +266,13 @@ const BUILDERS = {
     const dy = b.y - a.y;
     const second = a.x === b.x && a.y === b.y ? null : clipLine(c.x, c.y, c.x + dx, c.y + dy, rect, 'line');
     const primitives = [];
+    // The fill is the quad between the two clipped lines; it is fill-only so the channel keeps its two-line outline.
+    if (base && second) primitives.push({ ...polygon('channel-fill', [
+      { x: base.x1, y: base.y1 },
+      { x: base.x2, y: base.y2 },
+      { x: second.x2, y: second.y2 },
+      { x: second.x1, y: second.y1 },
+    ]), stroke: false });
     if (base) primitives.push({ kind: 'line', role: 'channel-base', ...base });
     if (second) primitives.push({ kind: 'line', role: 'channel-parallel', ...second });
     if (a.resolved && b.resolved) primitives.push({ kind: 'segment', role: 'channel-anchor-line', x1: a.x, y1: a.y, x2: b.x, y2: b.y });
@@ -283,7 +290,7 @@ const BUILDERS = {
   ellipse({ a, b }) {
     const cx = (a.x + b.x) / 2;
     const cy = (a.y + b.y) / 2;
-    return { primitives: [{ kind: 'ellipse', cx, cy, rx: Math.abs(b.x - a.x) / 2, ry: Math.abs(b.y - a.y) / 2 }] };
+    return { primitives: [{ kind: 'ellipse', cx, cy, rx: Math.abs(b.x - a.x) / 2, ry: Math.abs(b.y - a.y) / 2, fillable: true }] };
   },
   fibRetracement({ a, b, drawing, adapter, binding }) {
     const primitives = [];
@@ -367,7 +374,7 @@ const BUILDERS = {
     return { primitives: [polygon('triangle', [a, b, c])] };
   },
   polyline({ anchors }) {
-    return { primitives: [{ kind: 'polyline', points: shapePoints(anchors) }] };
+    return { primitives: [{ kind: 'polyline', points: shapePoints(anchors), fillable: true }] };
   },
   bezier({ anchors }) {
     const [p0, p1, p2, p3] = anchors.map(anchor => ({ x: anchor.x, y: anchor.y }));
@@ -380,10 +387,10 @@ const BUILDERS = {
         y: mt ** 3 * p0.y + 3 * mt ** 2 * t * p1.y + 3 * mt * t ** 2 * p2.y + t ** 3 * p3.y,
       });
     }
-    return { primitives: [{ kind: 'bezier', p0, p1, p2, p3, points }] };
+    return { primitives: [{ kind: 'bezier', p0, p1, p2, p3, points, fillable: true }] };
   },
   brush({ anchors }) {
-    return { primitives: [{ kind: 'polyline', role: 'brush', points: shapePoints(anchors) }] };
+    return { primitives: [{ kind: 'polyline', role: 'brush', points: shapePoints(anchors), fillable: true }] };
   },
   marker({ anchors, drawing }) {
     return {
