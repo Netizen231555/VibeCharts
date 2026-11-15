@@ -42,47 +42,81 @@ export function anchorTime(anchor, adapter, binding) {
   return slot.time;
 }
 
+// A fit depends only on the series array and the analysed index range, and hosts hand out an unchanged array
+// while the data is unchanged, so repeated layouts and hit tests of the same channel skip the O(n) pass. The
+// per-array map is bounded because a drag visits many ranges of one array.
+const regressionCache = new WeakMap();
+const REGRESSION_CACHE_LIMIT = 64;
+
 export function computeRegression({ x1, x2, series }) {
   if (!Array.isArray(series)) return { available: false, reason: 'missing-series' };
+  const key = `${Math.min(x1, x2)}|${Math.max(x1, x2)}`;
+  let perSeries = regressionCache.get(series);
+  const cached = perSeries?.get(key);
+  if (cached) return cached;
+  const result = fitRegression({ x1, x2, series });
+  if (!perSeries) regressionCache.set(series, perSeries = new Map());
+  else if (perSeries.size >= REGRESSION_CACHE_LIMIT) perSeries.clear();
+  perSeries.set(key, result);
+  return result;
+}
+
+function fitRegression({ x1, x2, series }) {
   const from = Math.min(x1, x2);
   const to = Math.max(x1, x2);
-  const byIndex = new Map();
+  // Items are referenced, not copied: a cached fit must stay small because every channel keeps one per range.
+  let selected = [];
+  let lastIndex = -Infinity;
+  let ordered = true;
   for (const item of series) {
     if (!item || typeof item !== 'object' || !Number.isInteger(item.index) || !isNumber(item.value)) {
       return { available: false, reason: 'invalid-series' };
     }
-    if (item.index < from || item.index > to) continue;
-    const existing = byIndex.get(item.index);
-    if (existing !== undefined && existing !== item.value) return { available: false, reason: 'invalid-series' };
-    byIndex.set(item.index, item.value);
+    if (item.index <= lastIndex) ordered = false;
+    lastIndex = item.index;
+    if (item.index >= from && item.index <= to) selected.push(item);
   }
-  const points = [...byIndex.entries()].sort((a, b) => a[0] - b[0]).map(([x, y]) => ({ x, y }));
-  if (points.length < 2) return { available: false, reason: 'insufficient-points', range: { from, to } };
+  if (!ordered) {
+    // Repeated indexes are accepted only when they agree.
+    const byIndex = new Map();
+    for (const item of selected) {
+      const existing = byIndex.get(item.index);
+      if (existing !== undefined && existing !== item.value) return { available: false, reason: 'invalid-series' };
+      byIndex.set(item.index, item.value);
+    }
+    selected = [...byIndex].map(([index, value]) => ({ index, value }));
+  }
+  const n = selected.length;
+  if (n < 2) return { available: false, reason: 'insufficient-points', range: { from, to } };
 
-  const n = points.length;
-  const xbar = points.reduce((sum, p) => sum + p.x, 0) / n;
-  const ybar = points.reduce((sum, p) => sum + p.y, 0) / n;
+  let xsum = 0;
+  let ysum = 0;
+  for (const item of selected) { xsum += item.index; ysum += item.value; }
+  const xbar = xsum / n;
+  const ybar = ysum / n;
   let sxx = 0;
   let sxy = 0;
   let syy = 0;
-  for (const p of points) {
-    sxx += (p.x - xbar) ** 2;
-    sxy += (p.x - xbar) * (p.y - ybar);
-    syy += (p.y - ybar) ** 2;
+  for (const item of selected) {
+    const dx = item.index - xbar;
+    const dy = item.value - ybar;
+    sxx += dx * dx;
+    sxy += dx * dy;
+    syy += dy * dy;
   }
   if (!(sxx > 0)) return { available: false, reason: 'insufficient-points', range: { from, to } };
   const b = sxy / sxx;
   const a = ybar - b * xbar;
   let residuals = 0;
-  for (const p of points) residuals += (p.y - (a + b * p.x)) ** 2;
+  for (const item of selected) residuals += (item.value - (a + b * item.index)) ** 2;
   const sigma = Math.sqrt(residuals / n);
   // Float accumulation leaves Syy at ~1e-30 for inexact constants like 0.1, so
   // zero variance is decided by comparing the values themselves.
-  const constant = points.every((p) => p.y === points[0].y);
+  const constant = selected.every((item) => item.value === selected[0].value);
   const correlation = n < 3 ? { available: false, reason: 'insufficient-points' }
     : constant ? { available: false, reason: 'zero-variance' }
       : { available: true, value: Math.max(-1, Math.min(1, sxy / Math.sqrt(sxx * syy))) };
-  return { available: true, a, b, sigma, n, points, range: { from, to }, correlation };
+  return { available: true, a, b, sigma, n, range: { from, to }, correlation };
 }
 
 export function computeVwap({ anchorX, priceSeries, volumeSeries, count }) {

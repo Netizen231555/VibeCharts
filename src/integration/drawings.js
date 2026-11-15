@@ -32,7 +32,7 @@ export function drawingIntersectsRect(layout, rect, selected) {
 export function attachDrawings(chart, { context, historyLimit = 100, alertEngine = null, drawingChartId } = {}) {
   const surface = chart.surface;
   let activeBinding = {};
-  let frameSeries = null;
+  const projections = new Map();
   const paneContext = binding => binding?.paneId === undefined || binding?.paneId === null
     ? { kind: 'source', scale: chart.indexScale() }
     : chart._paneXContext(binding.paneId);
@@ -55,10 +55,15 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
     },
     indexOf: (id, binding) => paneContext(binding).scale.barIdToIndex(id),
     // Drawing analytics consume {index, value}; a barId without a timeline index stays null so the analytics reports an invalid series.
+    // The projection is reused across frames and hit tests while the series object, its revision and the timeline
+    // revision are unchanged, so the array identity also lets the regression fit be memoised on it.
     getSeriesValues: id => {
-      if (frameSeries?.has(id)) return frameSeries.get(id);
-      const values = chart.series(id).data().map(point => ({ index: chart.timeline.indexOf(point.barId), value: point.value ?? point.close }));
-      frameSeries?.set(id, values);
+      // The public facade is rebuilt on every lookup and hides the revision, so the owned series is used.
+      const series = chart._resolveSeries(id, 'chart.series');
+      const cached = projections.get(id);
+      if (cached && cached.series === series && cached.revision === series.revision && cached.timeline === chart.timeline.revision) return cached.values;
+      const values = series.data().map(point => ({ index: chart.timeline.indexOf(point.barId), value: point.value ?? point.close }));
+      projections.set(id, { series, revision: series.revision, timeline: chart.timeline.revision, values });
       return values;
     },
     formatPrice: (price, binding) => formatPrice(price, {
@@ -150,8 +155,6 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
         const drawings = renderDrawings ??= store.list();
         const selected = new Set(store.getSelection());
         const axisEntries = [];
-        frameSeries = new Map();
-        try {
         for (const drawing of drawings) {
           activeBinding = { paneId: drawing.paneId, scaleId: drawing.scaleId };
           const layout = store.layout(drawing.id);
@@ -162,9 +165,6 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
           const rect = surface.getVisibleRect(activeBinding);
           if (!drawingIntersectsRect(layout, rect, isSelected)) continue;
           drawLayout(ctx, layout, rect, false, isSelected);
-        }
-        } finally {
-          frameSeries = null;
         }
         if (axisEntries.length > 0 && frameLayout) {
           // Drawing order with the selected drawings last; the pass culls and formats what survives.

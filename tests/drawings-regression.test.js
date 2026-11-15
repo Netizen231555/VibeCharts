@@ -64,3 +64,15 @@ test('correlation label stays inside the pane', () => {
   // Range ends left of the visible pane: no label is pinned to an unrelated spot.
   assert.equal(labelFor({}, { x: 100, y: 0, width: 100, height: 200 }), undefined);
 });
+
+test('regression fit is memoised per series array and range', () => {
+  const values = series([10, 13, 14, 18]);
+  const first = computeRegression({ x1: 0, x2: 3, series: values });
+  assert.equal(computeRegression({ x1: 3, x2: 0, series: values }), first);
+  assert.notEqual(computeRegression({ x1: 0, x2: 2, series: values }), first);
+  // A host that rebuilds the array after a data change gets a fresh fit.
+  const changed = computeRegression({ x1: 0, x2: 3, series: series([10, 13, 14, 40]) });
+  assert.notEqual(changed, first);
+  assert.notEqual(changed.b, first.b);
+  assert.equal('points' in first, false);
+});
