@@ -4,6 +4,8 @@ import { createDrawingStore } from '../src/drawings/store.js';
 import { normalizeProps } from '../src/drawings/tools.js';
 import { drawAxisLabels } from '../src/integration/axis-labels.js';
 import { computeLayout } from '../src/render/layout.js';
+import { formatPrice, numberFormatter } from '../src/render/axes.js';
+import { formatAxisTime } from '../src/render/axis-time.js';
 
 const geometry = {
   hasBinding: () => true, getVisibleRect: () => ({ x: 0, y: 0, width: 200, height: 200 }),
@@ -61,6 +63,19 @@ test('derived panes expose ordinal labels without inventing bar times', () => {
   assert.deepEqual(s.layout(id).axisLabels, [{ axis: 'time', anchorIndex: 0, logical: 2 }]);
   s.update(id, { anchors: [{ anchorBarId: 'b2', offset: 0.5 }] });
   assert.equal(s.layout(id).axisLabels[0].unavailable, 'no-time');
+});
+
+test('price and time formatting follow locale and share bounded formatters', () => {
+  assert.equal(formatPrice(1234.5, { locale: 'en-US', metadata: { priceStep: 0.01, currency: 'USD' } }), '1,234.50 USD');
+  assert.equal(formatPrice(1234.5, { locale: 'ru-RU', metadata: { priceStep: 0.01 } }), '1 234,50');
+  assert.equal(formatPrice(105, { priceScale: { mode: 'percent', _percent: value => value - 100 } }), '5%');
+  assert.match(formatAxisTime(Date.UTC(2024, 0, 2), { locale: 'en-US', timeZone: 'UTC' }), /Jan 2, 24/);
+  const first = numberFormatter('en-US', 0);
+  for (const locale of ['en-US', 'ru-RU', 'de-DE', 'fr-FR', 'ja-JP', 'it-IT', 'es-ES']) {
+    for (let decimals = 0; decimals <= 10; decimals++) numberFormatter(locale, decimals);
+  }
+  assert.notEqual(numberFormatter('en-US', 0), first);
+  assert.equal(numberFormatter('en-US', 0), numberFormatter('en-US', 0));
 });
 
 function axisFixture() {
