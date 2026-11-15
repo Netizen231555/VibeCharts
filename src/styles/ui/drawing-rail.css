@@ -28,7 +28,7 @@
   gap: var(--chart-ui-gap);
   padding: 6px;
 }
-.chart-ui-rail-grid .chart-ui-rail-btn {
+.chart-ui-rail-grid[aria-orientation="vertical"] .chart-ui-rail-btn {
   min-width: 0;
   min-height: calc(var(--chart-ui-control-size) - 4px);
   padding: 0;

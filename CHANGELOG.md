@@ -2,6 +2,7 @@
 
 ## 0.1.0 — unreleased
 
+- A drawing rail along the top or bottom uses full-size buttons; the compact two-column button size applies only to the vertical grid.
 - New `examples/parts/` with two copyable parts built only on the public controller, a popup holding all drawing tools and a native `<select>`, a runnable page that switches between them and the built-in rail, and the guide `docs/parts.md`.
 - Tool controls in the model carry `groupLabel`, the localized name of their group (`toolGroup.*` messages in English and Russian), so custom markup can label groups without its own text.
 - The chart UI has a sixth region, `end` (right of the chart). The drawing rail may stand in `start`, `end`, `top`, `bottom` or `overlay`, the top bar in `top` or `bottom`, the navigation cluster in `overlay`, `top` or `bottom`; the rail's orientation follows its region (rows along the top and bottom scroll sideways; in `overlay` it floats over the plot at the start edge; tooltips open away from the attached edge) and top-bar menus open upward when there is no room below. Existing layouts and the `full`/`compact` presets render as before. `examples/layouts` shows the right, bottom and floating placements.
