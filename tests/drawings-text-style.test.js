@@ -41,7 +41,7 @@ test('plain colors are validated consistently without a browser', () => {
     assert.equal(normalizeProps('segment', { label: { text: 'x', color } }).label.color, color);
     assert.equal(validateStyle('line', { color }).color, color);
   }
-  for (const color of ['#12345', '#1234567', 'notacolor', 'rgb(1,2)', 'rgb(1,2,3,4)', 'rgba(1,2,3,)', 'rgb(1%,2,3)', 'hsl(2,3,4)', 'rgba(1,2,3,1.2.3)', 'rgb(1.,2,3)']) {
+  for (const color of ['#12345', '#1234567', 'notacolor', 'rgb(1,2)', 'rgb(1,2,3,4,5)', 'rgba(1,2,3,)', 'rgb(1%,2,3)', 'hsl(2,3,4)', 'rgba(1,2,3,1.2.3)', 'rgb(1.,2,3)']) {
     assert.equal(isPlainColor(color), false, color);
     const s = store();
     assert.throws(() => s.add({ ...drawing, props: { label: { text: 'x', color } } }), error => error.field === 'props.label.color');
@@ -51,6 +51,19 @@ test('plain colors are validated consistently without a browser', () => {
     assert.throws(() => s.import(invalid), error => error.field === 'props.label.color');
     assert.deepEqual(s.export(), before);
     assert.throws(() => validateStyle('line', { color }), /color/);
+  }
+});
+
+test('comma color function aliases survive add, update and current-version import', () => {
+  for (const color of ['rgb(1,2,3,0.5)', 'rgba(1,2,3)', 'hsl(0,50%,50%,.5)', 'hsla(0,50%,50%)']) {
+    const s = store();
+    const d = s.add({ ...drawing, props: { label: { text: 'x', color } } });
+    assert.equal(d.props.label.color, color);
+    s.update(d.id, { props: { label: { text: 'updated', color } } });
+    assert.equal(s.get(d.id).props.label.color, color);
+    const document = s.export();
+    s.import(document);
+    assert.equal(s.get(d.id).props.label.color, color);
   }
 });
 

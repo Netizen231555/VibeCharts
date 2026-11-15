@@ -16,7 +16,7 @@ export function isPlainColor(value) {
   if (!match) return false;
   const fn = match[1].toLowerCase();
   const parts = match[2].split(',').map(part => part.trim());
-  if (parts.length !== (fn.endsWith('a') ? 4 : 3)) return false;
+  if (parts.length !== 3 && parts.length !== 4) return false;
   if (fn.startsWith('rgb')) {
     const percent = parts[0].endsWith('%');
     if (!parts.slice(0, 3).every(part => part.endsWith('%') === percent && component(part))) return false;
