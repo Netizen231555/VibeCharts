@@ -44,19 +44,24 @@ export function anchorTime(anchor, adapter, binding) {
 
 // A fit depends only on the series array and the analysed index range, and hosts hand out an unchanged array
 // while the data is unchanged, so repeated layouts and hit tests of the same channel skip the O(n) pass. The
-// per-array map is bounded because a drag visits many ranges of one array.
+// per-array map is bounded because a drag visits many ranges of one array; the least recently used range is
+// evicted one at a time so a drag never discards the fits of the other channels on the same series.
 const regressionCache = new WeakMap();
-const REGRESSION_CACHE_LIMIT = 64;
+const REGRESSION_CACHE_LIMIT = 512;
 
 export function computeRegression({ x1, x2, series }) {
   if (!Array.isArray(series)) return { available: false, reason: 'missing-series' };
   const key = `${Math.min(x1, x2)}|${Math.max(x1, x2)}`;
   let perSeries = regressionCache.get(series);
   const cached = perSeries?.get(key);
-  if (cached) return cached;
+  if (cached) {
+    perSeries.delete(key);
+    perSeries.set(key, cached);
+    return cached;
+  }
   const result = fitRegression({ x1, x2, series });
   if (!perSeries) regressionCache.set(series, perSeries = new Map());
-  else if (perSeries.size >= REGRESSION_CACHE_LIMIT) perSeries.clear();
+  else if (perSeries.size >= REGRESSION_CACHE_LIMIT) perSeries.delete(perSeries.keys().next().value);
   perSeries.set(key, result);
   return result;
 }
@@ -64,8 +69,9 @@ export function computeRegression({ x1, x2, series }) {
 function fitRegression({ x1, x2, series }) {
   const from = Math.min(x1, x2);
   const to = Math.max(x1, x2);
-  // Items are referenced, not copied: a cached fit must stay small because every channel keeps one per range.
-  let selected = [];
+  // The passes run over the series itself: nothing is allocated per fit unless repeated indexes need merging, so
+  // a drag over long ranges adds no garbage.
+  let source = series;
   let lastIndex = -Infinity;
   let ordered = true;
   for (const item of series) {
@@ -74,30 +80,40 @@ function fitRegression({ x1, x2, series }) {
     }
     if (item.index <= lastIndex) ordered = false;
     lastIndex = item.index;
-    if (item.index >= from && item.index <= to) selected.push(item);
   }
   if (!ordered) {
     // Repeated indexes are accepted only when they agree.
     const byIndex = new Map();
-    for (const item of selected) {
+    for (const item of series) {
+      if (item.index < from || item.index > to) continue;
       const existing = byIndex.get(item.index);
       if (existing !== undefined && existing !== item.value) return { available: false, reason: 'invalid-series' };
       byIndex.set(item.index, item.value);
     }
-    selected = [...byIndex].map(([index, value]) => ({ index, value }));
+    source = [...byIndex].map(([index, value]) => ({ index, value }));
   }
-  const n = selected.length;
-  if (n < 2) return { available: false, reason: 'insufficient-points', range: { from, to } };
-
+  let n = 0;
   let xsum = 0;
   let ysum = 0;
-  for (const item of selected) { xsum += item.index; ysum += item.value; }
+  let firstValue;
+  // Float accumulation leaves Syy at ~1e-30 for inexact constants like 0.1, so
+  // zero variance is decided by comparing the values themselves.
+  let constant = true;
+  for (const item of source) {
+    if (item.index < from || item.index > to) continue;
+    if (n === 0) firstValue = item.value; else if (item.value !== firstValue) constant = false;
+    n += 1;
+    xsum += item.index;
+    ysum += item.value;
+  }
+  if (n < 2) return { available: false, reason: 'insufficient-points', range: { from, to } };
   const xbar = xsum / n;
   const ybar = ysum / n;
   let sxx = 0;
   let sxy = 0;
   let syy = 0;
-  for (const item of selected) {
+  for (const item of source) {
+    if (item.index < from || item.index > to) continue;
     const dx = item.index - xbar;
     const dy = item.value - ybar;
     sxx += dx * dx;
@@ -108,11 +124,11 @@ function fitRegression({ x1, x2, series }) {
   const b = sxy / sxx;
   const a = ybar - b * xbar;
   let residuals = 0;
-  for (const item of selected) residuals += (item.value - (a + b * item.index)) ** 2;
+  for (const item of source) {
+    if (item.index < from || item.index > to) continue;
+    residuals += (item.value - (a + b * item.index)) ** 2;
+  }
   const sigma = Math.sqrt(residuals / n);
-  // Float accumulation leaves Syy at ~1e-30 for inexact constants like 0.1, so
-  // zero variance is decided by comparing the values themselves.
-  const constant = selected.every((item) => item.value === selected[0].value);
   const correlation = n < 3 ? { available: false, reason: 'insufficient-points' }
     : constant ? { available: false, reason: 'zero-variance' }
       : { available: true, value: Math.max(-1, Math.min(1, sxy / Math.sqrt(sxx * syy))) };

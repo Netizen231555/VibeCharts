@@ -32,7 +32,8 @@ export function drawingIntersectsRect(layout, rect, selected) {
 export function attachDrawings(chart, { context, historyLimit = 100, alertEngine = null, drawingChartId } = {}) {
   const surface = chart.surface;
   let activeBinding = {};
-  const projections = new Map();
+  // Keyed by the owned series object so a removed series releases its projection.
+  const projections = new WeakMap();
   const paneContext = binding => binding?.paneId === undefined || binding?.paneId === null
     ? { kind: 'source', scale: chart.indexScale() }
     : chart._paneXContext(binding.paneId);
@@ -60,10 +61,10 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
     getSeriesValues: id => {
       // The public facade is rebuilt on every lookup and hides the revision, so the owned series is used.
       const series = chart._resolveSeries(id, 'chart.series');
-      const cached = projections.get(id);
-      if (cached && cached.series === series && cached.revision === series.revision && cached.timeline === chart.timeline.revision) return cached.values;
+      const cached = projections.get(series);
+      if (cached && cached.revision === series.revision && cached.timeline === chart.timeline.revision) return cached.values;
       const values = series.data().map(point => ({ index: chart.timeline.indexOf(point.barId), value: point.value ?? point.close }));
-      projections.set(id, { series, revision: series.revision, timeline: chart.timeline.revision, values });
+      projections.set(series, { revision: series.revision, timeline: chart.timeline.revision, values });
       return values;
     },
     formatPrice: (price, binding) => formatPrice(price, {

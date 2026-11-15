@@ -5,21 +5,6 @@ import { anchorTime, computeRegression, computeVwap, measureAnchors } from './an
 import { buildStatsBadge } from './axis-stats.js';
 
 // Font-specific widths persist across frames; bound memory and discard stale metrics on font changes.
-// The label is right-aligned to the end of the analysed range so it cannot run past the pane edge, and its
-// baseline is clamped so a large upper multiplier or a zoomed range keeps it visible. When the range ends left
-// of the pane it is hidden rather than pinned to an unrelated place.
-function regressionLabel(correlation, x, y, rect) {
-  if (x < rect.x) return [];
-  const text = correlation.available ? `r = ${correlation.value.toFixed(2)}` : 'r —';
-  const estimatedWidth = text.length * 8;
-  return [{
-    x: Math.max(rect.x + estimatedWidth, Math.min(rect.x + rect.width - 4, x)),
-    y: Math.max(rect.y + 12, Math.min(rect.y + rect.height - 4, y - 4)),
-    align: 'right',
-    text,
-  }];
-}
-
 const labelWidthCaches = new WeakMap();
 const fontSetGenerations = new WeakMap();
 function fontGeneration(context) {
@@ -47,6 +32,25 @@ function measuredLabelWidth(context, text) {
     cache.widths.set(text, context.measureText(text).width);
   }
   return cache.widths.get(text);
+}
+
+// The label is right-aligned to the end of the analysed range so it cannot run past the pane edge, and its
+// baseline is clamped so a large upper multiplier or a zoomed range keeps it visible. A range lying wholly
+// outside the pane on either side shows no label rather than one pinned to an unrelated place. The width is
+// measured with the host text context (the font the label is painted with); without one it is estimated at 7 px
+// per character, the same estimate the other labels use.
+function regressionLabel(correlation, rangeStartX, rangeEndX, y, rect, adapter) {
+  const left = Math.min(rangeStartX, rangeEndX), right = Math.max(rangeStartX, rangeEndX);
+  if (right < rect.x || left > rect.x + rect.width) return [];
+  const text = correlation.available ? `r = ${correlation.value.toFixed(2)}` : 'r —';
+  const context = adapter.getTextContext?.();
+  const width = context?.measureText ? measuredLabelWidth(context, text) : text.length * 7;
+  return [{
+    x: Math.max(rect.x + width, Math.min(rect.x + rect.width - 4, right)),
+    y: Math.max(rect.y + 12, Math.min(rect.y + rect.height - 4, y - 4)),
+    align: 'right',
+    text,
+  }];
 }
 
 const EPS = 1e-9;
@@ -662,7 +666,6 @@ const BUILDERS = {
     const middle = line('regression-middle', startY, endY);
     const upper = line('regression-upper', upperStart, upperEnd);
     const lower = line('regression-lower', lowerStart, lowerEnd);
-    const labelX = xStart > xEnd ? xStart : xEnd;
     const labelY = xStart > xEnd ? upperStart : upperEnd;
     return {
       primitives: [
@@ -672,7 +675,7 @@ const BUILDERS = {
         ]), stroke: false },
         middle, upper, lower,
       ],
-      labels: drawing.props.showR ? regressionLabel(correlation, labelX, labelY, rect) : [],
+      labels: drawing.props.showR ? regressionLabel(correlation, xStart, xEnd, labelY, rect, adapter) : [],
       regression,
       available: true,
     };

@@ -61,8 +61,9 @@ test('correlation label stays inside the pane', () => {
     [10, 11, 13, 12, 15, 14, 16, 18, 17, 19]);
   assert.equal(edge.align, 'right');
   assert.ok(edge.x <= 96 && edge.x - edge.text.length * 8 >= 0);
-  // Range ends left of the visible pane: no label is pinned to an unrelated spot.
+  // Range wholly left or right of the visible pane: no label is pinned to an unrelated spot.
   assert.equal(labelFor({}, { x: 100, y: 0, width: 100, height: 200 }), undefined);
+  assert.equal(labelFor({}, { x: -200, y: 0, width: 100, height: 200 }), undefined);
 });
 
 test('regression fit is memoised per series array and range', () => {
@@ -75,4 +76,27 @@ test('regression fit is memoised per series array and range', () => {
   assert.notEqual(changed, first);
   assert.notEqual(changed.b, first.b);
   assert.equal('points' in first, false);
+});
+
+test('dragging one channel never refits the others', () => {
+  const values = series(Array.from({ length: 120 }, (_, i) => 100 + Math.sin(i / 7) * 10 + i * 0.1));
+  let iterations = 0;
+  const counted = new Proxy(values, { get(target, key, receiver) {
+    if (key === Symbol.iterator) iterations += 1;
+    return Reflect.get(target, key, receiver);
+  } });
+  const store = createDrawingStore({ context: { instrumentId: 'T', interval: 'D', sourceId: 'src' }, historyLimit: 10,
+    geometry: { ...geometry, getIndexCount: () => 120, getSeriesValues: () => counted } });
+  const ids = Array.from({ length: 50 }, (_, k) => store.add({ ...input,
+    anchors: [{ anchorBarId: `b${k}`, offset: 0, price: 100 }, { anchorBarId: `b${60 + k}`, offset: 0, price: 100 }] }).id);
+  for (const id of ids) store.layout(id);
+  const perFit = iterations / ids.length;
+  assert.ok(Number.isInteger(perFit) && perFit > 0);
+  iterations = 0;
+  for (let step = 0; step < 40; step += 1) {
+    store.setDragPreview([{ id: ids[0], patch: { anchors: [input.anchors[0], { ...input.anchors[1], anchorBarId: `b${5 + step}` }] } }]);
+    for (const id of ids) store.layout(id);
+  }
+  // Each step introduces one new range; the 49 untouched channels hit the cache.
+  assert.equal(iterations, 40 * perFit);
 });
