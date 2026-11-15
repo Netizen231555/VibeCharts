@@ -1265,6 +1265,11 @@ export function createDrawingStore(options) {
         return within && Math.abs(Math.hypot(point.x - primitive.cx, point.y - primitive.cy) - primitive.r) <= radius;
       }
       case 'text': {
+        if (primitive.textLayout) {
+          const bounds = primitive.textLayout.bounds;
+          return bounds !== null && point.x >= bounds.x - radius && point.x <= bounds.x + bounds.width + radius
+            && point.y >= bounds.y - radius && point.y <= bounds.y + bounds.height + radius;
+        }
         const width = Math.max(4, String(primitive.text).length * 7);
         return point.x >= primitive.x - radius && point.x <= primitive.x + width + radius
           && point.y >= primitive.y - 12 - radius && point.y <= primitive.y + 4 + radius;
@@ -1285,6 +1290,7 @@ export function createDrawingStore(options) {
       if (!effectiveVisible(drawing)) continue;
       if (paneId !== undefined && drawing.paneId !== paneId) continue;
       const rect = adapter.getVisibleRect({ paneId: drawing.paneId, scaleId: drawing.scaleId });
+      if (point.x < rect.x || point.x > rect.x + rect.width || point.y < rect.y || point.y > rect.y + rect.height) continue;
       const geometry = buildLayout(drawing, adapter);
       if (!geometry.resolved) continue;
       if (!geometry.bounds || !boundsIntersect(geometry.bounds, rect)) continue;

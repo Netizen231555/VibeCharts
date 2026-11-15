@@ -1,3 +1,5 @@
+import { paintText } from './text-layout.js';
+
 // Rise and fall colours of geometry that carries a `tone` (the measure tool); the drawing's own colour is not used.
 const TONES = {
   up: { line: '#2f9e6f', area: 'rgba(47, 158, 111, 0.16)', box: '#27805a' },
@@ -6,7 +8,10 @@ const TONES = {
 
 export function drawPrimitive(ctx, primitive, fill, plain = false, fillAlpha = 1) {
   const p = primitive;
-  if (p.kind === 'text') { ctx.fillText(String(p.text), p.x, p.y); return; }
+  if (p.kind === 'text') {
+    if (p.textLayout) paintText(ctx, p); else ctx.fillText(String(p.text), p.x, p.y);
+    return;
+  }
   const tone = plain ? undefined : TONES[p.tone];
   if (tone) {
     ctx.save();
@@ -49,6 +54,7 @@ export function drawPrimitive(ctx, primitive, fill, plain = false, fillAlpha = 1
 // A label is plain text at its point, or a badge (`box`) of centred lines placed above or below the point and kept
 // inside the visible rectangle.
 function drawLabel(ctx, label, rect) {
+  if (label.textLayout) { paintText(ctx, label); return; }
   if (!label.box) { ctx.fillText(String(label.text), label.x, label.y); return; }
   const tone = TONES[label.box.tone] ?? TONES.up;
   ctx.save();

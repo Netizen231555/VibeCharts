@@ -1,4 +1,5 @@
 import { DRAWING_TOOLS } from './tools.js';
+import { layoutText } from './text-layout.js';
 import { DrawingError, equal, isNumber, normalizeZero } from './values.js';
 import { anchorTime, computeRegression, computeVwap, measureAnchors } from './analytics.js';
 import { buildStatsBadge } from './axis-stats.js';
@@ -625,6 +626,63 @@ const BUILDERS = {
   },
 };
 
+function captionFor(drawing, primitives, rect) {
+  const style = drawing.props.label;
+  if (!style) return null;
+  let x, y, placement;
+  const t = style.align === 'start' ? 0 : style.align === 'end' ? 1 : 0.5;
+  if (drawing.type === 'rectangle' || drawing.type === 'triangle' || drawing.type === 'ellipse') {
+    const shape = primitives[0];
+    if (!shape) return null;
+    let left, right, top, bottom;
+    if (shape.kind === 'ellipse') {
+      left = shape.cx - shape.rx; right = shape.cx + shape.rx;
+      top = shape.cy - shape.ry; bottom = shape.cy + shape.ry;
+      const nearestX = Math.max(rect.x, Math.min(rect.x + rect.width, shape.cx));
+      const nearestY = Math.max(rect.y, Math.min(rect.y + rect.height, shape.cy));
+      if (((nearestX - shape.cx) / (shape.rx || 1)) ** 2 + ((nearestY - shape.cy) / (shape.ry || 1)) ** 2 > 1) return null;
+    } else {
+      // Clip the actual polygon, not just its bounding box, so an offscreen triangle has no caption.
+      let points = shape.points;
+      for (const [axis, edge, sign] of [['x', rect.x, 1], ['x', rect.x + rect.width, -1], ['y', rect.y, 1], ['y', rect.y + rect.height, -1]]) {
+        const clipped = [];
+        for (let i = 0; i < points.length; i += 1) {
+          const a = points[i], b = points[(i + 1) % points.length];
+          const insideA = (a[axis] - edge) * sign >= 0, insideB = (b[axis] - edge) * sign >= 0;
+          if (insideA) clipped.push(a);
+          if (insideA !== insideB) {
+            const f = (edge - a[axis]) / (b[axis] - a[axis]);
+            clipped.push({ x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f });
+          }
+        }
+        points = clipped;
+        if (!points.length) return null;
+      }
+      left = Math.min(...points.map(p => p.x)); right = Math.max(...points.map(p => p.x));
+      top = Math.min(...points.map(p => p.y)); bottom = Math.max(...points.map(p => p.y));
+    }
+    left = Math.max(left, rect.x); right = Math.min(right, rect.x + rect.width);
+    top = Math.max(top, rect.y); bottom = Math.min(bottom, rect.y + rect.height);
+    if (left > right || top > bottom) return null;
+    x = left + (right - left) * t; y = top; placement = 'inside';
+  } else {
+    const stroke = drawing.type === 'parallelChannel' ? primitives.find(p => p.role === 'channel-base')
+      : drawing.type === 'regressionChannel' ? primitives.find(p => p.role === 'regression-middle') : primitives[0];
+    if (!stroke) return null;
+    const visible = clipLine(stroke.x1, stroke.y1, stroke.x2, stroke.y2, rect, { left: false, right: false });
+    if (!visible) return null;
+    if (drawing.type === 'verticalLine') {
+      x = visible.x1; y = Math.min(visible.y1, visible.y2) + Math.abs(visible.y2 - visible.y1) * t;
+      placement = 'beside';
+    } else {
+      x = visible.x1 + (visible.x2 - visible.x1) * t;
+      y = visible.y1 + (visible.y2 - visible.y1) * t;
+      placement = 'above';
+    }
+  }
+  return { kind: 'text', caption: true, x, y, placement, text: style.text, textStyle: style, color: style.color };
+}
+
 function materialize(type, drawing, adapter) {
   const layout = {
     id: drawing.id,
@@ -685,6 +743,17 @@ function materialize(type, drawing, adapter) {
   if (result.primitives) layout.primitives = result.primitives;
   if (result.labels) layout.labels = result.labels;
   if (result.handles) layout.handles.push(...result.handles);
+  const caption = captionFor(drawing, layout.primitives, rect);
+  if (caption) layout.labels.push(caption);
+  let textContext;
+  for (const primitive of layout.primitives) {
+    if (primitive.kind === 'text') {
+      textContext ??= adapter.getTextContext?.();
+      primitive.textStyle = drawing.props.textStyle;
+      primitive.textLayout = layoutText(primitive, rect, textContext);
+    }
+  }
+  if (caption) caption.textLayout = layoutText(caption, rect, textContext ?? adapter.getTextContext?.());
   for (const key of ['measure', 'regression', 'vwap', 'angleDegrees', 'available', 'reason', 'waiting', 'error', 'origin', 'direction', 'variant']) {
     if (result[key] !== undefined) layout[key] = result[key];
   }
@@ -754,16 +823,23 @@ function computeBounds(primitives, labels) {
         add(primitive.cx + primitive.r, primitive.cy + primitive.r);
         break;
       case 'text':
-        add(primitive.x, primitive.y - 12);
-        add(primitive.x + Math.max(4, String(primitive.text).length * 7), primitive.y + 4);
+        if (primitive.textLayout?.bounds) {
+          const b = primitive.textLayout.bounds;
+          add(b.x, b.y); add(b.x + b.width, b.y + b.height);
+        }
         break;
       default:
         break;
     }
   }
   for (const label of labels) {
-    add(label.x, label.y - 12);
-    add(label.x + Math.max(4, String(label.text).length * 7), label.y + 4);
+    if (label.textLayout) {
+      const b = label.textLayout.bounds;
+      if (b) { add(b.x, b.y); add(b.x + b.width, b.y + b.height); }
+    } else {
+      add(label.x, label.y - 12);
+      add(label.x + Math.max(4, String(label.text).length * 7), label.y + 4);
+    }
   }
   if (!Number.isFinite(minX) || !Number.isFinite(minY)) return null;
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };

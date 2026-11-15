@@ -30,6 +30,7 @@ export function attachDrawings(chart, { context, historyLimit = 100, alertEngine
     priceToY: (price, binding) => surface.priceToY(price, binding),
     yToPrice: (y, binding) => surface.yToPrice(y, binding),
     getVisibleRect: binding => surface.getVisibleRect(binding ?? activeBinding),
+    getTextContext: () => chart._host.getContext?.(),
     paneKind: binding => paneContext(binding).kind,
     getIndexCount: binding => paneContext(binding).scale.length,
     getSlot: (index, binding) => {
