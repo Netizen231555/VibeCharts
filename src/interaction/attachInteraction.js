@@ -26,6 +26,7 @@ import { createElement, append, clearElement, on, pointFromEvent, contains, focu
 import { isFiniteNumber } from './geometry.js';
 import { createDrawingTool, modifierState, snapCursor, snapModifierHeld, SNAP_MODIFIERS } from './drawingTool.js';
 import { createObjectOwner } from './drawingGesture.js';
+import { createActivation } from './activation.js';
 import { validateStyle } from '../drawings/styles.js';
 import { createModuleScope } from '../core/module-scope.js';
 import { formatPrice } from '../render/axes.js';
@@ -1315,9 +1316,24 @@ export function attachInteraction(chart, options = {}) {
     }
   }
 
+  const activation = createActivation({
+    getStore: () => adapter.drawings,
+    getDrawing,
+    selectDrawing,
+    adoptStoreSelection,
+    emit: (event, payload) => emitter.emit(event, payload),
+    isDestroyed: () => destroyed,
+  });
+
   function onDoubleClick(event) {
     const point = pointFromEvent(event, container);
     const hit = hitAt(point);
+    if (hit.kind === 'handle' || hit.kind === 'drawing') {
+      if (activation.fromPointer(hit, { toolArmed: toolState !== null, gestureActive: router.active }) && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+      }
+      return;
+    }
     if (hit.kind !== 'axis') return;
     const paneId = hit.paneId;
     if (hit.axis === 'index') {
@@ -1481,6 +1497,13 @@ export function attachInteraction(chart, options = {}) {
         if (typeof event.preventDefault === 'function') event.preventDefault();
         return;
       }
+    }
+    // Enter opens the settings of the selection from the chart region; an armed tool, a field and an open menu keep it.
+    if (event.key === 'Enter' && !toolState && !menuOpen && !isEditableTarget(event.target) &&
+        (adapter.drawings?.getSelection?.() ?? []).length > 0) {
+      activation.fromKeyboard();
+      event.preventDefault();
+      return;
     }
     if (event.key === 'Delete' && !isEditableTarget(event.target) &&
         adapter.drawings?.getSelection?.().length && typeof adapter.drawings.removeSelected === 'function') {
@@ -1765,6 +1788,13 @@ export function attachInteraction(chart, options = {}) {
       return { ...drawingStyle };
     },
     getDrawingStyle() { return { ...drawingStyle }; },
+    /**
+     * Raises `drawingActivate` with `source: 'api'`. `ids` first becomes the selection; without it the current
+     * selection is used. Nothing is changed when an argument is invalid.
+     */
+    activateDrawing(ids) {
+      activation.fromApi(ids);
+    },
     armDrawing(id, config = {}) {
       const pane = paneById(config.paneId || activePaneId);
       if (!pane) throw new Error(tr('pane.unavailable'));
