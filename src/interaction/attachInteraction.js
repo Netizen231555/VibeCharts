@@ -17,7 +17,7 @@ import { createCrosshairController, buildReadout } from './crosshair.js';
 import { createKeyboard, createCrosshairNavigation, isEditableTarget } from './keyboard.js';
 import { NUDGE_ACTIONS, planNudge } from './nudge.js';
 import { createGestureRecognizer } from './gestures.js';
-import { hitTest, paneAtPoint, normalizeHitRadius } from './hittest.js';
+import { hitTest, hitTestAxes, paneAtPoint, normalizeHitRadius } from './hittest.js';
 import { buildMenuItems, createContextMenu } from './menu.js';
 import { buildAccessibleRows, buildTableModel, createAnnouncer, formatTimestamp } from './a11y.js';
 import { axisTimeText } from '../render/axis-time.js';
@@ -81,6 +81,7 @@ export function attachInteraction(chart, options = {}) {
   let focusActive = false;
   const previousOutline = container.style?.outline ?? '';
   const previousOutlineOffset = container.style?.outlineOffset ?? '';
+  const previousCursor = container.style?.cursor ?? '';
   let toolState = options.tool || null;
   const ownedTools = new WeakSet();
   let toolPoint = null;
@@ -1211,6 +1212,14 @@ export function attachInteraction(chart, options = {}) {
     crosshair.pointerMove(snapped, pane);
   }
 
+  function updateAxisCursor(point, target) {
+    if (!container.style) return;
+    const control = target?.closest?.('button, input, select, textarea, details, [contenteditable="true"], [role="button"]');
+    const axis = !control && !(toolState && toolState.active && toolState.enabled !== false)
+      ? hitTestAxes(point, layout()) : null;
+    container.style.cursor = axis ? (axis.axis === 'price' ? 'ns-resize' : 'ew-resize') : previousCursor;
+  }
+
   function onPointerMove(event) {
     if (destroyed) return;
     const point = pointFromEvent(event, container);
@@ -1241,6 +1250,7 @@ export function attachInteraction(chart, options = {}) {
     }
     const mods = modifierState(event);
     toolPoint = point;
+    updateAxisCursor(point, event.target);
     placeCrosshair(point, mods);
   }
 
@@ -1265,6 +1275,7 @@ export function attachInteraction(chart, options = {}) {
     const point = pointFromEvent(event, container);
     releasePointer(event.pointerId);
     router.end(point, { event });
+    updateAxisCursor(point, event.target);
   }
 
   function onLostCapture(event) {
@@ -1295,6 +1306,7 @@ export function attachInteraction(chart, options = {}) {
       if (under && container.contains(under)) return;
     }
     toolPoint = null;
+    if (container.style) container.style.cursor = previousCursor;
     crosshair.pointerLeave();
   }
 
@@ -1677,6 +1689,7 @@ export function attachInteraction(chart, options = {}) {
     }
     if (container.style) {
       container.style.outline = previousOutline;
+      container.style.cursor = previousCursor;
       container.style.outlineOffset = previousOutlineOffset;
     }
     paneRestoreElements.clear();
