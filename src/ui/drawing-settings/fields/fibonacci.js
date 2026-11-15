@@ -23,15 +23,15 @@ const fibBool = (option, label, order) => bool(`props.${option}`, label, 'fibOpt
 
 export const fields = [
   {
-    id: 'props.levels', tab: 'style', group: 'fibLevels', order: 10, type: 'levels', labelKey: 'drawingSettings.f.levels',
+    id: 'props.levels', tab: 'style', group: 'fibLevels', order: 810, type: 'levels', labelKey: 'drawingSettings.f.levels',
     appliesTo: { tools: FIB_TOOLS }, path: ['props', 'levels'], validate: validateLevels, multi: false,
   },
-  fibBool('showPrices', 'showPrices', 10),
-  fibBool('showPercent', 'showPercent', 20),
-  fibBool('reverse', 'reverse', 30),
-  fibBool('fill', 'fibFill', 40),
-  number('props.fillOpacity', 'fibFillOpacity', 'fibOptions', 50, ['props', 'fillOpacity'], { tools: supporting('fillOpacity') }, { min: 0, max: 1, step: 0.02 }),
-  select('props.labelPosition', 'labelPosition', 'fibOptions', 60, ['props', 'labelPosition'], { tools: supporting('labelPosition') }, ['start', 'center', 'end']),
-  fibBool('grid', 'grid', 70),
-  fibBool('fullCircles', 'fullCircles', 80),
+  fibBool('showPrices', 'showPrices', 910),
+  fibBool('showPercent', 'showPercent', 920),
+  fibBool('reverse', 'reverse', 930),
+  fibBool('fill', 'fibFill', 940),
+  number('props.fillOpacity', 'fibFillOpacity', 'fibOptions', 950, ['props', 'fillOpacity'], { tools: supporting('fillOpacity') }, { min: 0, max: 1, step: 0.02 }),
+  select('props.labelPosition', 'labelPosition', 'fibOptions', 960, ['props', 'labelPosition'], { tools: supporting('labelPosition') }, ['start', 'center', 'end']),
+  fibBool('grid', 'grid', 970),
+  fibBool('fullCircles', 'fullCircles', 980),
 ];

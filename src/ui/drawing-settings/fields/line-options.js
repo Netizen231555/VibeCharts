@@ -14,20 +14,20 @@ const MIDPOINT_TOOLS = Object.freeze(Object.keys(LINE_OPTIONS).filter((tool) => 
 const axisVisible = (key) => (drawing) => AXIS_LABEL_TOOLS[drawing.type]?.[key] === true;
 
 export const fields = [
-  bool('props.extend.left', 'extendLeft', 'extend', 10, ['props', 'extend', 'left'], { tools: EXTEND_TOOLS }),
-  bool('props.extend.right', 'extendRight', 'extend', 20, ['props', 'extend', 'right'], { tools: EXTEND_TOOLS }),
-  bool('props.arrows.start', 'arrowStart', 'arrows', 10, ['props', 'arrows', 'start'], { tools: ARROW_TOOLS }),
-  bool('props.arrows.end', 'arrowEnd', 'arrows', 20, ['props', 'arrows', 'end'], { tools: ARROW_TOOLS }),
-  bool('props.midpoint', 'midpoint', 'arrows', 30, ['props', 'midpoint'], { tools: MIDPOINT_TOOLS }),
+  bool('props.extend.left', 'extendLeft', 'extend', 310, ['props', 'extend', 'left'], { tools: EXTEND_TOOLS }),
+  bool('props.extend.right', 'extendRight', 'extend', 320, ['props', 'extend', 'right'], { tools: EXTEND_TOOLS }),
+  bool('props.arrows.start', 'arrowStart', 'arrows', 410, ['props', 'arrows', 'start'], { tools: ARROW_TOOLS }),
+  bool('props.arrows.end', 'arrowEnd', 'arrows', 420, ['props', 'arrows', 'end'], { tools: ARROW_TOOLS }),
+  bool('props.midpoint', 'midpoint', 'arrows', 430, ['props', 'midpoint'], { tools: MIDPOINT_TOOLS }),
   // A tool only offers the plate it has a coordinate for (a vertical line has no price plate).
-  bool('props.axisLabels.price', 'axisPrice', 'axisLabels', 10, ['props', 'axisLabels', 'price'], { tools: toolsOf(AXIS_LABEL_TOOLS) },
+  bool('props.axisLabels.price', 'axisPrice', 'axisLabels', 510, ['props', 'axisLabels', 'price'], { tools: toolsOf(AXIS_LABEL_TOOLS) },
     { visibleWhen: axisVisible('price') }),
-  bool('props.axisLabels.time', 'axisTime', 'axisLabels', 20, ['props', 'axisLabels', 'time'], { tools: toolsOf(AXIS_LABEL_TOOLS) },
+  bool('props.axisLabels.time', 'axisTime', 'axisLabels', 520, ['props', 'axisLabels', 'time'], { tools: toolsOf(AXIS_LABEL_TOOLS) },
     { visibleWhen: axisVisible('time') }),
-  bool('props.stats.priceRange', 'statPriceRange', 'stats', 10, ['props', 'stats', 'priceRange'], { tools: toolsOf(STATS_TOOLS) }),
-  bool('props.stats.percent', 'statPercent', 'stats', 20, ['props', 'stats', 'percent'], { tools: toolsOf(STATS_TOOLS) }),
-  bool('props.stats.bars', 'statBars', 'stats', 30, ['props', 'stats', 'bars'], { tools: toolsOf(STATS_TOOLS) }),
-  bool('props.stats.time', 'statTime', 'stats', 40, ['props', 'stats', 'time'], { tools: toolsOf(STATS_TOOLS) }),
-  bool('props.stats.always', 'statAlways', 'stats', 50, ['props', 'stats', 'always'], { tools: toolsOf(STATS_TOOLS) }),
-  select('props.stats.position', 'statPosition', 'stats', 60, ['props', 'stats', 'position'], { tools: toolsOf(STATS_TOOLS) }, ['start', 'center', 'end']),
+  bool('props.stats.priceRange', 'statPriceRange', 'stats', 610, ['props', 'stats', 'priceRange'], { tools: toolsOf(STATS_TOOLS) }),
+  bool('props.stats.percent', 'statPercent', 'stats', 620, ['props', 'stats', 'percent'], { tools: toolsOf(STATS_TOOLS) }),
+  bool('props.stats.bars', 'statBars', 'stats', 630, ['props', 'stats', 'bars'], { tools: toolsOf(STATS_TOOLS) }),
+  bool('props.stats.time', 'statTime', 'stats', 640, ['props', 'stats', 'time'], { tools: toolsOf(STATS_TOOLS) }),
+  bool('props.stats.always', 'statAlways', 'stats', 650, ['props', 'stats', 'always'], { tools: toolsOf(STATS_TOOLS) }),
+  select('props.stats.position', 'statPosition', 'stats', 660, ['props', 'stats', 'position'], { tools: toolsOf(STATS_TOOLS) }, ['start', 'center', 'end']),
 ];

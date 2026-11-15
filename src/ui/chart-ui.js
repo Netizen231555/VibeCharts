@@ -19,6 +19,7 @@ import { REGIONS, validateLayout, isRemoved } from './layout-config.js';
 import { BUILTIN_PART_FACTORIES } from './parts/index.js';
 import { computeResponsiveLayout } from './layout.js';
 import { THEMES, directionLabel } from './theme.js';
+import { createDrawingSettingsDialog } from './settings-dialog.js';
 
 const BEFORE_PLOT = new Set(['top', 'start']);
 
@@ -163,6 +164,30 @@ export function createChartUI(chart, options = {}) {
   applyThemeAttributes();
   disposers.push(controller.subscribe('theme', applyThemeAttributes));
 
+  /* ---------------------------- drawing settings dialog ---------------------------- */
+  // Opened by `drawingActivate` (double click, Enter, activateDrawing) while an interaction and a drawing store exist;
+  // `drawingSettings: false` leaves activation to the host, `{ sharedStyle }` supplies the host's shared style.
+  const settingsOptions = options.drawingSettings;
+  if (settingsOptions !== undefined && settingsOptions !== false && (settingsOptions === null || typeof settingsOptions !== 'object' ||
+      (settingsOptions.sharedStyle !== undefined && typeof settingsOptions.sharedStyle !== 'function'))) {
+    unmountAll();
+    restoreContainerAttributes();
+    controller.destroy();
+    throw fail('drawingSettings must be false or an object with an optional sharedStyle function', 'drawingSettings');
+  }
+  let settingsDialog = null;
+  if (settingsOptions !== false && chart?.drawings && typeof options.interaction?.subscribe === 'function') {
+    settingsDialog = createDrawingSettingsDialog({
+      chart,
+      doc,
+      host,
+      interaction: options.interaction,
+      announce: (text, announceOptions) => controller.announce(text, announceOptions),
+      sharedStyle: settingsOptions?.sharedStyle ?? null,
+    });
+    disposers.push(() => settingsDialog.destroy());
+  }
+
   let responsive = null;
   function applyResponsive() {
     const rect = typeof host.getBoundingClientRect === 'function' ? host.getBoundingClientRect() : null;
@@ -261,6 +286,12 @@ export function createChartUI(chart, options = {}) {
     get derived() { return controller.derived; },
     parts: () => [...mounted.values()].map((entry) => ({ id: entry.id, region: entry.region, element: entry.instance.element })),
     replacePart,
+    openDrawingSettings: (ids) => {
+      assertAlive();
+      if (!settingsDialog) throw fail('The drawing settings dialog is not available for this chart UI', 'drawingSettings', 'DRAWING_SETTINGS_UNAVAILABLE');
+      settingsDialog.open(ids);
+    },
+    closeDrawingSettings: () => settingsDialog?.close(),
     setLayout,
     destroy,
     detach: destroy,

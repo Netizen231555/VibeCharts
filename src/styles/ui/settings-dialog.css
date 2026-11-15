@@ -1,0 +1,46 @@
+/* Drawing settings dialog: arrangement only; the markup is complete and operable without this file. */
+.chart-drawing-settings { width: min(720px, calc(100vw - 16px)); box-sizing: border-box; }
+.chart-drawing-settings-frame { display: flex; flex-direction: column; min-height: 0; max-height: calc(100vh - 32px); font-family: var(--chart-ui-font, inherit); font-size: var(--chart-ui-font-size, 13px); }
+.chart-drawing-settings-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--chart-ui-border, #d3dae0); }
+.chart-drawing-settings-title { margin: 0; font-size: 1.1em; font-weight: 600; overflow-wrap: anywhere; }
+.chart-drawing-settings-tabs { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px 12px 0; border-bottom: 1px solid var(--chart-ui-border, #d3dae0); }
+.chart-drawing-settings-tab { padding: 6px 12px; border: 1px solid transparent; border-bottom: 0; border-radius: 6px 6px 0 0; background: transparent; color: inherit; font: inherit; cursor: pointer; min-height: 32px; }
+.chart-drawing-settings-tab[aria-selected="true"] { border-color: var(--chart-ui-border, #d3dae0); background: var(--chart-ui-surface, #f5f7f8); font-weight: 600; }
+.chart-drawing-settings-banner { margin: 8px 12px 0; padding: 6px 8px; border: 1px solid var(--chart-ui-danger, #b3261e); border-radius: 6px; color: var(--chart-ui-danger, #b3261e); }
+.chart-drawing-settings-banner[hidden] { display: none; }
+.chart-drawing-settings-panel { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 8px 12px; }
+.chart-drawing-settings-note { margin: 0 0 8px; color: var(--chart-ui-muted, #56626e); }
+.chart-drawing-settings-group { margin: 0 0 12px; padding: 6px 10px 8px; border: 1px solid var(--chart-ui-border, #d3dae0); border-radius: 6px; min-width: 0; }
+.chart-drawing-settings-group > legend { padding: 0 4px; font-weight: 600; }
+.chart-drawing-settings-field { display: grid; grid-template-columns: minmax(8em, 40%) minmax(0, 1fr); align-items: center; gap: 4px 8px; padding: 3px 0; }
+.chart-drawing-settings-boolean { grid-template-columns: auto minmax(0, 1fr); }
+.chart-drawing-settings-field input[type="text"], .chart-drawing-settings-field input[type="number"], .chart-drawing-settings-field select, .chart-drawing-settings-field textarea { min-width: 0; box-sizing: border-box; width: 100%; min-height: 32px; font: inherit; }
+.chart-drawing-settings-color { grid-template-columns: minmax(8em, 40%) minmax(0, 1fr) auto; }
+.chart-drawing-settings-swatch { width: 36px; height: 32px; padding: 0; }
+.chart-drawing-settings-reason, .chart-drawing-settings-error { grid-column: 1 / -1; margin: 0; font-size: 0.9em; }
+.chart-drawing-settings-reason { color: var(--chart-ui-muted, #56626e); }
+.chart-drawing-settings-error { color: var(--chart-ui-danger, #b3261e); }
+.chart-drawing-settings-error[hidden] { display: none; }
+.chart-drawing-settings-field [aria-invalid="true"] { border-color: var(--chart-ui-danger, #b3261e); outline-color: var(--chart-ui-danger, #b3261e); }
+.chart-drawing-settings-levels, .chart-drawing-settings-anchors { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.chart-drawing-settings-level, .chart-drawing-settings-anchor { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.chart-drawing-settings-level input[type="number"], .chart-drawing-settings-anchor input[type="number"] { width: 7em; }
+.chart-drawing-settings-level input[type="text"], .chart-drawing-settings-anchor input[type="text"] { width: 9em; }
+.chart-drawing-settings-saved select, .chart-drawing-settings-saved input[type="text"] { min-height: 32px; font: inherit; max-width: 100%; }
+.chart-drawing-settings-footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--chart-ui-border, #d3dae0); }
+.chart-drawing-settings-tab:focus-visible, .chart-drawing-settings-frame :focus-visible { outline: var(--chart-ui-focus-width, 2px) solid var(--chart-ui-focus, #1b6f99); outline-offset: 1px; }
+
+/* Narrow screens: one column, touch-sized controls. */
+@media (max-width: 520px), (pointer: coarse) {
+  .chart-drawing-settings { width: calc(100vw - 8px); max-width: calc(100vw - 8px); }
+  .chart-drawing-settings-field, .chart-drawing-settings-color { grid-template-columns: minmax(0, 1fr); }
+  .chart-drawing-settings-boolean { grid-template-columns: auto minmax(0, 1fr); }
+  .chart-drawing-settings-field input[type="text"], .chart-drawing-settings-field input[type="number"], .chart-drawing-settings-field select, .chart-drawing-settings-tab { min-height: 44px; }
+  .chart-drawing-settings-level input[type="number"], .chart-drawing-settings-anchor input[type="number"] { width: 6em; }
+}
+
+/* Column captions of the Fibonacci level editor, aligned with the controls below them. */
+.chart-drawing-settings-level-head { color: var(--chart-ui-muted, #56626e); font-size: 0.85em; }
+.chart-drawing-settings-level-head span:nth-child(1) { width: 2.6em; }
+.chart-drawing-settings-level-head span:nth-child(2), .chart-drawing-settings-level-head span:nth-child(5) { width: 7em; }
+.chart-drawing-settings-level-head span:nth-child(3), .chart-drawing-settings-level-head span:nth-child(4) { width: 9em; }
