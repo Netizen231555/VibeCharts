@@ -848,13 +848,14 @@ export interface DrawingSnapOptions {
   modifier?: 'alt' | 'ctrl' | 'meta' | Array<'alt' | 'ctrl' | 'meta'> | null;
 }
 
-/** Which properties a drawing has depends on its type: lines have colour, width, dash and opacity; filled shapes also fill and fillColor; text has colour and opacity; markers colour, width and opacity. */
+/** Which properties a drawing has depends on its type: lines have colour, width, dash and opacity; filled shapes (rectangle, ellipse, triangle, channels, regression, polyline, bezier, brush) also fill and fillOpacity and paint their interior with `color`; text has colour and opacity; markers colour, width and opacity. */
 export interface DrawingStyle {
   color: string;
   width: number;
   dash: 'solid' | 'dashed' | 'dotted';
   fill: boolean;
-  fillColor: string;
+  /** Alpha of the interior paint; the effective fill alpha is `opacity * fillOpacity` (default 0.18). */
+  fillOpacity: number;
   opacity: number;
 }
 

@@ -15,6 +15,7 @@
 
 ```sh
 for f in $(git ls-files '*.js' '*.mjs'); do node --check "$f"; done
+npm test                                 # постоянные тесты контрактов (node --test)
 node examples/terminal/serve.mjs 8340   # и откройте examples/ в браузере
 ```
 
