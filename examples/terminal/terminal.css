@@ -190,5 +190,24 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus)
   --charting-hover: var(--hover);
   --charting-accent: var(--accent);
   --charting-focus: var(--focus);
+  --chart-ui-font: var(--font);
+  --chart-ui-font-size: 13px;
+  --chart-ui-radius: 6px;
+  --chart-ui-control-size: 32px;
+  --chart-ui-focus-width: 2px;
+  --chart-ui-bg: var(--panel);
+  --chart-ui-surface: var(--panel-2);
+  --chart-ui-border: var(--border);
+  --chart-ui-menu-bg: var(--panel);
+  --chart-ui-control-border: var(--muted);
+  --chart-ui-text: var(--text);
+  --chart-ui-muted: var(--muted);
+  --chart-ui-hover: var(--hover);
+  --chart-ui-accent: var(--accent);
+  --chart-ui-active: var(--active);
+  --chart-ui-focus: var(--focus);
+  --chart-ui-danger: var(--down);
+  --chart-ui-backdrop: rgba(0, 0, 0, .45);
+  --chart-ui-shadow: 0 6px 20px rgba(0, 0, 0, .3);
 }
 .charting-label-overflow { z-index: 2; }

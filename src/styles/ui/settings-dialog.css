@@ -27,6 +27,9 @@
 .chart-drawing-settings-level input[type="number"], .chart-drawing-settings-anchor input[type="number"] { width: 7em; }
 .chart-drawing-settings-level input[type="text"], .chart-drawing-settings-anchor input[type="text"] { width: 9em; }
 .chart-drawing-settings-saved select, .chart-drawing-settings-saved input[type="text"] { min-height: 32px; font: inherit; max-width: 100%; }
+.chart-drawing-settings-saved > label { display: block; margin: 6px 0 4px; }
+.chart-drawing-settings-saved > select, .chart-drawing-settings-saved > input[type="text"] { display: block; width: 100%; box-sizing: border-box; }
+.chart-drawing-settings-saved > button { margin-top: 6px; max-width: 100%; white-space: normal; }
 .chart-drawing-settings-footer { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--chart-ui-border, #d3dae0); }
 .chart-drawing-settings-tab:focus-visible, .chart-drawing-settings-frame :focus-visible { outline: var(--chart-ui-focus-width, 2px) solid var(--chart-ui-focus, #1b6f99); outline-offset: 1px; }
 
