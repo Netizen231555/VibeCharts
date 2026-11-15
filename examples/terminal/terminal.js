@@ -8,6 +8,7 @@ import { createToolbarModel, createUiController, createIcon, createDrawingSettin
 import { captureWindow, windowRange } from './window.js';
 import { createSettings } from './settings-model.js';
 import { createSettingsPanel } from './settings-panel.js';
+import { enhanceSelect } from '../../src/ui/custom-select.js';
 import { createI18n, mountLanguageSwitch } from '../shared/i18n.js';
 import { en, ru } from './strings.js';
 
@@ -964,6 +965,7 @@ setInterval(() => { els.clock.textContent = clockText(); }, 1000);
 els.clock.textContent = clockText();
 
 syncSymbol(); syncIntervals(); syncType(); populateLists();
+enhanceSelect(els.listSelect);
 // Settings are read after the UI exists so that a corrupt record can be reported; the defaults stay in place then.
 let loadError = null;
 try { settings.load(); } catch (error) { loadError = error; }

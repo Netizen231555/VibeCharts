@@ -2,6 +2,7 @@
 
 ## 0.1.0 — unreleased
 
+- Use the same custom dropdown for the terminal watchlist selector.
 - Show directional resize cursors over the price and time scales.
 - Use keyboard-accessible custom dropdowns in chart and drawing settings.
 - Refine the terminal's chart and drawing settings dialog spacing, tabs and controls across light and dark themes.
