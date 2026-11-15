@@ -1279,8 +1279,10 @@ export function createDrawingStore(options) {
           return { id: drawing.id, part: 'handle', anchorIndex: handle.anchorIndex, x: handle.x, y: handle.y };
         }
       }
+      // The midpoint marker is decoration: it must not widen the drawing's pick area.
       for (const primitive of geometry.primitives) {
-        if (primitiveHit(primitive, point, radius, drawing.style?.fill === true && primitive.fillable === true)) {
+        if (primitive.role !== 'midpoint' &&
+            primitiveHit(primitive, point, radius, drawing.style?.fill === true && primitive.fillable === true)) {
           return { id: drawing.id, part: 'body', primitive: primitive.kind };
         }
       }

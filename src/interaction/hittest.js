@@ -8,6 +8,7 @@
  * drawing, then the axis, then the plot background. Drawings are clipped to
  * their pane plot rectangle, so geometry outside the clip region is inert.
  */
+import { LINE_OPTIONS } from '../drawings/tools.js';
 import { InteractionError } from './errors.js';
 import {
   EPSILON,
@@ -39,6 +40,16 @@ export function normalizeHitRadius(value, field = 'hitRadius') {
   }
   return value;
 }
+
+// The effective extension of a drawing snapshot: the stored prop with the tool's default from the one
+// table the store uses, so the exported helper and the store always agree on the drawn geometry.
+function extendOf(drawing) {
+  const options = LINE_OPTIONS[drawing.type];
+  if (!options) return null;
+  const extend = drawing.props?.extend;
+  return extend && typeof extend === 'object' ? { left: extend.left === true, right: extend.right === true } : options.extend;
+}
+
 
 const TWO_ANCHOR_STROKE = new Set(['arrow', 'measure', 'segment', 'fibRetracement']);
 const THREE_ANCHOR_STROKE = new Set(['triangle', 'angle', 'andrewsPitchfork', 'fibExtension']);
@@ -97,8 +108,15 @@ export function resolveDrawing(drawing, ctx) {
       if (resolved[i] === undefined || resolved[i].x === null || resolved[i].y === null) return null;
     }
   }
-  return { drawing, family, anchors: resolved, paneId: drawing.paneId };
+  return { drawing, family, anchors: resolved, paneId: drawing.paneId, extend: extendOf(drawing) };
 }
+
+function clippedLinePiece(first, second, extend, plot) {
+  if (!extend || (!extend.left && !extend.right)) return [first, second];
+  if (extend.left && extend.right) return clipInfiniteLine(first, second, plot);
+  return extend.right ? clipRay(first, second, plot) : clipRay(second, first, plot);
+}
+
 
 function handlePoints(resolved, plot) {
   const { drawing, family, anchors } = resolved;
@@ -144,8 +162,8 @@ function bodyDistance(resolved, point, plot) {
     }
     const second = anchors[1];
     if (!second) return Infinity;
-    if (type === 'line') {
-      const clipped = clipInfiniteLine(first, second, plot);
+    if (type === 'line' || type === 'ray') {
+      const clipped = clippedLinePiece(first, second, resolved.extend, plot);
       return clipped ? distanceToSegment(point, clipped[0], clipped[1]) : Infinity;
     }
     if (type === 'horizontalRay') {
@@ -153,14 +171,26 @@ function bodyDistance(resolved, point, plot) {
       const b = { x: plot.x + plot.width, y: first.y };
       return first.x <= plot.x + plot.width ? distanceToSegment(point, a, { x: Math.max(a.x, b.x), y: b.y }) : Infinity;
     }
-    if (type === 'ray') {
-      const clipped = clipRay(first, second, plot);
+    return distanceToSegment(point, first, second);
+  }
+  if (family === 'twoAnchor') {
+    const first = anchors[0];
+    const second = anchors[1];
+    if (!second) return Infinity;
+    // segment and arrow carry the line options; measure and fibRetracement stay their finite anchor piece.
+    if (resolved.extend && (resolved.extend.left || resolved.extend.right)) {
+      const clipped = clippedLinePiece(first, second, resolved.extend, plot);
       return clipped ? distanceToSegment(point, clipped[0], clipped[1]) : Infinity;
     }
     return distanceToSegment(point, first, second);
   }
   if (family === 'rect') {
     const r = normalizeRect(anchors[0], anchors[1]);
+    if (resolved.extend) {
+      if (resolved.extend.left) r.x = plot.x;
+      if (resolved.extend.right) r.right = plot.x + plot.width;
+      r.width = r.right - r.x;
+    }
     if (type === 'fibZones') {
       return point.x >= r.x && point.x <= r.right && point.y >= plot.y && point.y <= plot.y + plot.height ? 0 : Infinity;
     }
@@ -208,7 +238,7 @@ function bodyDistance(resolved, point, plot) {
         if (ringDistance < best) best = ringDistance;
       } else {
         const end = { x: second.x, y: first.y + level * (second.y - first.y) };
-        const clipped = clipRay(first, end, plot);
+        const clipped = clippedLinePiece(first, end, resolved.extend, plot);
         if (clipped) best = Math.min(best, distanceToSegment(point, clipped[0], clipped[1]));
       }
     }
@@ -220,6 +250,15 @@ function bodyDistance(resolved, point, plot) {
     for (let i = 1; i < points.length; i += 1) best = Math.min(best, distanceToSegment(point, points[i - 1], points[i]));
     if (type === 'fibExtension' || type === 'andrewsPitchfork') {
       best = Math.min(best, distanceToSegment(point, points[0], points[2]));
+    }
+    if (type === 'angle' && resolved.extend) {
+      // The two rays may run past their outer anchors to the plot edge.
+      const vertex = anchors[1];
+      for (const [side, on] of [[anchors[0], resolved.extend.left], [anchors[2], resolved.extend.right]]) {
+        if (!on) continue;
+        const clipped = clipRay(vertex, side, plot);
+        if (clipped) best = Math.min(best, distanceToSegment(point, clipped[0], clipped[1]));
+      }
     }
     return best;
   }
@@ -255,7 +294,13 @@ function isClipped(resolved, plot) {
       const x = anchors[0].x;
       return x !== null && x >= plot.x && x <= plot.x + plot.width && plot.height > 0;
     }
-    return pointInRect(anchors[0], plot);
+    // The drawn piece may cross the plot even when no anchor is inside it.
+    const piece = clippedLinePiece(anchors[0], anchors[1], resolved.extend, plot);
+    return piece !== null && segmentIntersectsRect(piece[0], piece[1], plot);
+  }
+  if (family === 'twoAnchor' && resolved.extend && (resolved.extend.left || resolved.extend.right)) {
+    const piece = clippedLinePiece(anchors[0], anchors[1], resolved.extend, plot);
+    return piece !== null && segmentIntersectsRect(piece[0], piece[1], plot);
   }
   return anchors.some((anchor) => pointInRect(anchor, plot));
 }
