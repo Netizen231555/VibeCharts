@@ -76,8 +76,11 @@ export function computeRegression({ x1, x2, series }) {
   let residuals = 0;
   for (const p of points) residuals += (p.y - (a + b * p.x)) ** 2;
   const sigma = Math.sqrt(residuals / n);
+  // Float accumulation leaves Syy at ~1e-30 for inexact constants like 0.1, so
+  // zero variance is decided by comparing the values themselves.
+  const constant = points.every((p) => p.y === points[0].y);
   const correlation = n < 3 ? { available: false, reason: 'insufficient-points' }
-    : syy === 0 ? { available: false, reason: 'zero-variance' }
+    : constant ? { available: false, reason: 'zero-variance' }
       : { available: true, value: Math.max(-1, Math.min(1, sxy / Math.sqrt(sxx * syy))) };
   return { available: true, a, b, sigma, n, points, range: { from, to }, correlation };
 }

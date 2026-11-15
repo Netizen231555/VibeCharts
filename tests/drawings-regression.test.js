@@ -17,7 +17,11 @@ test('regression correlation reports trends and unavailable cases', () => {
   const noisy = computeRegression({ x1: 0, x2: 3, series: series([10,13,14,18]) });
   assert.ok(Math.abs(noisy.correlation.value - 12.5 / Math.sqrt(5 * 32.75)) < 1e-12);
   assert.equal(computeRegression({ x1: 0, x2: 1, series: series([10,12]) }).correlation.reason, 'insufficient-points');
-  assert.equal(computeRegression({ x1: 0, x2: 3, series: series([10,10,10,10]) }).correlation.reason, 'zero-variance');
+  // Inexact constants leave a ~1e-30 residual sum of squares, so equality must be tested on the values.
+  for (const [value, count] of [[10, 4], [0.1, 3], [0.1, 7], [0.1, 10], [0.1, 50], [0.7, 10], [123.456, 10], [99.99, 10], [0.001, 10]]) {
+    const r = computeRegression({ x1: 0, x2: count - 1, series: series(Array(count).fill(value)) });
+    assert.deepEqual(r.correlation, { available: false, reason: 'zero-variance' }, `${value} x${count}`);
+  }
 });
 
 test('asymmetric channel exposes lines and rejects old documents atomically', () => {
