@@ -56,3 +56,40 @@ export const INDICATORS: ReadonlyArray<{ readonly id: string; readonly label: st
 export const NARROW_WIDTH: number;
 export const THEMES: Readonly<Record<string, Record<string, string>>>;
 export const THEME_NAMES: readonly string[];
+
+export interface DrawingSettingsField {
+  readonly id: string;
+  readonly tab: 'style' | 'text' | 'coordinates';
+  readonly group: string;
+  readonly order: number;
+  readonly type: 'color' | 'number' | 'boolean' | 'select' | 'text' | 'levels' | 'anchors';
+  readonly labelKey: string;
+  readonly appliesTo: { readonly tools?: readonly string[]; readonly families?: readonly string[] };
+}
+
+export interface DrawingSettingsDescription {
+  readonly ids: readonly string[];
+  readonly types: readonly string[];
+  readonly count: number;
+  readonly locked: boolean;
+  readonly tabs: readonly { readonly id: string; readonly label: string; readonly groups: readonly unknown[] }[];
+}
+
+/** Describes (and applies) the editable settings of selected drawings. Headless: no DOM. */
+export function listDrawingSettingsFields(): readonly DrawingSettingsField[];
+export const DRAWING_SETTINGS_TABS: readonly ['style', 'text', 'coordinates'];
+export function describeDrawingSettings(input: { drawings: readonly object[]; locale?: string; context?: object }): DrawingSettingsDescription;
+export function applyDrawingSettings(store: object, input: { ids: readonly string[]; changes: readonly { fieldId: string; value: unknown }[]; context?: object }): { changed: boolean };
+export function applySavedDrawingStyle(store: object, ids: readonly string[], styleId: string): unknown;
+export function saveDrawingStyle(store: object, id: string, name: string): unknown;
+export function planDrawingStyle(drawings: readonly object[], style: object, options?: { keys?: readonly string[]; includeOwn?: boolean; ownStyle?: boolean; groups?: readonly object[] }): { updates: { id: string; patch: object }[]; skippedOwn: string[]; skippedLocked: string[] };
+
+/** The optional drawing settings dialog, opened by `drawingActivate` (double click, Enter, `activateDrawing`). */
+export function createDrawingSettingsDialog(options: {
+  chart: Chart;
+  doc: Document;
+  host: HTMLElement;
+  interaction?: { subscribe: (event: string, listener: (payload: unknown) => void) => () => void } | null;
+  announce?: (text: string, options?: { error?: boolean }) => void;
+  sharedStyle?: (() => (object | null)) | null;
+}): { destroy(): void };
