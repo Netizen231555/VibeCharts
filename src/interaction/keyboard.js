@@ -30,6 +30,17 @@ export const DEFAULT_BINDINGS = Object.freeze({
   follow: 'f',
   fitContent: 'r',
   toggleLogScale: 'l',
+  nudgeLeft: 'arrowleft',
+  nudgeRight: 'arrowright',
+  nudgeUp: 'arrowup',
+  nudgeDown: 'arrowdown',
+  nudgeLeftTen: 'shift+arrowleft',
+  nudgeRightTen: 'shift+arrowright',
+  nudgeUpTen: 'shift+arrowup',
+  nudgeDownTen: 'shift+arrowdown',
+  duplicateSelection: 'shift+d',
+  toggleDrawingsVisible: 'shift+h',
+  toggleDrawingsLocked: 'shift+l',
   cancel: 'escape',
   contextMenu: 'contextmenu',
   toggleCrosshair: 'c',
@@ -41,7 +52,20 @@ export const DEFAULT_BINDINGS = Object.freeze({
 // messages tables under `keyboard.<id>` and are resolved per locale on demand.
 const ACTION_IDS = Object.freeze([
   'panLeft', 'panRight', 'zoomIn', 'zoomOut', 'priceZoomIn', 'priceZoomOut', 'priceAuto', 'follow',
-  'fitContent', 'toggleLogScale', 'cancel', 'contextMenu', 'toggleCrosshair', 'crosshairPrev', 'crosshairNext',
+  'fitContent', 'toggleLogScale', 'nudgeLeft', 'nudgeRight', 'nudgeUp', 'nudgeDown', 'nudgeLeftTen', 'nudgeRightTen',
+  'nudgeUpTen', 'nudgeDownTen', 'duplicateSelection', 'toggleDrawingsVisible', 'toggleDrawingsLocked',
+  'cancel', 'contextMenu', 'toggleCrosshair', 'crosshairPrev', 'crosshairNext',
+]);
+
+// Actions that act on the drawing selection. They share a chord with a camera action on purpose: while a drawing is
+// selected the selection action wins, otherwise the camera action keeps working. Every other pair of actions
+// must use distinct chords.
+export const SELECTION_ACTIONS = Object.freeze([
+  'nudgeLeft', 'nudgeRight', 'nudgeUp', 'nudgeDown', 'nudgeLeftTen', 'nudgeRightTen', 'nudgeUpTen', 'nudgeDownTen',
+  'duplicateSelection',
+]);
+const CAMERA_ACTIONS = Object.freeze([
+  'panLeft', 'panRight', 'zoomIn', 'zoomOut', 'priceZoomIn', 'priceZoomOut', 'priceAuto', 'follow', 'fitContent', 'toggleLogScale',
 ]);
 
 function labelsFor(locale) {
@@ -127,10 +151,20 @@ export function createKeyboard({ bindings = {}, crosshair = null } = {}) {
   let actionToChord = new Map();
   let crosshairActive = false;
 
+  function conflict(action, chord, other) {
+    return new InteractionError(`Key ${chord} is already assigned to ${other}`, {
+      code: 'BINDING_CONFLICT',
+      field: 'bindings',
+      action,
+      detail: { chord, conflictAction: other },
+    });
+  }
+
   function apply(next) {
     if (!next || typeof next !== 'object' || Array.isArray(next)) {
       throw new InteractionError('Keyboard bindings must be an object', { code: 'INVALID_BINDING', field: 'bindings' });
     }
+    // A chord maps to at most one selection action and one other action; the pair may only be selection + camera.
     table = new Map();
     actionToChord = new Map();
     for (const [action, chord] of Object.entries(DEFAULT_BINDINGS)) actionToChord.set(action, chord);
@@ -148,26 +182,36 @@ export function createKeyboard({ bindings = {}, crosshair = null } = {}) {
       if (reservedChord(chord, action)) {
         throw new InteractionError(`Key ${chord} is reserved by the browser`, { code: 'BINDING_RESERVED', field: 'bindings', action });
       }
-      if (table.has(chord)) {
-        throw new InteractionError(`Key ${chord} is already assigned to ${table.get(chord)}`, {
-          code: 'BINDING_CONFLICT',
-          field: 'bindings',
-          action,
-          detail: { chord, conflictAction: table.get(chord) },
-        });
-      }
-      table.set(chord, action);
+      const entry = table.get(chord) ?? {};
+      const selectionScoped = SELECTION_ACTIONS.includes(action);
+      const slot = selectionScoped ? 'selection' : 'base';
+      if (entry[slot]) throw conflict(action, chord, entry[slot]);
+      const other = selectionScoped ? entry.base : entry.selection;
+      if (other && !CAMERA_ACTIONS.includes(selectionScoped ? other : action)) throw conflict(action, chord, other);
+      entry[slot] = action;
+      table.set(chord, entry);
     }
   }
 
   apply(bindings);
 
-  function actionForChord(chord) {
+  function entryForChord(chord) {
     if (!chord) return null;
     if (table.has(chord)) return table.get(chord);
     // Shift+F10 is the standard keyboard context-menu key.
-    if (chord === 'shift+f10' && [...table.values()].includes('contextMenu')) return 'contextMenu';
+    if (chord === 'shift+f10' && actionToChord.has('contextMenu')) return { base: 'contextMenu' };
     return null;
+  }
+
+  // With a selection the selection action wins. Without one the camera action keeps the chord; a chord that only
+  // has a selection action still resolves, so invoking it can explain why nothing happened. `scoped: false` (an armed
+  // tool, the keyboard crosshair) removes the selection scope altogether.
+  function actionForChord(chord, { selectionActive = false, scoped = true } = {}) {
+    const entry = entryForChord(chord);
+    if (!entry) return null;
+    const selection = scoped ? entry.selection : undefined;
+    if (selectionActive && selection) return selection;
+    return entry.base ?? selection ?? null;
   }
 
   const keyboard = {
@@ -189,21 +233,27 @@ export function createKeyboard({ bindings = {}, crosshair = null } = {}) {
       }
       return keyboard.getBindings();
     },
-    resolveChord(chord) {
-      return actionForChord(chord);
+    resolveChord(chord, { selectionActive = false } = {}) {
+      return actionForChord(chord, { selectionActive });
     },
     /**
      * Map a keydown to an action. Returns null when the chart must not consume
      * the event (Tab, editable focus, unbound chord, browser modifier shortcut).
      */
-    resolveEvent(event, { target = null } = {}) {
+    resolveEvent(event, { target = null, selectionActive = false, selectionScope = true } = {}) {
       if (!event || event.defaultPrevented) return null;
       if (event.ctrlKey || event.metaKey || event.altKey) return null;
       if (isEditableTarget(target || event.target)) return null;
       const chord = chordFromEvent(event);
       if (!chord) return null;
-      const action = actionForChord(chord);
+      // The keyboard crosshair owns the keys it uses, and an armed tool owns the keyboard: both switch the
+      // selection scope off.
+      const scoped = selectionScope && !crosshairActive;
+      const action = actionForChord(chord, { selectionActive: selectionActive && scoped, scoped });
       if (!action) return null;
+      // Without a selection an arrow chord that has no camera action stays with the page (scrolling); only the
+      // explicit duplicate chord answers, so the user hears why nothing happened.
+      if (!selectionActive && action.startsWith('nudge')) return null;
       if (crosshairActive && (action === 'panLeft' || action === 'panRight')) {
         if (!crosshair) return null;
         const crosshairAction = action === 'panLeft' ? 'crosshairPrev' : 'crosshairNext';
