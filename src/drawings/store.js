@@ -169,9 +169,12 @@ export function createDrawingStore(options) {
     const props = normalizeProps(drawingType, raw.props ?? {});
     const visible = raw.visible === undefined ? true : requireBoolean(raw.visible, 'visible');
     const locked = raw.locked === undefined ? false : requireBoolean(raw.locked, 'locked');
+    // Marks a style a user chose for this drawing, so a host that applies one shared style to many drawings can leave
+    // it alone. Nothing in rendering or style resolution reads it; a document without the field means false.
+    const ownStyle = raw.ownStyle === undefined ? false : requireBoolean(raw.ownStyle, 'ownStyle');
     let groupId = null;
     if (raw.groupId !== undefined && raw.groupId !== null) groupId = requireString(raw.groupId, 'groupId', { max: 128 });
-    return { id: drawingId, type: drawingType, paneId, scaleId, anchors, style, props, visible, locked, groupId };
+    return { id: drawingId, type: drawingType, paneId, scaleId, anchors, style, props, visible, locked, ownStyle, groupId };
   }
 
   function prepareDrawing(raw, options = {}) {
@@ -452,7 +455,7 @@ export function createDrawingStore(options) {
 
   function buildUpdateCandidate(current, patch) {
     if (!isObject(patch)) fail('invalid-patch', 'patch must be an object', { field: 'patch' });
-    const allowed = ['anchors', 'style', 'props', 'visible', 'locked', 'paneId', 'scaleId', 'groupId'];
+    const allowed = ['anchors', 'style', 'props', 'visible', 'locked', 'ownStyle', 'paneId', 'scaleId', 'groupId'];
     for (const key of Object.keys(patch)) {
       if (!allowed.includes(key)) fail('invalid-patch', `Unknown drawing property: ${key}`, { field: key });
     }
@@ -469,7 +472,7 @@ export function createDrawingStore(options) {
       if (!isObject(patch.props)) fail('invalid-props', 'props must be an object', { field: 'props' });
       candidate.props = { ...candidate.props, ...clone(patch.props) };
     }
-    for (const key of ['visible', 'locked', 'paneId', 'scaleId', 'groupId']) {
+    for (const key of ['visible', 'locked', 'ownStyle', 'paneId', 'scaleId', 'groupId']) {
       if (key in patch) candidate[key] = patch[key];
     }
     return candidate;
