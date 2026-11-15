@@ -858,6 +858,29 @@ export interface DrawingStyle {
   fillOpacity: number;
   opacity: number;
 }
+/** For anchor-ordered tools, extend before the first / after the last anchor; rectangles use screen left / right. Both members are required when supplied. */
+export interface DrawingExtend {
+  left: boolean;
+  right: boolean;
+}
+
+/** Arrowheads at the first and last ends of the visible geometry. Both members are required when supplied. */
+export interface DrawingArrows {
+  start: boolean;
+  end: boolean;
+}
+
+/** Line option props, supported by the tools described in the drawing contract.
+ * Extension defaults: segment, arrow, angle, rectangle and anchoredVwap neither side;
+ * ray, fibFan and pitchfork right; line and parallelChannel both.
+ * Arrows default to neither end except arrow (end); midpoint defaults to false.
+ */
+export interface DrawingLineOptions {
+  extend?: DrawingExtend;
+  arrows?: DrawingArrows;
+  midpoint?: boolean;
+}
+
 
 export interface DrawingToolHandle {
   readonly id: string;
