@@ -1,7 +1,13 @@
 /* drawingRail: arrangement only; the part is complete semantic HTML without this file. */
 /* Positioned so the hidden text of its controls stays inside the rail's scroll area instead of widening the page. */
-.chart-ui-rail { position: relative; flex: none; --chart-ui-control-size: var(--chart-ui-rail-size); }
+.chart-ui-rail { position: relative; flex: none; --chart-ui-control-size: var(--chart-ui-rail-size, 24px); }
 .chart-ui-rail > .chart-ui-btn { flex: none; }
+.chart-ui-rail .chart-ui-rail-btn { width: var(--chart-ui-control-size); height: var(--chart-ui-control-size); padding: 0; }
+.chart-ui-rail .chart-ui-rail-btn .chart-ui-icon { width: 16px; height: 16px; }
+
+@media (hover: none), (pointer: coarse) {
+  .chart-ui-rail { --chart-ui-control-size: 44px; }
+}
 .chart-ui-rail-text { white-space: nowrap; }
 
 /* The tip is fixed so the rail's scroll container cannot clip it; the script sets left/top. */
@@ -22,7 +28,7 @@
 /* Many tools: two columns of compact buttons. The DOM order stays one toolbar; only the arrangement changes. */
 .chart-ui-rail-grid[aria-orientation="vertical"] {
   display: grid;
-  grid-template-columns: repeat(2, calc(var(--chart-ui-control-size) - 4px));
+  grid-template-columns: repeat(2, var(--chart-ui-control-size));
   justify-content: center;
   align-items: center;
   gap: var(--chart-ui-gap);
@@ -30,7 +36,7 @@
 }
 .chart-ui-rail-grid[aria-orientation="vertical"] .chart-ui-rail-btn {
   min-width: 0;
-  min-height: calc(var(--chart-ui-control-size) - 4px);
+  min-height: var(--chart-ui-control-size);
   padding: 0;
 }
 /* Rules between groups span both columns. */
@@ -42,11 +48,31 @@
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--chart-ui-border) transparent;
+  scrollbar-width: none;
 }
+.chart-ui-rail[aria-orientation="horizontal"]::-webkit-scrollbar { display: none; }
 .chart-ui-rail[aria-orientation="horizontal"] > .chart-ui-sep { margin: 2px 4px; }
 
+
+/* Fixed menus escape the rail's scroll clipping; their position is set by the rail. */
+.chart-ui-tool-group-menu {
+  position: fixed;
+  z-index: 6;
+  min-width: 200px;
+  max-width: min(320px, 100vw);
+  max-height: calc(100vh - 8px);
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--chart-ui-border);
+  border-radius: var(--chart-ui-radius);
+  background: var(--chart-ui-menu-bg);
+  color: var(--chart-ui-text);
+  box-shadow: var(--chart-ui-shadow);
+}
+.chart-ui-tool-group-menu[hidden] { display: none; }
+.chart-ui-tool-group-menu .chart-ui-menu-item[aria-checked="true"] { background: var(--chart-ui-active); }
+.chart-ui-tool-group-menu .chart-ui-menu-item[aria-disabled="true"] { color: var(--chart-ui-muted); cursor: not-allowed; }
+.chart-ui-tool-group-menu .chart-ui-menu-item[aria-disabled="true"]:hover { background: transparent; }
 /* Floating over the plot: anchored to the start edge, no taller than the plot, its own surface. Only the rail takes
    pointer events (the region itself has none), so the chart beside it stays usable. */
 [data-chart-ui-shell] > [data-region="overlay"] > .chart-ui-rail[data-chart-ui-part] {

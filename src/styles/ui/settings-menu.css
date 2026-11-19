@@ -27,6 +27,11 @@
 
 /* Floating triggers are translucent like the nav cluster. */
 [data-region="menu"] > .chart-ui-settings > .chart-ui-btn:not([aria-expanded="true"]) { background: var(--chart-ui-overlay-bg); }
+[data-region="menu"] > .chart-ui-settings > .chart-ui-btn { --chart-ui-control-size: 28px; padding: 0; }
+[data-region="menu"] > .chart-ui-settings > .chart-ui-btn .chart-ui-icon { width: 16px; height: 16px; }
+@media (hover: none), (pointer: coarse) {
+  [data-region="menu"] > .chart-ui-settings > .chart-ui-btn { --chart-ui-control-size: 44px; }
+}
 
 /* Opens under the trigger, right edges aligned; the script flips it with these attributes when it would leave the viewport. */
 .chart-ui-settings-menu {

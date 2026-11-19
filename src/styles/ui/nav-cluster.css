@@ -16,6 +16,12 @@
   transition: opacity 120ms ease-out;
 }
 
+[data-region="overlay"] > .chart-ui-nav {
+  --chart-ui-control-size: 28px;
+}
+[data-region="overlay"] > .chart-ui-nav .chart-ui-btn { padding: 0; }
+[data-region="overlay"] > .chart-ui-nav .chart-ui-icon { width: 16px; height: 16px; }
+
 [data-chart-ui-shell] > [data-region="overlay"] > .chart-ui-nav[data-chart-ui-part] {
   opacity: 0;
   pointer-events: none;
@@ -30,6 +36,7 @@
 
 /* Touch and other coarse-pointer devices cannot depend on hover. */
 @media (hover: none), (pointer: coarse) {
+  [data-region="overlay"] > .chart-ui-nav { --chart-ui-control-size: 44px; }
   [data-chart-ui-shell] > [data-region="overlay"] > .chart-ui-nav[data-chart-ui-part] {
     opacity: 1;
     pointer-events: auto;

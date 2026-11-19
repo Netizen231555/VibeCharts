@@ -5,8 +5,8 @@
   --chart-ui-radius: 6px;
   --chart-ui-gap: 4px;
   --chart-ui-control-size: 32px;
-  /* Size of the drawing rail's buttons; follows the control size unless set. */
-  --chart-ui-rail-size: var(--chart-ui-control-size);
+  /* Size of the drawing rail's buttons. */
+  --chart-ui-rail-size: 24px;
   --chart-ui-focus-width: 2px;
   /* Distance of the on-chart groups from the price and time axes. */
   --chart-ui-inset-x: 76px;

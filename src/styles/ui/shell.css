@@ -73,6 +73,10 @@
 [data-chart-ui-shell] > [data-region="bottom"],
 [data-chart-ui-shell][data-layout="compact"] > [data-region="start"],
 [data-chart-ui-shell][data-layout="compact"] > [data-region="end"] {
-  scrollbar-width: thin;
+  scrollbar-width: none;
 }
+[data-chart-ui-shell] > [data-region="top"]::-webkit-scrollbar,
+[data-chart-ui-shell] > [data-region="bottom"]::-webkit-scrollbar,
+[data-chart-ui-shell][data-layout="compact"] > [data-region="start"]::-webkit-scrollbar,
+[data-chart-ui-shell][data-layout="compact"] > [data-region="end"]::-webkit-scrollbar { display: none; }
 [data-chart-ui-shell][data-layout="compact"] > [data-region="top"] { overflow-x: auto; }

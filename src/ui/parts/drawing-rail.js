@@ -1,21 +1,11 @@
 /**
- * drawingRail: icon column of drawing tools, a cursor button that drops the
- * active tool, and a separated "clear drawings" button. Tools are separated
- * by a thin rule wherever their `group` changes. Past `GRID_THRESHOLD` tools
- * the column becomes a two-column grid of compact buttons (still one toolbar
- * in DOM order) and scrolls vertically when it is taller than the chart.
- *
- * The rail is one Tab stop (roving tabindex) with arrow-key navigation. Buttons
- * that cannot act stay focusable (`aria-disabled`, not `disabled`) so their
- * reason can be read and activation is refused with an announced reason by the
- * controller. The tip is a single element moved between buttons; it is fixed
- * positioned so the rail's own scrolling cannot clip it.
+ * Compact drawing toolbar with one remembered tool per group. The rail is a
+ * single roving Tab stop; each group opens a keyboard-accessible tool menu.
+ * Unavailable actions remain focusable so their reasons can be announced.
  */
 import { createElement, append, on, contains } from '../../interaction/dom.js';
 import { createIcon, hasIcon } from '../icons.js';
 
-// More tools than this switch the rail to the two-column grid.
-const GRID_THRESHOLD = 12;
 
 export function createDrawingRail(controller, context) {
   const doc = context.document;
@@ -29,15 +19,22 @@ export function createDrawingRail(controller, context) {
   // Hide and lock are toggles about the whole document, kept apart from the tools by a rule.
   const stateControls = ['hideDrawings', 'lockDrawings'].map((id) => allControls.find((control) => control.id === id)).filter(Boolean);
 
+  const toolGroups = new Map();
+  for (const control of tools) {
+    const key = control.group ?? null;
+    if (!toolGroups.has(key)) toolGroups.set(key, []);
+    toolGroups.get(key).push(control);
+  }
+
   const root = createElement(doc, 'div', {
-    class: `chart-ui-bar chart-ui-rail${tools.length > GRID_THRESHOLD ? ' chart-ui-rail-grid' : ''}`,
+    class: 'chart-ui-bar chart-ui-rail',
     role: 'toolbar',
     'aria-orientation': 'vertical',
     'aria-label': controller.t('rail.label'),
   });
   const tip = createElement(doc, 'div', { class: 'chart-ui-tip chart-ui-rail-tip', 'aria-hidden': 'true', hidden: true });
 
-  /** @type {Array<{ kind: 'cursor'|'tool'|'clear'|'toggle', controlId: string|null, group: string|null, button: HTMLElement, label: string, reason: HTMLElement }>} */
+  /** @type {Array<{ kind: string, controlId: string|null, group: string|null, button: HTMLElement, label: string, reason: HTMLElement }>} */
   const items = [];
 
   function addItem(kind, controlId, label, iconName, group = null) {
@@ -59,7 +56,13 @@ export function createDrawingRail(controller, context) {
   }
 
   if (tools.length > 0) addItem('cursor', null, controller.t('rail.cursor'), 'cursor', 'cursor');
-  for (const control of tools) addItem('tool', control.id, control.label, control.value, control.group ?? null);
+  for (const controls of toolGroups.values()) {
+    const selected = controls.find((control) => control.pressed) || controls[0];
+    const item = addItem('tool', selected.id, selected.label, selected.value, 'tools');
+    item.controls = controls;
+    item.button.setAttribute('aria-haspopup', 'menu');
+    item.button.setAttribute('aria-expanded', 'false');
+  }
   if (clearControl) addItem('clear', clearControl.id, clearControl.label, 'clear', 'clear');
   for (const control of stateControls) addItem('toggle', control.id, control.label, control.id, 'state');
 
@@ -93,6 +96,120 @@ export function createDrawingRail(controller, context) {
   }
   const itemOf = (node) => items.find((item) => contains(item.button, node)) || null;
 
+  /* ------------------------------- tool menus ------------------------------- */
+  // The menu lives outside the scrolling rail, but inside the themed host.
+  const menu = createElement(doc, 'div', {
+    class: 'chart-ui-menu chart-ui-tool-group-menu',
+    role: 'menu',
+    hidden: true,
+  });
+  menu.style.position = 'fixed';
+  append(host, menu);
+  let openItem = null;
+  let menuEntries = [];
+
+  function closeMenu(restoreFocus = false) {
+    if (!openItem) return;
+    const button = openItem.button;
+    openItem.button.setAttribute('aria-expanded', 'false');
+    openItem = null;
+    menu.setAttribute('hidden', '');
+    if (restoreFocus) button.focus();
+  }
+
+  function positionMenu() {
+    if (!openItem) return;
+    const rect = openItem.button.getBoundingClientRect();
+    const view = doc.defaultView;
+    const width = doc.documentElement.clientWidth || (view ? view.innerWidth : 0);
+    const height = doc.documentElement.clientHeight || (view ? view.innerHeight : 0);
+    const horizontal = root.getAttribute('aria-orientation') === 'horizontal';
+    let left = horizontal ? rect.left : (region === 'end' ? rect.left - menu.offsetWidth - 6 : rect.right + 6);
+    let top = horizontal ? (region === 'bottom' ? rect.top - menu.offsetHeight - 6 : rect.bottom + 6) : rect.top;
+    left = Math.max(4, Math.min(left, width - menu.offsetWidth - 4));
+    top = Math.max(4, Math.min(top, height - menu.offsetHeight - 4));
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  }
+
+  function openMenu(item) {
+    if (openItem === item) {
+      closeMenu(true);
+      return;
+    }
+    closeMenu();
+    hideTip();
+    openItem = item;
+    item.button.setAttribute('aria-expanded', 'true');
+    menu.setAttribute('aria-label', item.controls[0].groupLabel || controller.t('group.tools'));
+    while (menu.firstChild) menu.removeChild(menu.firstChild);
+    const byId = new Map(controller.model().groups.flatMap((group) => group.controls).map((control) => [control.id, control]));
+    menuEntries = item.controls.map((original) => {
+      const control = byId.get(original.id) || original;
+      const button = createElement(doc, 'button', {
+        type: 'button', class: 'chart-ui-menu-item', role: 'menuitemradio',
+        tabindex: '-1', 'aria-checked': control.pressed ? 'true' : 'false',
+      });
+      if (hasIcon(control.value)) append(button, createIcon(doc, control.value, { size: 20, icons: controller.icons }));
+      append(button, createElement(doc, 'span', {}, control.label));
+      const reason = createElement(doc, 'span', { class: 'chart-ui-sr' });
+      append(button, reason);
+      const entry = { button, reason, label: control.label, controlId: control.id };
+      paint(entry, control);
+      append(menu, button);
+      return entry;
+    });
+    menu.removeAttribute('hidden');
+    positionMenu();
+    const selected = menuEntries.find((entry) => entry.controlId === item.controlId) || menuEntries[0];
+    if (selected) selected.button.focus();
+  }
+
+  disposers.push(on(menu, 'click', (event) => {
+    const entry = menuEntries.find((candidate) => contains(candidate.button, event.target));
+    if (!entry || !openItem) return;
+    const item = openItem;
+    const control = controller.model().groups.flatMap((group) => group.controls).find((candidate) => candidate.id === entry.controlId);
+    if (!control) return;
+    if (control.enabled === false) {
+      controller.run(control.id);
+      return;
+    }
+    const result = control.pressed ? null : controller.run(control.id);
+    item.controlId = control.id;
+    setToolIcon(item, control);
+    closeMenu(!result?.pendingText);
+  }));
+  disposers.push(on(menu, 'keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      closeMenu(true);
+      return;
+    }
+    if (event.key === 'Tab') return;
+    const index = menuEntries.findIndex((entry) => contains(entry.button, event.target));
+    let next = null;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') next = index + 1;
+    else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') next = index - 1;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = menuEntries.length - 1;
+    if (next === null || !menuEntries.length) return;
+    event.preventDefault();
+    menuEntries[(next + menuEntries.length) % menuEntries.length].button.focus();
+  }));
+  disposers.push(on(menu, 'focusout', (event) => {
+    if ((!event.relatedTarget || !contains(menu, event.relatedTarget)) &&
+        !(openItem && event.relatedTarget && contains(openItem.button, event.relatedTarget))) closeMenu();
+  }));
+  disposers.push(on(doc, 'pointerdown', (event) => {
+    if (openItem && !contains(menu, event.target) && !contains(openItem.button, event.target)) closeMenu();
+  }));
+  disposers.push(() => {
+    closeMenu();
+    if (menu.parentNode) menu.parentNode.removeChild(menu);
+  });
+
   /* ------------------------------- roving focus ------------------------------- */
   function setTabStop(target) {
     for (const item of items) item.button.setAttribute('tabindex', item === target ? '0' : '-1');
@@ -124,7 +241,11 @@ export function createDrawingRail(controller, context) {
     const item = itemOf(event.target);
     if (!item) return;
     if (event.key === 'Escape') {
-      if (tipTarget) { event.preventDefault(); event.stopPropagation(); hideTip(); }
+      if (openItem) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMenu(true);
+      } else if (tipTarget) { event.preventDefault(); event.stopPropagation(); hideTip(); }
       return;
     }
     const index = items.indexOf(item);
@@ -162,7 +283,11 @@ export function createDrawingRail(controller, context) {
       const hadFocus = doc.activeElement === item.button;
       let result;
       if (item.kind === 'cursor') {
+        closeMenu();
         dropActiveTool();
+      } else if (item.kind === 'tool') {
+        openMenu(item);
+        return;
       } else {
         result = controller.run(item.controlId);
       }
@@ -172,6 +297,17 @@ export function createDrawingRail(controller, context) {
   }
 
   /* ---------------------------------- update ---------------------------------- */
+  function setToolIcon(item, control) {
+    item.controlId = control.id;
+    item.label = control.label;
+    item.button.setAttribute('data-control', control.id);
+    while (item.button.firstChild) item.button.removeChild(item.button.firstChild);
+    if (hasIcon(control.value)) append(item.button, createIcon(doc, control.value, { size: 20, icons: controller.icons }), createElement(doc, 'span', { class: 'chart-ui-sr' }, control.label));
+    else append(item.button, createElement(doc, 'span', { class: 'chart-ui-rail-text' }, control.label));
+    append(item.button, item.reason);
+    if (tipTarget === item) showTip(item);
+  }
+
   function paint(item, control) {
     const unavailable = control.enabled === false;
     const reason = unavailable ? (control.reason || controller.t('ui.actionUnavailable')) : '';
@@ -192,13 +328,27 @@ export function createDrawingRail(controller, context) {
         item.button.setAttribute('aria-pressed', active === null ? 'true' : 'false');
         continue;
       }
+      if (item.kind === 'tool') {
+        const selected = item.controls.map((entry) => byId.get(entry.id)).find((entry) => entry && entry.pressed);
+        if (selected && item.controlId !== selected.id) setToolIcon(item, selected);
+        item.button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+        continue;
+      }
       const control = byId.get(item.controlId);
       if (!control) continue;
-      if (item.kind === 'tool' || item.kind === 'toggle') item.button.setAttribute('aria-pressed', control.pressed ? 'true' : 'false');
+      if (item.kind === 'toggle') item.button.setAttribute('aria-pressed', control.pressed ? 'true' : 'false');
       paint(item, control);
     }
+    if (openItem) {
+      for (const entry of menuEntries) {
+        const control = byId.get(entry.controlId);
+        if (!control) continue;
+        entry.button.setAttribute('aria-checked', control.pressed ? 'true' : 'false');
+        paint(entry, control);
+      }
+    }
     // The single Tab stop follows the chosen tool while focus is elsewhere; it never jumps under the user's hands.
-    if (!contains(root, doc.activeElement)) setTabStop(pressedItem());
+    if (!contains(root, doc.activeElement) && !contains(menu, doc.activeElement)) setTabStop(pressedItem());
   }
   update();
   disposers.push(controller.subscribe(['tool', 'capabilities', 'drawings'], update));
@@ -210,9 +360,14 @@ export function createDrawingRail(controller, context) {
     const strip = region === 'top' || region === 'bottom' || ((region === 'start' || region === 'end') && host && host.getAttribute('data-layout') === 'compact');
     root.setAttribute('aria-orientation', strip ? 'horizontal' : 'vertical');
     if (tipTarget) showTip(tipTarget);
+    if (openItem) positionMenu();
   }
   syncOrientation();
   const view = doc.defaultView;
+  if (view) {
+    disposers.push(on(view, 'resize', positionMenu));
+    disposers.push(on(doc, 'scroll', positionMenu, true));
+  }
   if (host && view && typeof view.MutationObserver === 'function') {
     const observer = new view.MutationObserver(syncOrientation);
     observer.observe(host, { attributes: true, attributeFilter: ['data-layout'] });
