@@ -9,6 +9,8 @@
     "start plot end"
     "bottom bottom bottom";
   min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--chart-ui-border);
   background: var(--chart-ui-bg);
   color: var(--chart-ui-text);
   font: var(--chart-ui-font-size) / 1.4 var(--chart-ui-font);
