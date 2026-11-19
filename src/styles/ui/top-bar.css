@@ -21,7 +21,7 @@
 
 .chart-ui-topbar-title {
   max-width: 32ch;
-  padding: 0 8px;
+  padding: 0 8px 0 0;
   overflow: hidden;
   font-weight: 600;
   text-overflow: ellipsis;

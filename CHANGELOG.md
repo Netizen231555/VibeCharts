@@ -2,6 +2,7 @@
 
 ## 0.1.0 — unreleased
 
+- Align the chart title with the drawing toolbar by removing its extra left padding.
 - Outline the chart UI and remove the background panel behind floating navigation buttons.
 - Group drawing tools into compact icon menus, and reduce the size of drawing, navigation and settings controls.
 - Add runnable Vue examples with chart lifecycle and reactive theme changes.
