@@ -1705,6 +1705,11 @@ export function attachInteraction(chart, options = {}) {
         crosshairActive: keyboard.crosshairActive,
       };
     },
+    /** The pointer gesture in flight, or null. Cheaper than getState() and safe after destroy: hosts use it to keep
+     *  a background document sync from replacing the chart under an active drag. */
+    getGesture() {
+      return destroyed ? null : router.capture;
+    },
     hitTest(point) {
       return hitAt(point);
     },
