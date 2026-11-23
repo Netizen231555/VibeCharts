@@ -27,6 +27,8 @@ export class Timeline {
     this._index = new Map();
     this._revision = 0;
     this._hooks = hooks;
+    this._timesCache = null;
+    this._timesCacheRevision = -1;
   }
 
   get revision() {
@@ -61,6 +63,29 @@ export class Timeline {
   listSlots() {
     this._hooks.assertAlive?.('timeline.listSlots');
     return this.toArray();
+  }
+
+  /** Internal: the slot object itself, without a defensive copy. Hot render paths only. */
+  _slotAt(index) {
+    if (!Number.isInteger(index) || index < 0 || index >= this._slots.length) return null;
+    return this._slots[index];
+  }
+
+  /**
+   * Internal: raw `time` values of slots `start..end` inclusive, from a cache rebuilt on
+   * timeline revisions. A slot without a time yields `undefined`; callers validate as before.
+   */
+  _timesBetween(start, end) {
+    const from = Math.max(0, start);
+    const to = Math.min(this._slots.length - 1, end);
+    if (from > to) return [];
+    if (this._timesCache === null || this._timesCacheRevision !== this._revision) {
+      const times = new Array(this._slots.length);
+      for (let i = 0; i < this._slots.length; i += 1) times[i] = this._slots[i].time;
+      this._timesCache = times;
+      this._timesCacheRevision = this._revision;
+    }
+    return this._timesCache.slice(from, to + 1);
   }
 
   _reindex() {

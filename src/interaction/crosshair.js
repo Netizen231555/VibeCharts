@@ -42,6 +42,7 @@ export function computeCrosshair({
   indexScale,
   priceScale = null,
   slots = [],
+  slotAccessor = null,
   seriesValues = () => [],
   priceAxisId = null,
   derived = false,
@@ -50,9 +51,15 @@ export function computeCrosshair({
   if (!point || !pane) {
     return emptyPayload();
   }
-  const slotByBarId = new Map();
-  for (const slot of slots) slotByBarId.set(slot.barId, slot);
-  const lastIndex = slots.length - 1;
+  const slotCount = slotAccessor ? slotAccessor.count : slots.length;
+  const lastIndex = slotCount - 1;
+  // The payload needs one slot, not a barId index: read it by timeline position and
+  // confirm the identity, so no per-event Map of the whole history is built.
+  const slotAtIndex = (index, barId) => {
+    if (index === null || index < 0 || index >= slotCount) return null;
+    const slot = slotAccessor ? slotAccessor.at(index) : slots[index];
+    return slot && slot.barId === barId ? slot : null;
+  };
   const plotX = pane.plot?.x ?? 0;
   const plotY = pane.plot?.y ?? 0;
   let index = indexScale.coordinateToIndex(point.x - plotX);
@@ -72,7 +79,7 @@ export function computeCrosshair({
     if (barId === null || barId === undefined) {
       return { ...emptyPayload(), visible: true, paneId: pane.id, x: point.x, y: point.y, price, priceAxisId };
     }
-    const slot = slotByBarId.get(barId);
+    const slot = slotAtIndex(index, barId);
     // A derived element has no time of its own; never borrow the source bar's.
     const time = !derived && slot && isFiniteNumber(slot.time) ? slot.time : null;
     const sessionDate = !derived && slot && slot.sessionDate ? { ...slot.sessionDate } : null;
@@ -260,10 +267,13 @@ export function createCrosshairController({ adapter, getLayout, hitPane, options
       return payload;
     }
     const scale = primaryScale(pane);
+    const slotAccessor = adapter.slotAccessorFor?.(pane.id) ?? null;
     // Every pane has its own x context: scale, slots and values come from it.
     const context = {
       indexScale: adapter.indexScaleFor(pane.id),
-      slots: adapter.slotsFor(pane.id),
+      // A live slot accessor avoids copying the whole timeline on every event;
+      // custom adapters without it keep the array contract.
+      ...(slotAccessor ? { slotAccessor } : { slots: adapter.slotsFor(pane.id) }),
       seriesValues: (id) => adapter.getSeriesValues(pane.id, id),
       derived: adapter.paneKind(pane.id) === 'derived',
       sourceBarId: (id) => adapter.sourceBarId(pane.id, id),

@@ -1,6 +1,9 @@
 # Changelog
 
 ## 0.1.0 — unreleased
+- Rendering dense zooms is bounded by pixels instead of bars: candles, bars and histograms collapse to one shape per pixel column (open of the first, close of the last, extremes of the range; the histogram column shows its largest value), and a full-history redraw reuses one wrapper pool per series instead of cloning every visible point.
+- Crosshair recomputation no longer copies the timeline or builds a barId map per pointer and wheel event: the adapter exposes an internal live slot accessor and the payload reads the one slot it needs.
+- Time-axis tick selection jumps between wall-clock bucket boundaries instead of calling `wallClock` for every visible slot, with the raw times cached per timeline revision; unsorted host order and calendar (month/year) steps keep the exact scan. A DST regression test covers the spring shift.
 
 - Align the chart title with the drawing toolbar by removing its extra left padding.
 - Outline the chart UI and remove the background panel behind floating navigation buttons.

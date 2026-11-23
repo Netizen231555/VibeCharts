@@ -8,10 +8,53 @@ export function colorForCandle(point, options, theme) {
   return options.equalColor ?? theme.equal;
 }
 
+// Below this spacing several bars share a pixel column; drawing each one only
+// overdraws the same pixels. Dense zooms collapse each column to one OHLC shape.
+const DENSE_SPACING = 1.25;
+
+function ohlcColumns(points, xOf) {
+  const columns = [];
+  for (const point of points) {
+    const x = Math.round(xOf(point.index));
+    const last = columns[columns.length - 1];
+    if (last !== undefined && last.x === x) {
+      if (point.high > last.high) last.high = point.high;
+      if (point.low < last.low) last.low = point.low;
+      last.close = point.close;
+    } else {
+      columns.push({ x, open: point.open, high: point.high, low: point.low, close: point.close });
+    }
+  }
+  return columns;
+}
+
 export function drawCandles(ctx, { points, xOf, yOf, barSpacing, options, theme }) {
   const bodyWidth = Math.max(1, Math.min(barSpacing * 0.7, 24));
   const borderVisible = options.borderVisible !== false;
   const wickVisible = options.wickVisible !== false;
+  if (barSpacing < DENSE_SPACING && points.length > 1) {
+    for (const column of ohlcColumns(points, xOf)) {
+      const color = colorForCandle(column, options, theme);
+      const yOpen = yOf(column.open);
+      const yClose = yOf(column.close);
+      if (wickVisible) {
+        ctx.strokeStyle =
+          column.close > column.open
+            ? options.wickUpColor ?? theme.wickUp
+            : column.close < column.open
+              ? options.wickDownColor ?? theme.wickDown
+              : options.wickEqualColor ?? theme.equal;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(column.x, yOf(column.high));
+        ctx.lineTo(column.x, yOf(column.low));
+        ctx.stroke();
+      }
+      ctx.fillStyle = color;
+      ctx.fillRect(column.x - 0.5, Math.min(yOpen, yClose), 1, Math.max(1, Math.abs(yClose - yOpen)));
+    }
+    return;
+  }
   for (const point of points) {
     const x = xOf(point.index);
     const color = colorForCandle(point, options, theme);
@@ -57,6 +100,25 @@ export function drawCandles(ctx, { points, xOf, yOf, barSpacing, options, theme 
 
 export function drawBars(ctx, { points, xOf, yOf, barSpacing, options, theme }) {
   const tick = Math.max(2, Math.min(barSpacing * 0.35, 10));
+  if (barSpacing < DENSE_SPACING && points.length > 1) {
+    for (const column of ohlcColumns(points, xOf)) {
+      const color =
+        column.close > column.open
+          ? options.upColor ?? theme.up
+          : column.close < column.open
+            ? options.downColor ?? theme.down
+            : options.equalColor ?? theme.equal;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(column.x, yOf(column.high));
+      ctx.lineTo(column.x, yOf(column.low));
+      ctx.moveTo(column.x - 1, yOf(column.close));
+      ctx.lineTo(column.x, yOf(column.close));
+      ctx.stroke();
+    }
+    return;
+  }
   for (const point of points) {
     const x = xOf(point.index);
     const color =
@@ -78,20 +140,6 @@ export function drawBars(ctx, { points, xOf, yOf, barSpacing, options, theme }) 
     ctx.lineTo(x + tick, yOf(point.close));
     ctx.stroke();
   }
-}
-
-function strokePath(ctx, points, xOf, yOf) {
-  ctx.beginPath();
-  for (let i = 0; i < points.length; i += 1) {
-    const x = xOf(points[i].index);
-    const y = yOf(points[i].value);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  }
-}
-
-export function drawLine(ctx, { points, xOf, yOf, options, theme }) {
-  const segments = splitByGaps(points);
   ctx.strokeStyle = options.color ?? theme.areaLine;
   ctx.lineWidth = options.lineWidth ?? 2;
   ctx.lineJoin = 'round';
@@ -108,6 +156,28 @@ export function drawHistogram(ctx, { points, xOf, yOf, barSpacing, options, them
   const zeroY = Math.min(paneRect.y + paneRect.height, Math.max(paneRect.y, yOf(0)));
   const baseColor = options.color ?? theme.volume;
   const signed = options.upColor !== undefined && options.downColor !== undefined;
+  if (barSpacing < DENSE_SPACING && points.length > 1) {
+    // One column per pixel keeps the histogram bounded; it shows the largest value
+    // it covers, so a dense column never exceeds the autoscaled range.
+    const columns = [];
+    for (const point of points) {
+      const x = Math.round(xOf(point.index));
+      const last = columns[columns.length - 1];
+      if (last !== undefined && last.x === x) {
+        if (Math.abs(point.value) > Math.abs(last.value)) last.value = point.value;
+      } else {
+        columns.push({ x, value: point.value });
+      }
+    }
+    for (const column of columns) {
+      ctx.fillStyle = signed ? (column.value >= 0 ? options.upColor : options.downColor) : baseColor;
+      const y = Math.min(paneRect.y + paneRect.height, Math.max(paneRect.y, yOf(column.value)));
+      const top = Math.min(zeroY, y);
+      const height = Math.max(1, Math.abs(zeroY - y));
+      ctx.fillRect(column.x - 0.5, top, 1, height);
+    }
+    return;
+  }
   for (const point of points) {
     ctx.fillStyle = signed ? (point.value >= 0 ? options.upColor : options.downColor) : baseColor;
     const x = xOf(point.index);

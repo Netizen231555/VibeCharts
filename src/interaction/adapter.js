@@ -231,6 +231,15 @@ export function resolveInteractionAdapter(chart, options = {}) {
       const context = xContext(paneId);
       return context.kind === 'derived' ? context.scale.slots() : chart.timeline.listSlots();
     },
+    // Crosshair recomputation runs on every pointer and wheel event; copying the whole
+    // timeline there dominated zoom profiles on long histories. The accessor reads
+    // slots in place; only the crosshair consumes it and never mutates a slot.
+    slotAccessorFor: (paneId) => {
+      const context = xContext(paneId);
+      if (context.kind !== 'source') return null;
+      const timeline = chart.timeline;
+      return { count: timeline.length, at: (index) => timeline._slotAt(index) };
+    },
     paneKind: (paneId) => xContext(paneId).kind,
     sourceBarId: (paneId, id) => {
       if (id === null || id === undefined) return id ?? null;

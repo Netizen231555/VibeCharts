@@ -119,18 +119,26 @@ export function computeTimeTicks({ timeline, from, to, barSpacing, minPixels = 8
   // The predecessor of the first visible slot gives it a comparison; without a time it is simply ignored.
   let start = Math.max(0, first - 1);
   if (start < first && !Number.isFinite(timeline.slotAt(start)?.time)) start = first;
-  const times = new Array(last - start + 1);
+  const cached = typeof timeline._timesBetween === 'function' ? timeline._timesBetween(start, last) : null;
+  const times = cached ?? new Array(last - start + 1);
+  let ascending = true;
   for (let index = start; index <= last; index += 1) {
-    const time = timeline.slotAt(index)?.time;
+    const time = cached ? times[index - start] : timeline.slotAt(index)?.time;
     if (!Number.isFinite(time)) return null;
-    times[index - start] = time;
+    if (!cached) times[index - start] = time;
+    if (index > start && time < times[index - start - 1]) ascending = false;
   }
   const step = chooseStep(typicalSlotDuration(times), barSpacing, minPixels);
 
   const candidates = [];
   let previousParts = null;
   let maxBucket = -Infinity;
-  for (let index = start; index <= last; index += 1) {
+  // Bucket starts are found by jumping to the next wall-clock boundary instead of
+  // inspecting every visible slot: with minute histories one zoom frame otherwise
+  // ran `wallClock` ten thousand times. Calendar steps stay on the exact scan.
+  const jumpable = ascending && (step.unit === 'minute' || step.unit === 'day' || step.unit === 'dom');
+  const stepMs = step.duration;
+  for (let index = start; index <= last;) {
     const time = times[index - start];
     const parts = wallClock(time, timeZone);
     const bucket = bucketOf(step, parts);
@@ -140,6 +148,15 @@ export function computeTimeTicks({ timeline, from, to, barSpacing, minPixels = 8
     }
     if (bucket > maxBucket) maxBucket = bucket;
     previousParts = parts;
+    if (!jumpable) {
+      index += 1;
+      continue;
+    }
+    const localMs = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute);
+    const target = (Math.floor(localMs / stepMs) + 1) * stepMs - (localMs - time);
+    let next = index + 1;
+    while (next <= last && times[next - start] < target) next += 1;
+    index = next;
   }
 
   const kept = [];

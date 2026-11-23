@@ -349,17 +349,18 @@ export class Series {
     let high = this._points.length;
     while (low < high) {
       const mid = (low + high) >> 1;
-      const index = this._timeline.indexOf(this._points[mid].barId);
-      if (index < fromIndex) low = mid + 1;
+      if (this._timeline.indexOf(this._points[mid].barId) < fromIndex) low = mid + 1;
       else high = mid;
     }
-    const out = [];
-    for (let i = low; i < this._points.length; i += 1) {
-      const point = this._points[i];
-      const index = this._timeline.indexOf(point.barId);
-      if (index > toIndex) break;
-      out.push(point);
+    // Points follow the timeline order, so the in-range points are one contiguous run:
+    // one more binary search keeps `slice` the only allocation of this hot path.
+    let end = low;
+    let limit = this._points.length;
+    while (end < limit) {
+      const mid = (end + limit) >> 1;
+      if (this._timeline.indexOf(this._points[mid].barId) <= toIndex) end = mid + 1;
+      else limit = mid;
     }
-    return out;
+    return this._points.slice(low, end);
   }
 }

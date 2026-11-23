@@ -134,12 +134,20 @@ function drawPane(ctx, chart, layout, paneRect, theme, options, timeTicks, place
       if (derived) continue;
       const scale = pane.priceScales.get(series.priceScaleId);
       if (!scale || !(scale.visible || scale.overlay) || series._options.visible === false) continue;
-      const points = [];
+      // Renderers read `index` next to the point fields. Reusing one wrapper pool per
+      // series keeps a full-history redraw allocation-free instead of cloning every
+      // visible point on every frame.
+      const wrappers = series._renderWrappers ?? (series._renderWrappers = []);
+      let count = 0;
       for (const point of series._pointsInRange(fromIndex, toIndex)) {
         const index = pointIndex(timeline, point);
         if (index === null) continue;
-        points.push({ ...point, index });
+        const wrapper = wrappers[count] ?? (wrappers[count] = {});
+        Object.assign(wrapper, point);
+        wrapper.index = index;
+        count += 1;
       }
+      const points = count === wrappers.length ? wrappers : wrappers.slice(0, count);
       drawSeries(ctx, {
         series,
         points,
