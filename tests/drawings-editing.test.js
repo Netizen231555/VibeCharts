@@ -239,3 +239,13 @@ test('an in-place command after a coalesced run leaves the run snapshot intact',
   assert.equal(store.get(a.id).anchors[0].offset, 3);
   assert.equal(store.get(b.id).anchors[0].offset, 3);
 });
+
+test('import is refused while a drag preview is staged and succeeds after it clears', () => {
+  const store = makeStore();
+  const drawing = store.add(segment());
+  const document = store.export();
+  store.setDragPreview([{ id: drawing.id, patch: { anchors: anchors(3, 9) } }]);
+  assert.throws(() => store.import(document), (error) => error.code === 'gesture-active');
+  store.setDragPreview(null);
+  assert.equal(store.import(document).drawings.length, 1);
+});

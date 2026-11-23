@@ -1,6 +1,9 @@
 # Changelog
 
 ## 0.1.0 — unreleased
+- A click on empty plot clears the drawing selection even when the pointer jitters by a few pixels; jitter no longer pans the chart, and a real drag applies its whole displacement from the press point.
+- Arming a drawing tool clears the drawing selection, so a previously selected drawing no longer keeps its handles while a new shape is drawn.
+- `drawings.import` fails with `gesture-active` while a move drag is staged instead of replacing the document and snapping the dragged drawing back.
 - Restore rendering for line, area, baseline and bar series after the dense-rendering regression; indicator panes and overlays now render again.
 - Rendering dense zooms is bounded by pixels instead of bars: candles, bars and histograms collapse to one shape per pixel column (open of the first, close of the last, extremes of the range; the histogram column shows its largest value). Indexed render points are cached until the series or timeline changes.
 - Crosshair recomputation no longer copies the timeline or builds a barId map per pointer and wheel event: the adapter exposes an internal live slot accessor and the payload reads the one slot it needs.

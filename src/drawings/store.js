@@ -1511,6 +1511,9 @@ export function createDrawingStore(options) {
   function importDocument(document) {
     assertNotReconciling();
     if (transaction) fail('transaction-active', 'Cannot import while a drag transaction is open');
+    // A staged move drag is the user's in-progress edit: replacing the document would silently discard it and snap
+    // the drawing back. The host imports again once the gesture has committed or cancelled.
+    if (dragPreview.size > 0) fail('gesture-active', 'Cannot import while a drag preview is staged');
     if (!isObject(document)) fail('invalid-import', 'document must be an object');
     if (document.schemaVersion !== DRAWINGS_SCHEMA_VERSION) {
       const legacy = document.schemaVersion === 1

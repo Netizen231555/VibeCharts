@@ -17,6 +17,7 @@ import { createCrosshairController, buildReadout } from './crosshair.js';
 import { createKeyboard, createCrosshairNavigation, isEditableTarget } from './keyboard.js';
 import { NUDGE_ACTIONS, planNudge } from './nudge.js';
 import { createGestureRecognizer } from './gestures.js';
+import { createPanOwner } from './panGesture.js';
 import { hitTest, hitTestAxes, paneAtPoint, normalizeHitRadius } from './hittest.js';
 import { buildMenuItems, createContextMenu } from './menu.js';
 import { buildAccessibleRows, buildTableModel, createAnnouncer, formatTimestamp } from './a11y.js';
@@ -804,30 +805,13 @@ export function attachInteraction(chart, options = {}) {
   }
 
   function panOwner(paneId, startPoint = null) {
-    let last = startPoint ? { x: startPoint.x, y: startPoint.y } : null;
-    let moved = false;
-    return {
-      move(point) {
-        if (!last) {
-          last = point;
-          return;
-        }
-        const dx = point.x - last.x;
-        const dy = point.y - last.y;
-        last = point;
-        if (dx !== 0 || dy !== 0) {
-          moved = true;
-          navigation.pan(dx, dy, paneId);
-        }
-      },
-      end() {
-        // A click on empty plot (no drag) leaves the selected drawing.
-        if (!moved) clearSelection();
-        return { paneId, moved };
-      },
-      cancel() {},
-      commitKey: `pan:${paneId}`,
-    };
+    return createPanOwner({
+      paneId,
+      startPoint,
+      pan: (dx, dy) => navigation.pan(dx, dy, paneId),
+      // A click on empty plot (pointer jitter included) clears the selected drawing.
+      clearSelection,
+    });
   }
 
   function cancelActive(reason = CANCEL_REASONS.ESCAPE) {
@@ -1765,6 +1749,9 @@ export function attachInteraction(chart, options = {}) {
       }
       if (toolState && toolState !== tool && typeof toolState.cancel === 'function' && toolState.active) toolState.cancel('tool-changed');
       toolState = tool || null;
+      // Arming a construction ends the edit of whatever drawing was selected: its handles must not stay highlighted
+      // while a new shape is drawn, and the new drawing must not inherit a stale selection.
+      if (toolState !== null) clearSelection();
       emitter.emit('toolChange', { toolId: toolState && toolState.id || null });
       return { ok: true };
     },
