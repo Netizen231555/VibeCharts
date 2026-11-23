@@ -814,15 +814,17 @@ export class Chart {
           if (derived) continue;
           if (series._options.visible === false) continue;
           if (series.priceScaleId !== scale.name) continue;
+          const ohlc = isOhlcType(series.type);
+          const histogram = series.type === 'histogram' && scale.mode !== 'log';
           for (const point of series._pointsInRange(from, to)) {
-            if (isOhlcType(series.type)) {
+            if (ohlc) {
               min = Math.min(min, point.low);
               max = Math.max(max, point.high);
             } else {
               min = Math.min(min, point.value);
               max = Math.max(max, point.value);
               // Histogram bars are anchored at zero, so the range must contain it; log scales cannot.
-              if (series.type === 'histogram' && scale.mode !== 'log') {
+              if (histogram) {
                 min = Math.min(min, 0);
                 max = Math.max(max, 0);
               }

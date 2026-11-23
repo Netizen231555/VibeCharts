@@ -140,6 +140,20 @@ export function drawBars(ctx, { points, xOf, yOf, barSpacing, options, theme }) 
     ctx.lineTo(x + tick, yOf(point.close));
     ctx.stroke();
   }
+}
+
+function strokePath(ctx, points, xOf, yOf) {
+  ctx.beginPath();
+  for (let i = 0; i < points.length; i += 1) {
+    const x = xOf(points[i].index);
+    const y = yOf(points[i].value);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+}
+
+export function drawLine(ctx, { points, xOf, yOf, options, theme }) {
+  const segments = splitByGaps(points);
   ctx.strokeStyle = options.color ?? theme.areaLine;
   ctx.lineWidth = options.lineWidth ?? 2;
   ctx.lineJoin = 'round';

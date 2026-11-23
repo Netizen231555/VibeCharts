@@ -317,6 +317,7 @@ export class Series {
 
   _dispose() {
     this._points = [];
+    this._indexedPoints = null;
     this._byId.clear();
     this._metadata = null;
     this._options = null;
@@ -327,6 +328,7 @@ export class Series {
   /** Internal: clear all points without owner notification. */
   _clear() {
     this._points = [];
+    this._indexedPoints = null;
     this._byId = new Map();
     this._revision += 1;
   }
@@ -362,5 +364,37 @@ export class Series {
       else limit = mid;
     }
     return this._points.slice(low, end);
+  }
+
+  /** Internal render snapshot; rebuilt only when series data or timeline order changes. */
+  _indexedPointsInRange(fromIndex, toIndex) {
+    if (toIndex < fromIndex || this._points.length === 0) return [];
+    if (!this._indexedPoints || this._indexedSeriesRevision !== this._revision ||
+        this._indexedTimelineRevision !== this._timeline._revision) {
+      const indexed = [];
+      for (const point of this._points) {
+        const index = this._timeline.indexOf(point.barId);
+        if (index !== null) indexed.push({ ...point, index });
+      }
+      this._indexedPoints = indexed;
+      this._indexedSeriesRevision = this._revision;
+      this._indexedTimelineRevision = this._timeline._revision;
+    }
+    const points = this._indexedPoints;
+    let low = 0;
+    let high = points.length;
+    while (low < high) {
+      const mid = (low + high) >> 1;
+      if (points[mid].index < fromIndex) low = mid + 1;
+      else high = mid;
+    }
+    let end = low;
+    let limit = points.length;
+    while (end < limit) {
+      const mid = (end + limit) >> 1;
+      if (points[mid].index <= toIndex) end = mid + 1;
+      else limit = mid;
+    }
+    return points.slice(low, end);
   }
 }
