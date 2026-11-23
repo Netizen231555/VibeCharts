@@ -43,6 +43,18 @@ export function routePointerDown({ captureActive, tool, hit, point }) {
   return { kind: ROUTE.NONE, hit: hit || null, point, accepted: false, reason: 'no-target' };
 }
 
+// Capture can be released by the browser immediately before the corresponding pointerup is dispatched.
+// Give that release one short turn to finish; a genuine loss without pointerup still cancels the same gesture.
+export function handleCaptureLoss({ buttons, captureId, currentCaptureId, cancel, schedule = setTimeout }) {
+  if (buttons !== 0) {
+    cancel();
+    return;
+  }
+  schedule(() => {
+    if (currentCaptureId() === captureId) cancel();
+  }, 50);
+}
+
 /**
  * Gesture owner interface:
  *   move(point, meta) -> void

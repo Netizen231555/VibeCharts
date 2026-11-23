@@ -10,7 +10,7 @@
 import { InteractionError } from './errors.js';
 import { resolveInteractionAdapter } from './adapter.js';
 import { createEmitter } from './emitter.js';
-import { createRouter, routePointerDown, CANCEL_REASONS, ROUTE } from './routing.js';
+import { createRouter, routePointerDown, handleCaptureLoss, CANCEL_REASONS, ROUTE } from './routing.js';
 import { createPaneLayout } from './panes.js';
 import { createNavigation } from './navigation.js';
 import { createCrosshairController, buildReadout } from './crosshair.js';
@@ -571,6 +571,7 @@ export function attachInteraction(chart, options = {}) {
 
   /* ----------------------------- helpers ------------------------------ */
   const capturedPointers = new Set();
+  let pendingLostCapture = null;
 
   function capturePointer(pointerId) {
     if (pointerId === null || pointerId === undefined) return;
@@ -1265,11 +1266,23 @@ export function attachInteraction(chart, options = {}) {
   function onLostCapture(event) {
     if (!capturedPointers.has(event.pointerId)) return;
     alertTouchCandidate = null;
-    if (router.active && router.capture.pointerId === event.pointerId) cancelActive(CANCEL_REASONS.LOST_CAPTURE);
-    if (gestures.pointerCount > 0) {
-      gestures.cancel();
-      releaseAllPointers();
-    }
+    const captureId = router.capture?.captureId ?? null;
+    const cancel = () => {
+      pendingLostCapture = null;
+      if (router.active && router.capture.pointerId === event.pointerId) cancelActive(CANCEL_REASONS.LOST_CAPTURE);
+      if (gestures.pointerCount > 0) {
+        gestures.cancel();
+        releaseAllPointers();
+      }
+    };
+    if (captureId === null) { cancel(); return; }
+    if (event.buttons === 0) pendingLostCapture = captureId;
+    handleCaptureLoss({
+      buttons: event.buttons,
+      captureId,
+      currentCaptureId: () => router.capture?.captureId ?? null,
+      cancel,
+    });
   }
 
   function onPointerCancel(event) {
@@ -1576,6 +1589,11 @@ export function attachInteraction(chart, options = {}) {
   disposers.push(on(container, 'pointerdown', onPointerDown));
   disposers.push(on(container, 'pointermove', onPointerMove));
   disposers.push(on(container, 'pointerup', finishPointer));
+  // After capture is lost, the corresponding pointerup may land outside this chart.
+  disposers.push(on(doc, 'pointerup', (event) => {
+    if (pendingLostCapture !== null && router.capture?.captureId === pendingLostCapture) finishPointer(event);
+    pendingLostCapture = null;
+  }));
   disposers.push(on(container, 'pointercancel', onPointerCancel));
   disposers.push(on(container, 'lostpointercapture', onLostCapture));
   disposers.push(on(container, 'pointerleave', onPointerLeave));

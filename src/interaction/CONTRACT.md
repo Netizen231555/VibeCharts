@@ -170,6 +170,7 @@ chart's own index scale.
 - `options.touch = false` — do not set `touch-action`, do not capture or
   preventDefault touch pointers; the page keeps scrolling and zooming.
   Accepted touch contacts are captured individually; cancellation or lost capture ends the whole touch gesture and releases every captured contact. Touch hit-testing gives armed tools, drawings and axes priority over plot panning; touches starting outside the plot or an interactive target are left to the page.
+  When `lostpointercapture` reports no buttons pressed, the matching `pointerup` gets up to 50 ms to finish the gesture, including outside the chart; otherwise the loss cancels it. A loss while buttons remain pressed and `pointercancel` still cancel immediately.
 - `options.tool` / `interaction.setTool(tool)` — drawing-tool owner with
   `{ id, active, begin(point), move(point), end(point), cancel(reason) }`.
   `begin(point)` is called exactly once with the accepted pointer-down point

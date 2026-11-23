@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.1.0 — unreleased
+- Preserve a drawing drag when the browser dispatches `lostpointercapture` immediately before `pointerup`; genuine lost capture still cancels.
 - A click on empty plot clears the drawing selection even when the pointer jitters by a few pixels; jitter no longer pans the chart, and a real drag applies its whole displacement from the press point.
 - Arming a drawing tool clears the drawing selection, so a previously selected drawing no longer keeps its handles while a new shape is drawn.
 - `drawings.import` fails with `gesture-active` while a move drag is staged instead of replacing the document and snapping the dragged drawing back.
